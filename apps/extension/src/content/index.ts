@@ -4,44 +4,30 @@ import { DeckerPanel } from "./DeckerPanel";
 import { Message, MessageType, RecordingStatus } from "../shared/types";
 import panelStyles from "./panel.css?inline";
 
-// Only inject on active Google Meet pages
-function isMeetPage(): boolean {
+// Google Meet room URLs look like meet.google.com/abc-defg-hij
+function isMeetingUrl(): boolean {
   return (
     window.location.hostname === "meet.google.com" &&
-    document.querySelector("[data-meeting-code]") !== null
+    /^\/[a-z]+-[a-z]+-[a-z]+/.test(window.location.pathname)
   );
 }
 
 function waitForMeet(): Promise<void> {
   return new Promise((resolve) => {
-    if (isMeetPage()) {
-      resolve();
+    // Already on a meeting URL — wait briefly for the DOM to settle
+    if (isMeetingUrl()) {
+      setTimeout(resolve, 1500);
       return;
     }
 
+    // Not a meeting URL yet — watch for navigation (Google Meet is a SPA)
     const observer = new MutationObserver(() => {
-      if (isMeetPage()) {
+      if (isMeetingUrl()) {
         observer.disconnect();
-        resolve();
+        setTimeout(resolve, 1500);
       }
     });
-
     observer.observe(document.body, { childList: true, subtree: true });
-
-    // Fallback: check every second for up to 30s
-    let attempts = 0;
-    const interval = setInterval(() => {
-      attempts++;
-      if (isMeetPage()) {
-        clearInterval(interval);
-        observer.disconnect();
-        resolve();
-      } else if (attempts > 30) {
-        clearInterval(interval);
-        observer.disconnect();
-        resolve(); // inject anyway
-      }
-    }, 1000);
   });
 }
 
