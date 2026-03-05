@@ -22,7 +22,6 @@
     {
       "matches": ["https://meet.google.com/*"],
       "js": ["src/content/index.js"],
-      "type": "module",
       "run_at": "document_idle"
     }
   ],

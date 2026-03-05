@@ -9,11 +9,9 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        // All four entries are TypeScript files
-        // HTML files for popup + offscreen live in public/ and get copied as-is
+        // content script is built separately via vite.content.config.ts (IIFE)
         background: resolve(__dirname, "src/background/index.ts"),
         offscreen: resolve(__dirname, "src/offscreen/index.ts"),
-        content: resolve(__dirname, "src/content/index.ts"),
         popup: resolve(__dirname, "src/popup/index.ts"),
       },
       output: {
