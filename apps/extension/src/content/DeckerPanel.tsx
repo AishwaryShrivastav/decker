@@ -21,6 +21,8 @@ function statusLabel(status: RecordingStatus, message?: string): string {
       return "Recording…";
     case "processing":
       return "Processing audio…";
+    case "finalizing":
+      return message ?? "Preparing audio…";
     case "transcribing":
       return message ?? "Transcribing…";
     case "extracting":
@@ -45,9 +47,12 @@ export function DeckerPanel({ initialStatus }: Props) {
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [keySaved, setKeySaved] = useState(false);
+  const [showDebugLog, setShowDebugLog] = useState(false);
+  const [debugLog, setDebugLog] = useState<string[]>([]);
 
   // Review phase
   const [transcript, setTranscript] = useState<string | null>(null);
+  const [editedTranscript, setEditedTranscript] = useState("");
   const [showTranscript, setShowTranscript] = useState(false);
   const [points, setPoints] = useState<string[]>([]);
   const [selectedPoints, setSelectedPoints] = useState<Set<number>>(new Set());
@@ -68,9 +73,13 @@ export function DeckerPanel({ initialStatus }: Props) {
     const handler = (message: Message) => {
       if (message.type === MessageType.STATUS_UPDATE) {
         const payload = message.payload as StatusPayload;
+        console.log("[Decker panel] Status update:", payload.status, payload.message ?? "");
         setStatus(payload.status);
         setStatusMessage(payload.message);
-        if (payload.transcript) setTranscript(payload.transcript);
+        if (payload.transcript) {
+          setTranscript(payload.transcript);
+          setEditedTranscript((prev) => (prev === "" ? payload.transcript! : prev));
+        }
         if (payload.points) {
           setPoints(payload.points);
           setSelectedPoints(new Set(payload.points.map((_, i) => i)));
@@ -88,6 +97,21 @@ export function DeckerPanel({ initialStatus }: Props) {
     });
     setKeySaved(true);
     setTimeout(() => setKeySaved(false), 2000);
+  };
+
+  const handleShowDebugLog = () => {
+    setShowDebugLog((s) => !s);
+    if (!showDebugLog) {
+      chrome.runtime.sendMessage({ type: MessageType.GET_DEBUG_LOG }, (r: { log?: string[] }) => {
+        setDebugLog(r?.log ?? []);
+      });
+    }
+  };
+
+  const refreshDebugLog = () => {
+    chrome.runtime.sendMessage({ type: MessageType.GET_DEBUG_LOG }, (r: { log?: string[] }) => {
+      setDebugLog(r?.log ?? []);
+    });
   };
 
   const handleStop = () => {
@@ -114,19 +138,23 @@ export function DeckerPanel({ initialStatus }: Props) {
 
   const handleGenerateDeck = () => {
     const selected = points.filter((_, i) => selectedPoints.has(i));
-    const payload: GenerateDeckPayload = {
-      selectedPoints: selected,
-      customPrompt: customPrompt.trim(),
-    };
+    const transcriptToUse = editedTranscript.trim() || transcript?.trim() || "";
     chrome.runtime.sendMessage<Message<GenerateDeckPayload>>({
       type: MessageType.GENERATE_DECK,
-      payload,
+      payload: {
+        selectedPoints: selected,
+        customPrompt: customPrompt.trim(),
+        transcript: transcriptToUse,
+      },
     });
     setStatus("generating");
   };
 
+  const transcriptToUse = editedTranscript.trim() || transcript?.trim() || "";
+  const canGenerate = transcriptToUse.length >= 50;
+
   const isRecording = status === "recording";
-  const isProcessing = ["processing", "transcribing", "extracting"].includes(status);
+  const isProcessing = ["processing", "finalizing", "transcribing", "extracting"].includes(status);
   const isReviewing = status === "reviewing";
   const isGenerating = status === "generating";
   const isDone = status === "done" || status === "error";
@@ -167,6 +195,30 @@ export function DeckerPanel({ initialStatus }: Props) {
             {keySaved ? "Saved ✓" : "Save"}
           </button>
           <p className="decker-hint">OpenAI (sk-…) or Anthropic (sk-ant-…)</p>
+
+          <div className="decker-section" style={{ marginTop: 16 }}>
+            <button
+              className="decker-collapsible"
+              onClick={handleShowDebugLog}
+              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", width: "100%", textAlign: "left", color: "inherit" }}
+            >
+              <span className="decker-label">Recent logs</span>
+              <span>{showDebugLog ? " ▲" : " ▼"}</span>
+            </button>
+            {showDebugLog && (
+              <div style={{ marginTop: 8 }}>
+                <button className="decker-link" onClick={refreshDebugLog} style={{ marginBottom: 8 }}>
+                  Refresh
+                </button>
+                <pre
+                  className="decker-transcript"
+                  style={{ fontSize: "10px", maxHeight: 150, overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all" }}
+                >
+                  {debugLog.length === 0 ? "No logs yet. Record and stop to see events." : debugLog.join("\n")}
+                </pre>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -228,21 +280,23 @@ export function DeckerPanel({ initialStatus }: Props) {
             {statusLabel("reviewing")}
           </div>
 
-          {/* Transcript collapsible */}
-          {transcript && (
-            <div className="decker-section">
-              <button
-                className="decker-collapsible"
-                onClick={() => setShowTranscript((s) => !s)}
-              >
-                <span>Transcript</span>
-                <span>{showTranscript ? "▲" : "▼"}</span>
-              </button>
-              {showTranscript && (
-                <div className="decker-transcript">{transcript}</div>
-              )}
+          {(transcript?.trim()?.length ?? 0) < 50 && points.length === 0 && (
+            <div className="decker-status" style={{ marginBottom: "10px", color: "var(--decker-amber, #f59e0b)" }}>
+              Transcript too short. Paste or edit your transcript below to generate.
             </div>
           )}
+
+          {/* Transcript (editable when short) */}
+          <div className="decker-section">
+            <label className="decker-label">Transcript</label>
+            <textarea
+              className="decker-textarea"
+              value={editedTranscript}
+              onChange={(e) => setEditedTranscript(e.target.value)}
+              placeholder={transcript || "Paste or type your meeting transcript…"}
+              rows={4}
+            />
+          </div>
 
           {/* Discussion points */}
           {points.length > 0 && (
@@ -287,10 +341,13 @@ export function DeckerPanel({ initialStatus }: Props) {
           <button
             className="decker-btn decker-btn-generate"
             onClick={handleGenerateDeck}
-            disabled={selectedPoints.size === 0}
+            disabled={!canGenerate}
           >
-            Generate Deck ({selectedPoints.size} point{selectedPoints.size !== 1 ? "s" : ""})
+            Generate Deck {points.length > 0 ? `(${selectedPoints.size} point${selectedPoints.size !== 1 ? "s" : ""})` : "(from transcript)"}
           </button>
+          {!canGenerate && transcriptToUse.length > 0 && (
+            <div className="decker-hint" style={{ marginTop: 6 }}>Need 50+ characters</div>
+          )}
         </div>
       )}
     </div>

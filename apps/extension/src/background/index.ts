@@ -16,6 +16,20 @@ let recordingTabId: number | null = null;
 let currentStatus: RecordingStatus = "idle";
 let currentTranscript: string | null = null;
 let apiKey = "";
+let lastGeneratedHtml: string | null = null;
+
+const DEBUG_LOG_KEY = "deckerDebugLog";
+const MAX_DEBUG_ENTRIES = 15;
+
+async function debugLog(msg: string): Promise<void> {
+  const entry = `[${new Date().toISOString().slice(11, 23)}] ${msg}`;
+  console.log("[Decker]", msg);
+  chrome.storage.local.get(DEBUG_LOG_KEY, (r) => {
+    const log = (r[DEBUG_LOG_KEY] as string[]) ?? [];
+    log.push(entry);
+    chrome.storage.local.set({ [DEBUG_LOG_KEY]: log.slice(-MAX_DEBUG_ENTRIES) });
+  });
+}
 
 // Load API key from storage on startup
 chrome.storage.local.get("apiKey", (result) => {
@@ -102,21 +116,49 @@ async function startRecordingWithStream(tabId: number, streamId: string): Promis
 }
 
 async function stopRecording(): Promise<void> {
+  const hasOffscreen = (
+    await chrome.runtime.getContexts({
+      contextTypes: [chrome.runtime.ContextType.OFFSCREEN_DOCUMENT],
+    })
+  ).length > 0;
+
+  if (!hasOffscreen) {
+    debugLog("Stop requested but no offscreen doc — recording already ended or extension was reloaded");
+    currentStatus = "idle";
+    broadcastStatus("idle");
+    await closeOffscreenDocument();
+    return;
+  }
+
+  debugLog("STOP_RECORDING received → sending OFFSCREEN_STOP");
   broadcastStatus("processing");
   try {
     await chrome.runtime.sendMessage<Message>({
       type: MessageType.OFFSCREEN_STOP,
     });
+    debugLog("OFFSCREEN_STOP sent, waiting for RECORDING_STOPPED…");
   } catch (err) {
-    console.error("[Decker background] stopRecording failed:", err);
-    broadcastStatus("error", String(err));
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("Receiving end does not exist") || msg.includes("Extension context invalidated")) {
+      debugLog("Offscreen doc gone (reload/close) — resetting to idle");
+      recordingTabId = null;
+      currentStatus = "idle";
+      broadcastStatus("idle");
+      await closeOffscreenDocument();
+    } else {
+      console.error("[Decker background] stopRecording failed:", err);
+      broadcastStatus("error", msg);
+    }
   }
 }
 
 // Phase 1: transcribe → extract points → broadcast "reviewing"
 async function runPhase1(base64Audio: string, mimeType: string): Promise<void> {
   try {
-    // Step 1: Transcribe
+    if (!base64Audio || base64Audio.length < 100) {
+      throw new Error("Recording too short. Record at least 3–5 seconds of audio.");
+    }
+
     broadcastStatus("transcribing", "Transcribing audio…");
     console.log("[Decker background] Starting transcription, audio size:", base64Audio.length);
 
@@ -130,11 +172,13 @@ async function runPhase1(base64Audio: string, mimeType: string): Promise<void> {
     const formData = new FormData();
     formData.append("audio", audioBlob, "recording.webm");
 
+    debugLog("Calling /api/transcribe…");
     const transcribeRes = await fetch(`${API_BASE_URL}/api/transcribe`, {
       method: "POST",
       headers: apiKey ? { "X-Api-Key": apiKey } : {},
       body: formData,
     });
+    debugLog(`Transcribe response: ${transcribeRes.status} ${transcribeRes.statusText}`);
 
     if (!transcribeRes.ok) {
       const errText = await transcribeRes.text();
@@ -142,11 +186,15 @@ async function runPhase1(base64Audio: string, mimeType: string): Promise<void> {
     }
 
     const { transcript } = (await transcribeRes.json()) as { transcript: string };
+    if (!transcript || typeof transcript !== "string" || transcript.trim().length === 0) {
+      throw new Error("Transcription returned empty text. Was audio captured correctly? Try recording longer.");
+    }
     currentTranscript = transcript;
     console.log("[Decker background] Transcript length:", transcript.length);
 
     // Step 2: Extract discussion points
     broadcastStatus("extracting", "Extracting discussion points…");
+    console.log("[Decker background] Calling /api/extract-points…");
 
     const extractRes = await fetch(`${API_BASE_URL}/api/extract-points`, {
       method: "POST",
@@ -166,16 +214,31 @@ async function runPhase1(base64Audio: string, mimeType: string): Promise<void> {
     broadcastStatus("reviewing", undefined, { transcript, points });
     await closeOffscreenDocument();
   } catch (err) {
-    console.error("[Decker background] runPhase1 failed:", err);
-    broadcastStatus("error", String(err));
+    const raw = err instanceof Error ? err.message : String(err);
+    const msg =
+      raw === "Failed to fetch" || raw.includes("Failed to fetch")
+        ? "API unreachable. Is the web server running? Run: pnpm --filter web dev (then open http://localhost:3000)"
+        : raw;
+    debugLog(`runPhase1 FAILED: ${msg}`);
+    broadcastStatus("error", msg);
     await closeOffscreenDocument();
   }
 }
 
 // Phase 2: generate deck from selected points + custom prompt
-async function runPhase2(selectedPoints: string[], customPrompt: string): Promise<void> {
-  if (!currentTranscript) {
-    broadcastStatus("error", "No transcript available — please record again");
+async function runPhase2(
+  selectedPoints: string[],
+  customPrompt: string,
+  transcriptOverride?: string,
+  backgroundColor?: string
+): Promise<void> {
+  const transcript = transcriptOverride?.trim() || currentTranscript?.trim();
+  if (!transcript) {
+    broadcastStatus("error", "No transcript available — please record again or paste your transcript");
+    return;
+  }
+  if (transcript.length < 50) {
+    broadcastStatus("error", "Transcript needs at least 50 characters to generate a deck");
     return;
   }
 
@@ -186,9 +249,10 @@ async function runPhase2(selectedPoints: string[], customPrompt: string): Promis
       method: "POST",
       headers: getApiHeaders(),
       body: JSON.stringify({
-        transcript: currentTranscript,
+        transcript,
         selectedPoints,
         customPrompt,
+        backgroundColor: backgroundColor || undefined,
       }),
     });
 
@@ -198,6 +262,7 @@ async function runPhase2(selectedPoints: string[], customPrompt: string): Promis
     }
 
     const { html } = (await generateRes.json()) as { html: string };
+    lastGeneratedHtml = html;
 
     const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
     const filename = `decker-deck-${Date.now()}.html`;
@@ -211,7 +276,8 @@ async function runPhase2(selectedPoints: string[], customPrompt: string): Promis
     broadcastStatus("done", `Deck saved as ${filename}`);
   } catch (err) {
     console.error("[Decker background] runPhase2 failed:", err);
-    broadcastStatus("error", String(err));
+    const msg = err instanceof Error ? err.message : String(err);
+    broadcastStatus("error", msg);
   }
 }
 
@@ -219,6 +285,7 @@ async function runPhase2(selectedPoints: string[], customPrompt: string): Promis
 chrome.runtime.onMessage.addListener(
   (message: Message, sender, sendResponse) => {
     const msg = message as Message;
+    console.log("[Decker background] Message received:", msg.type);
 
     switch (msg.type) {
       case MessageType.GET_TAB_ID: {
@@ -236,6 +303,17 @@ chrome.runtime.onMessage.addListener(
         return false;
       }
 
+      case MessageType.GET_DEBUG_LOG: {
+        chrome.storage.local.get(DEBUG_LOG_KEY, (r) => {
+          try {
+            sendResponse({ log: (r[DEBUG_LOG_KEY] as string[]) ?? [] });
+          } catch {
+            // sendResponse may fail if listener already returned
+          }
+        });
+        return true; // async response
+      }
+
       case MessageType.SET_API_SETTINGS: {
         const settings = msg.payload as ApiSettings;
         apiKey = settings.apiKey ?? "";
@@ -246,6 +324,7 @@ chrome.runtime.onMessage.addListener(
 
       case MessageType.START_RECORDING_WITH_STREAM: {
         const payload = msg.payload as StartRecordingStreamPayload;
+        debugLog("START_RECORDING received, starting…");
         startRecordingWithStream(payload.tabId, payload.streamId).catch(console.error);
         sendResponse({ ok: true });
         return false;
@@ -265,14 +344,34 @@ chrome.runtime.onMessage.addListener(
 
       case MessageType.RECORDING_STOPPED: {
         const payload = msg.payload as RecordingStoppedPayload;
+        debugLog(`RECORDING_STOPPED received, audio ${payload.base64?.length ?? 0} chars`);
         runPhase1(payload.base64, payload.mimeType).catch(console.error);
         return false;
       }
 
       case MessageType.GENERATE_DECK: {
         const payload = msg.payload as GenerateDeckPayload;
-        runPhase2(payload.selectedPoints, payload.customPrompt).catch(console.error);
+        runPhase2(
+          payload.selectedPoints,
+          payload.customPrompt,
+          payload.transcript,
+          payload.backgroundColor
+        ).catch(console.error);
         sendResponse({ ok: true });
+        return false;
+      }
+
+      case MessageType.GET_LAST_HTML: {
+        sendResponse({ html: lastGeneratedHtml });
+        return false;
+      }
+
+      case MessageType.STATUS_UPDATE: {
+        const payload = msg.payload as StatusPayload;
+        if (payload) {
+          if (payload.status === "error") debugLog(`Error from offscreen: ${payload.message ?? "unknown"}`);
+          broadcastStatus(payload.status, payload.message);
+        }
         return false;
       }
 

@@ -10,7 +10,21 @@ export interface DeckData {
   slides: Slide[];
 }
 
-export function buildRevealHtml(deck: DeckData): string {
+const THEME_COLORS: Record<string, string> = {
+  dark: "#1a1a2e",
+  green: "#0d3d2e",
+  blue: "#0d2847",
+  light: "#f8fafc",
+};
+
+export function buildRevealHtml(deck: DeckData, backgroundColor?: string): string {
+  const bgHex = backgroundColor && THEME_COLORS[backgroundColor]
+    ? THEME_COLORS[backgroundColor]
+    : THEME_COLORS.dark;
+  const isLight = backgroundColor === "light";
+  const textColor = isLight ? "#1e293b" : "#e0e0e0";
+  const subColor = isLight ? "#64748b" : "#9ca3af";
+  const headingColor = isLight ? "#0f172a" : "#c4b5fd";
   const slideHtml = deck.slides
     .map((slide) => {
       const bulletsHtml =
@@ -49,11 +63,16 @@ export function buildRevealHtml(deck: DeckData): string {
       href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/night.css"
     />
     <style>
-      .reveal h1, .reveal h2 { color: #c4b5fd; }
+      .reveal { background-color: ${bgHex}; }
+      .reveal .slides { background-color: ${bgHex}; }
+      .reveal .slides section { background-color: ${bgHex}; }
+      .reveal h1, .reveal h2 { color: ${headingColor}; }
       .reveal ul { list-style: disc; padding-left: 1.2em; }
-      .reveal li { margin: 0.4em 0; font-size: 0.9em; }
+      .reveal li { margin: 0.4em 0; font-size: 0.9em; color: ${textColor}; }
       .reveal .title-slide h1 { font-size: 2em; }
-      .reveal .title-slide p { color: #9ca3af; font-size: 1.1em; margin-top: 0.5em; }
+      .reveal .title-slide p { color: ${subColor}; font-size: 1.1em; margin-top: 0.5em; }
+      .reveal .controls { color: ${textColor}; }
+      .reveal .progress { background: ${isLight ? "rgba(0,0,0,0.2)" : "rgba(255,255,255,0.2)"}; }
     </style>
   </head>
   <body>

@@ -1,21 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-import { z } from "zod";
 import { buildRevealHtml, DeckData } from "./revealTemplate";
 
 export const maxDuration = 60;
-
-const SlideSchema = z.object({
-  title: z.string().describe("Slide heading (concise, ≤8 words)"),
-  bullets: z.array(z.string()).describe("3-5 bullet points summarising key points for this slide"),
-  notes: z.string().optional().describe("Optional speaker notes with more detail"),
-});
-
-const DeckSchema = z.object({
-  title: z.string().describe("Short, memorable presentation title"),
-  subtitle: z.string().optional().describe("Optional subtitle or date"),
-  slides: z.array(SlideSchema).min(3).max(12).describe("Between 3 and 12 content slides"),
-});
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204 });
@@ -23,7 +10,7 @@ export async function OPTIONS() {
 
 export async function POST(req: NextRequest) {
   try {
-    const apiKey = req.headers.get("X-Api-Key") ?? "";
+    const apiKey = req.headers.get("X-Api-Key") ?? process.env.OPENAI_API_KEY ?? "";
     if (!apiKey) {
       return NextResponse.json(
         { error: "No API key provided. Add your OpenAI key in the Decker extension settings (⚙)." },
@@ -35,6 +22,7 @@ export async function POST(req: NextRequest) {
       transcript?: string;
       selectedPoints?: string[];
       customPrompt?: string;
+      backgroundColor?: string;
     };
 
     if (!body.transcript || typeof body.transcript !== "string") {
@@ -51,6 +39,10 @@ export async function POST(req: NextRequest) {
 
     const selectedPoints = Array.isArray(body.selectedPoints) ? body.selectedPoints : [];
     const customPrompt = typeof body.customPrompt === "string" ? body.customPrompt : "";
+    let backgroundColor = typeof body.backgroundColor === "string" ? body.backgroundColor.trim().toLowerCase() : undefined;
+    if (!backgroundColor && /green\s*(background|theme|slide)/i.test(customPrompt)) backgroundColor = "green";
+    if (!backgroundColor && /blue\s*(background|theme|slide)/i.test(customPrompt)) backgroundColor = "blue";
+    if (!backgroundColor && /light\s*(background|theme|slide)/i.test(customPrompt)) backgroundColor = "light";
 
     const pointsClause =
       selectedPoints.length > 0
@@ -59,13 +51,19 @@ export async function POST(req: NextRequest) {
 
     const customClause = customPrompt ? `\n\nAdditional instructions: ${customPrompt}\n` : "";
 
-    const systemPrompt = `You are an expert at distilling meeting transcripts into clear, concise presentations. Extract key discussion points, decisions, and action items, then organise them into a logical slide structure.${pointsClause}${customClause}
-Guidelines:
-- Title slide is handled separately — only return content slides
-- Each slide covers one coherent topic
-- Bullets should be concise and scannable (not full sentences)
-- Include speaker notes for context that doesn't fit on slides
-- End with an "Action Items" or "Next Steps" slide if applicable`;
+    const systemPrompt = `You are an expert at distilling meeting transcripts into clear, concise presentations. Extract key discussion points, decisions, and action items, then organise them into a logical slide structure.
+
+Return ONLY valid JSON with this exact structure (no extra fields, no markdown):
+{"title":"string","subtitle":"optional string","slides":[{"title":"string","bullets":["string","string"],"notes":"optional string"}]}
+
+Rules:
+- "title": short deck title
+- "subtitle": optional (date, meeting name)
+- "slides": array of 3-12 slides. Each slide has "title" (≤8 words), "bullets" (3-5 strings), "notes" (optional)
+- No title slide in slides — we add it separately
+- End with "Action Items" or "Next Steps" slide
+- Bullets: concise phrases, not full sentences
+${pointsClause}${customClause}`;
 
     console.log(
       `[/api/generate-deck] Generating deck (${transcript.length} chars, ${selectedPoints.length} selected points)`
@@ -78,25 +76,51 @@ Guidelines:
         { role: "system", content: systemPrompt },
         {
           role: "user",
-          content: `Create a presentation deck from this meeting transcript:\n\n<transcript>\n${transcript}\n</transcript>`,
+          content: `Create a presentation deck from this meeting transcript. Return a JSON object only.\n\n<transcript>\n${transcript}\n</transcript>`,
         },
       ],
       response_format: { type: "json_object" },
       temperature: 0.4,
     });
 
-    const rawJson = completion.choices[0].message.content;
+    let rawJson = completion.choices[0].message.content;
     if (!rawJson) throw new Error("GPT-4o returned empty content");
 
-    let deckData: DeckData;
+    rawJson = rawJson.replace(/^```json\s*/i, "").replace(/\s*```$/i, "").trim();
+
+    let parsed: unknown;
     try {
-      deckData = DeckSchema.parse(JSON.parse(rawJson) as unknown);
-    } catch (err) {
-      console.error("[/api/generate-deck] Schema validation failed:", err);
-      throw new Error("GPT-4o returned invalid structure");
+      parsed = JSON.parse(rawJson);
+    } catch {
+      throw new Error("GPT-4o returned invalid JSON");
     }
 
-    const html = buildRevealHtml(deckData);
+    const parsedObj = parsed as Record<string, unknown>;
+    const slides = Array.isArray(parsedObj.slides) ? parsedObj.slides : [];
+    const validSlides = slides
+      .slice(0, 12)
+      .filter((s): s is Record<string, unknown> => s !== null && typeof s === "object")
+      .map((s) => ({
+        title: typeof s.title === "string" ? s.title : "Slide",
+        bullets: Array.isArray(s.bullets)
+          ? (s.bullets as unknown[]).filter((b): b is string => typeof b === "string").slice(0, 10)
+          : [],
+        notes: typeof s.notes === "string" ? s.notes : undefined,
+      }));
+
+    const deckData: DeckData = {
+      title: typeof parsedObj.title === "string" ? parsedObj.title : "Presentation",
+      subtitle: typeof parsedObj.subtitle === "string" ? parsedObj.subtitle : undefined,
+      slides: validSlides.length >= 3 ? validSlides : validSlides.concat(
+        Array.from({ length: Math.max(0, 3 - validSlides.length) }, (_, i) => ({
+          title: `Slide ${validSlides.length + i + 1}`,
+          bullets: ["Add content from transcript"],
+          notes: undefined as string | undefined,
+        }))
+      ),
+    };
+
+    const html = buildRevealHtml(deckData, backgroundColor);
     return NextResponse.json({ html });
   } catch (err: unknown) {
     console.error("[/api/generate-deck] Error:", err);

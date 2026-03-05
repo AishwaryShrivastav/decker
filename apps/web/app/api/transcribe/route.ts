@@ -9,7 +9,7 @@ export async function OPTIONS() {
 
 export async function POST(req: NextRequest) {
   try {
-    const apiKey = req.headers.get("X-Api-Key") ?? "";
+    const apiKey = req.headers.get("X-Api-Key") ?? process.env.OPENAI_API_KEY ?? "";
     if (!apiKey) {
       return NextResponse.json(
         { error: "No API key provided. Add your OpenAI key in the Decker extension settings (⚙)." },

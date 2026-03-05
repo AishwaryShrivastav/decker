@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Decker UI Mock Test</title>
+    <style>
+      /* Extracting core styles from panel.css */
+      body {
+        background: #0f172a;
+        font-family: -apple-system, system-ui, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+      }
+      .decker-panel {
+        background: #1a1a2e;
+        border: 1px solid #16213e;
+        border-radius: 16px;
+        padding: 16px 18px;
+        width: 320px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        color: #e0e0e0;
+      }
+      .decker-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+      }
+      .decker-logo {
+        font-size: 18px;
+        font-weight: 700;
+        color: #7c3aed;
+        letter-spacing: -0.5px;
+      }
+      .decker-status {
+        font-size: 12px;
+        color: #9ca3af;
+        margin-bottom: 12px;
+        min-height: 16px;
+        line-height: 1.4;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .decker-status.recording {
+        color: #ef4444;
+      }
+      .decker-status.finalizing {
+        color: #f59e0b;
+      }
+      .decker-dot {
+        width: 8px;
+        height: 8px;
+        background: #ef4444;
+        border-radius: 50%;
+        animation: pulse 1.2s ease-in-out infinite;
+      }
+      .decker-spinner {
+        width: 10px;
+        height: 10px;
+        border: 2px solid #f59e0b;
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.3;
+        }
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .decker-btn {
+        width: 100%;
+        padding: 10px 16px;
+        border: none;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .decker-btn-stop {
+        background: #ef4444;
+        color: #fff;
+      }
+      .decker-btn-processing {
+        background: #374151;
+        color: #9ca3af;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="decker-root">
+      <div class="decker-panel">
+        <div class="decker-header">
+          <span class="decker-logo">Decker (Mock Test)</span>
+        </div>
+        <div id="status-container" class="decker-status recording">
+          <span id="status-icon" class="decker-dot"></span>
+          <span id="status-text">Recording…</span>
+        </div>
+        <button id="action-btn" class="decker-btn decker-btn-stop">
+          Stop & Transcribe
+        </button>
+      </div>
+    </div>
+
+    <script>
+      const btn = document.getElementById("action-btn");
+      const statusContainer = document.getElementById("status-container");
+      const statusIcon = document.getElementById("status-icon");
+      const statusText = document.getElementById("status-text");
+
+      btn.onclick = () => {
+        // Step 1: Processing
+        statusContainer.className = "decker-status processing";
+        statusIcon.className = "decker-spinner";
+        statusText.innerText = "Processing audio…";
+        btn.innerText = "Working…";
+        btn.disabled = true;
+
+        // Step 2: Finalizing (The FIX we added)
+        setTimeout(() => {
+          statusContainer.className = "decker-status finalizing";
+          statusText.innerText = "Finalizing audio…";
+          console.log("UI transitioned to Finalizing state");
+        }, 1500);
+
+        // Step 3: Transcribing
+        setTimeout(() => {
+          statusContainer.className = "decker-status transcribing";
+          statusText.innerText = "Transcribing audio…";
+          console.log("UI transitioned to Transcribing state");
+        }, 3000);
+
+        // Step 4: Extracting
+        setTimeout(() => {
+          statusContainer.className = "decker-status extracting";
+          statusText.innerText = "Extracting points…";
+          console.log("UI transitioned to Extracting state");
+        }, 4500);
+
+        // Step 5: Reviewing
+        setTimeout(() => {
+          statusContainer.className = "decker-status reviewing";
+          statusText.innerText = "Review & customise your deck";
+          btn.className = "decker-btn decker-btn-generate";
+          btn.innerText = "Generate Deck (5 points)";
+          btn.disabled = false;
+          console.log("UI transitioned to Reviewing state");
+        }, 6000);
+      };
+    </script>
+  </body>
+</html>

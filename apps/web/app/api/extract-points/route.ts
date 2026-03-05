@@ -9,7 +9,7 @@ export async function OPTIONS() {
 
 export async function POST(req: NextRequest) {
   try {
-    const apiKey = req.headers.get("X-Api-Key") ?? "";
+    const apiKey = req.headers.get("X-Api-Key") ?? process.env.OPENAI_API_KEY ?? "";
     if (!apiKey) {
       return NextResponse.json(
         { error: "No API key provided. Add your OpenAI key in the Decker extension settings (⚙)." },
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
         },
         {
           role: "user",
-          content: `Extract the key discussion points from this transcript:\n\n<transcript>\n${transcript}\n</transcript>`,
+          content: `Extract the key discussion points from this transcript. Return a JSON object with a "points" array.\n\n<transcript>\n${transcript}\n</transcript>`,
         },
       ],
       response_format: { type: "json_object" },

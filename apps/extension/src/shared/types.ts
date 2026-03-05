@@ -1,4 +1,5 @@
 export enum MessageType {
+  GET_LAST_HTML = "GET_LAST_HTML",
   // Content → Background
   GET_TAB_ID = "GET_TAB_ID",
   START_RECORDING = "START_RECORDING",
@@ -6,6 +7,7 @@ export enum MessageType {
   GET_STATUS = "GET_STATUS",
   GET_API_SETTINGS = "GET_API_SETTINGS",
   SET_API_SETTINGS = "SET_API_SETTINGS",
+  GET_DEBUG_LOG = "GET_DEBUG_LOG",
   GENERATE_DECK = "GENERATE_DECK",
   START_RECORDING_WITH_STREAM = "START_RECORDING_WITH_STREAM",
 
@@ -70,4 +72,6 @@ export interface StartRecordingStreamPayload {
 export interface GenerateDeckPayload {
   selectedPoints: string[];
   customPrompt: string;
+  transcript?: string; // optional override when user edits transcript
+  backgroundColor?: string; // e.g. "green", "blue", "dark", "light"
 }
