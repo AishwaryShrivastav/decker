@@ -7,6 +7,7 @@ export enum MessageType {
   GET_API_SETTINGS = "GET_API_SETTINGS",
   SET_API_SETTINGS = "SET_API_SETTINGS",
   GENERATE_DECK = "GENERATE_DECK",
+  START_RECORDING_WITH_STREAM = "START_RECORDING_WITH_STREAM",
 
   // Background → Offscreen
   OFFSCREEN_START = "OFFSCREEN_START",
@@ -59,6 +60,11 @@ export interface RecordingStoppedPayload {
 
 export interface ApiSettings {
   apiKey: string;
+}
+
+export interface StartRecordingStreamPayload {
+  tabId: number;
+  streamId: string;
 }
 
 export interface GenerateDeckPayload {

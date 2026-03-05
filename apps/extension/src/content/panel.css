@@ -353,3 +353,27 @@
 .decker-textarea::placeholder {
   color: #4b5563;
 }
+
+/* ---- Idle hint ---- */
+.decker-idle-hint {
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.5;
+  padding: 10px 12px;
+  background: #16213e;
+  border-radius: 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.decker-idle-hint strong {
+  color: #2496ED;
+}
+
+.decker-hint-icon {
+  color: #2496ED;
+  font-size: 10px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}

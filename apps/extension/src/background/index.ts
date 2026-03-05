@@ -7,6 +7,7 @@ import {
   RecordingStoppedPayload,
   ApiSettings,
   GenerateDeckPayload,
+  StartRecordingStreamPayload,
 } from "../shared/types";
 import { API_BASE_URL } from "../shared/constants";
 
@@ -80,22 +81,13 @@ function broadcastStatus(
 }
 
 // --- Recording pipeline ---
-async function startRecording(tabId: number): Promise<void> {
+// Called with a stream ID that was obtained by the popup (which has invocation rights)
+async function startRecordingWithStream(tabId: number, streamId: string): Promise<void> {
   recordingTabId = tabId;
   currentTranscript = null;
   broadcastStatus("recording");
 
   try {
-    const streamId = await new Promise<string>((resolve, reject) => {
-      chrome.tabCapture.getMediaStreamId({ targetTabId: tabId }, (id) => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-        } else {
-          resolve(id);
-        }
-      });
-    });
-
     await ensureOffscreenDocument();
 
     await chrome.runtime.sendMessage<Message<OffscreenStartPayload>>({
@@ -103,7 +95,7 @@ async function startRecording(tabId: number): Promise<void> {
       payload: { streamId },
     });
   } catch (err) {
-    console.error("[Decker background] startRecording failed:", err);
+    console.error("[Decker background] startRecordingWithStream failed:", err);
     broadcastStatus("error", String(err));
     await closeOffscreenDocument();
   }
@@ -252,14 +244,16 @@ chrome.runtime.onMessage.addListener(
         return false;
       }
 
-      case MessageType.START_RECORDING: {
-        const tabId = sender.tab?.id;
-        if (tabId == null) {
-          sendResponse({ error: "No tab ID" });
-          return false;
-        }
-        startRecording(tabId).catch(console.error);
+      case MessageType.START_RECORDING_WITH_STREAM: {
+        const payload = msg.payload as StartRecordingStreamPayload;
+        startRecordingWithStream(payload.tabId, payload.streamId).catch(console.error);
         sendResponse({ ok: true });
+        return false;
+      }
+
+      case MessageType.START_RECORDING: {
+        // Legacy path — recording now started from popup via START_RECORDING_WITH_STREAM
+        sendResponse({ error: "Use START_RECORDING_WITH_STREAM from popup" });
         return false;
       }
 

@@ -7,6 +7,7 @@ import {
   ApiSettings,
   GenerateDeckPayload,
 } from "../shared/types";
+// START_RECORDING moved to popup (requires extension invocation via toolbar click)
 
 interface Props {
   initialStatus: RecordingStatus;
@@ -87,16 +88,6 @@ export function DeckerPanel({ initialStatus }: Props) {
     });
     setKeySaved(true);
     setTimeout(() => setKeySaved(false), 2000);
-  };
-
-  const handleStart = () => {
-    chrome.runtime.sendMessage<Message>({ type: MessageType.START_RECORDING });
-    setStatus("recording");
-    setTranscript(null);
-    setPoints([]);
-    setSelectedPoints(new Set());
-    setCustomPrompt("");
-    setShowTranscript(false);
   };
 
   const handleStop = () => {
@@ -188,8 +179,16 @@ export function DeckerPanel({ initialStatus }: Props) {
         </div>
       )}
 
-      {/* Idle / Done / Error actions */}
-      {(status === "idle" || isDone) && (
+      {/* Idle — prompt user to click the toolbar icon */}
+      {status === "idle" && (
+        <div className="decker-idle-hint">
+          <span className="decker-hint-icon">▶</span>
+          Click the <strong>Decker icon</strong> in your toolbar to start recording
+        </div>
+      )}
+
+      {/* Done / Error */}
+      {isDone && (
         <>
           {status === "error" && (
             <div className="decker-status error" style={{ marginBottom: "10px" }}>
@@ -201,9 +200,10 @@ export function DeckerPanel({ initialStatus }: Props) {
               {statusLabel(status, statusMessage)}
             </div>
           )}
-          <button className="decker-btn decker-btn-start" onClick={handleStart}>
-            {status === "done" || status === "error" ? "Record Again" : "Start Recording"}
-          </button>
+          <div className="decker-idle-hint">
+            <span className="decker-hint-icon">▶</span>
+            Click the <strong>Decker icon</strong> in the toolbar to record again
+          </div>
         </>
       )}
 
