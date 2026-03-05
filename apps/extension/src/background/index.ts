@@ -22,10 +22,6 @@ chrome.storage.local.get("apiKey", (result) => {
 });
 
 // --- Helpers ---
-function isClaudeKey(key: string): boolean {
-  return key.startsWith("sk-ant-");
-}
-
 function getApiHeaders(): Record<string, string> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (apiKey) headers["X-Api-Key"] = apiKey;
@@ -142,12 +138,9 @@ async function runPhase1(base64Audio: string, mimeType: string): Promise<void> {
     const formData = new FormData();
     formData.append("audio", audioBlob, "recording.webm");
 
-    const transcribeHeaders: Record<string, string> = {};
-    if (apiKey) transcribeHeaders["X-Api-Key"] = apiKey;
-
     const transcribeRes = await fetch(`${API_BASE_URL}/api/transcribe`, {
       method: "POST",
-      headers: transcribeHeaders,
+      headers: apiKey ? { "X-Api-Key": apiKey } : {},
       body: formData,
     });
 
