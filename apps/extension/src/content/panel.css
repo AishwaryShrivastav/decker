@@ -1,0 +1,355 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+#decker-root {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2147483647;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.decker-panel {
+  background: #1a1a2e;
+  border: 1px solid #16213e;
+  border-radius: 16px;
+  padding: 16px 18px;
+  width: 320px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  color: #e0e0e0;
+}
+
+/* ---- Header ---- */
+.decker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.decker-logo {
+  font-size: 18px;
+  font-weight: 700;
+  color: #7c3aed;
+  letter-spacing: -0.5px;
+}
+
+.decker-gear {
+  background: none;
+  border: none;
+  color: #6b7280;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 6px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.decker-gear:hover,
+.decker-gear.active {
+  color: #7c3aed;
+}
+
+/* ---- Settings ---- */
+.decker-settings {
+  background: #16213e;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.decker-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.decker-key-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.decker-input {
+  flex: 1;
+  background: #1a1a2e;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 12px;
+  color: #e0e0e0;
+  outline: none;
+  font-family: monospace;
+}
+
+.decker-input:focus {
+  border-color: #7c3aed;
+}
+
+.decker-eye {
+  background: none;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 14px;
+}
+
+.decker-btn-save {
+  background: #374151;
+  color: #e0e0e0;
+  padding: 7px 12px;
+  font-size: 12px;
+  width: 100%;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+
+.decker-btn-save:hover {
+  background: #4b5563;
+}
+
+.decker-hint {
+  font-size: 10px;
+  color: #4b5563;
+  margin-top: 6px;
+}
+
+/* ---- Status bar ---- */
+.decker-status {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-bottom: 12px;
+  min-height: 16px;
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.decker-status.recording { color: #ef4444; }
+.decker-status.processing,
+.decker-status.transcribing,
+.decker-status.extracting,
+.decker-status.generating { color: #f59e0b; }
+.decker-status.reviewing { color: #7c3aed; font-weight: 600; margin-bottom: 10px; }
+.decker-status.done { color: #10b981; }
+.decker-status.error { color: #ef4444; }
+
+.decker-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: #ef4444;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.decker-spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #f59e0b;
+  border-top-color: transparent;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---- Buttons ---- */
+.decker-btn {
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  letter-spacing: 0.2px;
+}
+
+.decker-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.decker-btn-start {
+  background: #7c3aed;
+  color: #fff;
+}
+
+.decker-btn-start:hover:not(:disabled) {
+  background: #6d28d9;
+}
+
+.decker-btn-stop {
+  background: #ef4444;
+  color: #fff;
+}
+
+.decker-btn-stop:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.decker-btn-processing {
+  background: #374151;
+  color: #9ca3af;
+}
+
+.decker-btn-generate {
+  background: #7c3aed;
+  color: #fff;
+  margin-top: 10px;
+}
+
+.decker-btn-generate:hover:not(:disabled) {
+  background: #6d28d9;
+}
+
+/* ---- Review UI ---- */
+.decker-review {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.decker-section {
+  margin-bottom: 12px;
+}
+
+.decker-collapsible {
+  width: 100%;
+  background: #16213e;
+  border: none;
+  color: #9ca3af;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background 0.15s;
+}
+
+.decker-collapsible:hover {
+  background: #1e2a45;
+}
+
+.decker-transcript {
+  margin-top: 6px;
+  background: #0f172a;
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 11px;
+  color: #9ca3af;
+  line-height: 1.5;
+  max-height: 160px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.decker-points-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.decker-link {
+  background: none;
+  border: none;
+  color: #7c3aed;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.decker-link:hover {
+  color: #6d28d9;
+}
+
+.decker-points {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.decker-point {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 8px;
+  background: #16213e;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #d1d5db;
+  line-height: 1.4;
+  transition: background 0.12s;
+}
+
+.decker-point:hover {
+  background: #1e2a45;
+}
+
+.decker-point input[type="checkbox"] {
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: #7c3aed;
+}
+
+.decker-textarea {
+  width: 100%;
+  background: #16213e;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #e0e0e0;
+  resize: vertical;
+  outline: none;
+  font-family: inherit;
+  line-height: 1.4;
+  min-height: 64px;
+}
+
+.decker-textarea:focus {
+  border-color: #7c3aed;
+}
+
+.decker-textarea::placeholder {
+  color: #4b5563;
+}

@@ -1,0 +1,19 @@
+{
+  "name": "decker",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev:web": "pnpm --filter web dev",
+    "dev:extension": "pnpm --filter extension build:watch",
+    "build:web": "pnpm --filter web build",
+    "build:extension": "pnpm --filter extension build",
+    "watch:extension": "pnpm --filter extension build:watch",
+    "build:firefox": "pnpm --filter extension build:firefox"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "sharp"]
+  }
+}

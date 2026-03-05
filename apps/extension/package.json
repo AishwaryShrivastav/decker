@@ -1,0 +1,22 @@
+{
+  "name": "extension",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build": "vite build",
+    "build:watch": "vite build --watch",
+    "build:firefox": "vite build --config vite.firefox.config.ts"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.268",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "typescript": "^5.4.5",
+    "vite": "^5.3.1"
+  }
+}

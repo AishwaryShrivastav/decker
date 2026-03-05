@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+apps/extension/dist/
+apps/extension/dist-firefox/
+apps/web/.next/
+apps/web/out/
+
+# Environment variables — never commit secrets
+.env
+.env.local
+.env.*.local
+
+# OS & editor artifacts
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.suo
+*.user
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Type-check cache
+*.tsbuildinfo
+
+# Store assets (add manually, not auto-generated)
+# store-assets/
