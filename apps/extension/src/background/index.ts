@@ -5,6 +5,7 @@ import {
   StatusPayload,
   OffscreenStartPayload,
   RecordingStoppedPayload,
+  AudioChunkPayload,
   ApiSettings,
   GenerateDeckPayload,
   StartRecordingStreamPayload,
@@ -15,6 +16,9 @@ import { API_BASE_URL } from "../shared/constants";
 let recordingTabId: number | null = null;
 let currentStatus: RecordingStatus = "idle";
 let currentTranscript: string | null = null;
+let accumulatedTranscript = ""; // Built from live chunk transcriptions during recording
+let chunkQueue: { base64: string; mimeType: string }[] = [];
+let chunkProcessing = false;
 let apiKey = "";
 let lastGeneratedHtml: string | null = null;
 
@@ -69,7 +73,7 @@ async function closeOffscreenDocument(): Promise<void> {
 function broadcastStatus(
   status: RecordingStatus,
   message?: string,
-  extra?: { transcript?: string; points?: string[] }
+  extra?: { transcript?: string; points?: string[]; liveNotes?: string }
 ): void {
   currentStatus = status;
   const payload: StatusPayload = { status, message, ...extra };
@@ -94,11 +98,63 @@ function broadcastStatus(
   }
 }
 
+// --- Chunk transcription (live meeting notes) ---
+async function transcribeChunk(base64: string, mimeType: string): Promise<string> {
+  const audioBytes = atob(base64);
+  const audioBuffer = new Uint8Array(audioBytes.length);
+  for (let i = 0; i < audioBytes.length; i++) {
+    audioBuffer[i] = audioBytes.charCodeAt(i);
+  }
+  const audioBlob = new Blob([audioBuffer], { type: mimeType });
+  const formData = new FormData();
+  formData.append("audio", audioBlob, "chunk.webm");
+
+  const transcribeRes = await fetch(`${API_BASE_URL}/api/transcribe`, {
+    method: "POST",
+    headers: apiKey ? { "X-Api-Key": apiKey } : {},
+    body: formData,
+  });
+
+  if (!transcribeRes.ok) {
+    const errText = await transcribeRes.text();
+    throw new Error(`Chunk transcription failed: ${transcribeRes.status} ${errText}`);
+  }
+
+  const { transcript } = (await transcribeRes.json()) as { transcript: string };
+  return typeof transcript === "string" ? transcript.trim() : "";
+}
+
+async function processChunkQueue(): Promise<void> {
+  if (chunkProcessing || chunkQueue.length === 0) return;
+  chunkProcessing = true;
+
+  const chunk = chunkQueue.shift()!;
+  try {
+    const text = await transcribeChunk(chunk.base64, chunk.mimeType);
+    if (text) {
+      accumulatedTranscript = accumulatedTranscript ? `${accumulatedTranscript} ${text}` : text;
+      debugLog(`Chunk transcribed (${text.length} chars), total: ${accumulatedTranscript.length}`);
+      broadcastStatus("recording", undefined, {
+        transcript: accumulatedTranscript,
+        liveNotes: accumulatedTranscript,
+      });
+    }
+  } catch (err) {
+    debugLog(`Chunk transcribe FAILED: ${err instanceof Error ? err.message : String(err)}`);
+    console.warn("[Decker background] Chunk transcription failed:", err);
+  } finally {
+    chunkProcessing = false;
+    if (chunkQueue.length > 0) processChunkQueue().catch(console.error);
+  }
+}
+
 // --- Recording pipeline ---
 // Called with a stream ID that was obtained by the popup (which has invocation rights)
 async function startRecordingWithStream(tabId: number, streamId: string): Promise<void> {
   recordingTabId = tabId;
   currentTranscript = null;
+  accumulatedTranscript = "";
+  chunkQueue = [];
   broadcastStatus("recording");
 
   try {
@@ -152,47 +208,55 @@ async function stopRecording(): Promise<void> {
   }
 }
 
-// Phase 1: transcribe → extract points → broadcast "reviewing"
+// Phase 1: wait for chunk queue to drain, transcribe remainder (if any), extract points → broadcast "reviewing"
 async function runPhase1(base64Audio: string, mimeType: string): Promise<void> {
   try {
-    if (!base64Audio || base64Audio.length < 100) {
-      throw new Error("Recording too short. Record at least 3–5 seconds of audio.");
+    // Wait for any in-flight chunk transcriptions to finish
+    debugLog("runPhase1: waiting for chunk queue to drain…");
+    while (chunkQueue.length > 0 || chunkProcessing) {
+      await new Promise((r) => setTimeout(r, 300));
+    }
+    debugLog(`runPhase1: queue drained, accumulated: ${accumulatedTranscript.length} chars`);
+
+    let transcript = accumulatedTranscript;
+
+    // Transcribe the final blob if we have remaining audio (from last partial batch)
+    if (base64Audio && base64Audio.length >= 100) {
+      const audioBytes = atob(base64Audio);
+      const audioBuffer = new Uint8Array(audioBytes.length);
+      for (let i = 0; i < audioBytes.length; i++) {
+        audioBuffer[i] = audioBytes.charCodeAt(i);
+      }
+      const audioBlob = new Blob([audioBuffer], { type: mimeType });
+
+      if (audioBlob.size >= 1000) {
+        broadcastStatus("transcribing", "Transcribing final segment…");
+        debugLog("Transcribing final recording segment…");
+
+        const formData = new FormData();
+        formData.append("audio", audioBlob, "recording.webm");
+
+        const transcribeRes = await fetch(`${API_BASE_URL}/api/transcribe`, {
+          method: "POST",
+          headers: apiKey ? { "X-Api-Key": apiKey } : {},
+          body: formData,
+        });
+
+        if (transcribeRes.ok) {
+          const { transcript: finalSegment } = (await transcribeRes.json()) as { transcript: string };
+          const seg = typeof finalSegment === "string" ? finalSegment.trim() : "";
+          if (seg) transcript = transcript ? `${transcript} ${seg}` : seg;
+        }
+      }
     }
 
-    broadcastStatus("transcribing", "Transcribing audio…");
-    console.log("[Decker background] Starting transcription, audio size:", base64Audio.length);
-
-    const audioBytes = atob(base64Audio);
-    const audioBuffer = new Uint8Array(audioBytes.length);
-    for (let i = 0; i < audioBytes.length; i++) {
-      audioBuffer[i] = audioBytes.charCodeAt(i);
-    }
-    const audioBlob = new Blob([audioBuffer], { type: mimeType });
-
-    const formData = new FormData();
-    formData.append("audio", audioBlob, "recording.webm");
-
-    debugLog("Calling /api/transcribe…");
-    const transcribeRes = await fetch(`${API_BASE_URL}/api/transcribe`, {
-      method: "POST",
-      headers: apiKey ? { "X-Api-Key": apiKey } : {},
-      body: formData,
-    });
-    debugLog(`Transcribe response: ${transcribeRes.status} ${transcribeRes.statusText}`);
-
-    if (!transcribeRes.ok) {
-      const errText = await transcribeRes.text();
-      throw new Error(`Transcription failed: ${transcribeRes.status} ${errText}`);
-    }
-
-    const { transcript } = (await transcribeRes.json()) as { transcript: string };
-    if (!transcript || typeof transcript !== "string" || transcript.trim().length === 0) {
+    if (!transcript || transcript.trim().length === 0) {
       throw new Error("Transcription returned empty text. Was audio captured correctly? Try recording longer.");
     }
     currentTranscript = transcript;
-    console.log("[Decker background] Transcript length:", transcript.length);
+    console.log("[Decker background] Final transcript length:", transcript.length);
 
-    // Step 2: Extract discussion points
+    // Extract discussion points
     broadcastStatus("extracting", "Extracting discussion points…");
     console.log("[Decker background] Calling /api/extract-points…");
 
@@ -230,7 +294,8 @@ async function runPhase2(
   selectedPoints: string[],
   customPrompt: string,
   transcriptOverride?: string,
-  backgroundColor?: string
+  backgroundColor?: string,
+  outputFormat?: "presentation" | "notes"
 ): Promise<void> {
   const transcript = transcriptOverride?.trim() || currentTranscript?.trim();
   if (!transcript) {
@@ -242,8 +307,10 @@ async function runPhase2(
     return;
   }
 
+  const isNotes = outputFormat === "notes";
+
   try {
-    broadcastStatus("generating", "Generating presentation…");
+    broadcastStatus("generating", isNotes ? "Generating notes…" : "Generating presentation…");
 
     const generateRes = await fetch(`${API_BASE_URL}/api/generate-deck`, {
       method: "POST",
@@ -252,6 +319,7 @@ async function runPhase2(
         transcript,
         selectedPoints,
         customPrompt,
+        outputFormat: outputFormat || "presentation",
         backgroundColor: backgroundColor || undefined,
       }),
     });
@@ -265,7 +333,7 @@ async function runPhase2(
     lastGeneratedHtml = html;
 
     const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
-    const filename = `decker-deck-${Date.now()}.html`;
+    const filename = isNotes ? `decker-notes-${Date.now()}.html` : `decker-deck-${Date.now()}.html`;
 
     await chrome.downloads.download({
       url: dataUrl,
@@ -273,7 +341,7 @@ async function runPhase2(
       saveAs: false,
     });
 
-    broadcastStatus("done", `Deck saved as ${filename}`);
+    broadcastStatus("done", `${isNotes ? "Notes" : "Deck"} saved as ${filename}`);
   } catch (err) {
     console.error("[Decker background] runPhase2 failed:", err);
     const msg = err instanceof Error ? err.message : String(err);
@@ -342,6 +410,18 @@ chrome.runtime.onMessage.addListener(
         return false;
       }
 
+      case MessageType.AUDIO_CHUNK: {
+        const payload = msg.payload as AudioChunkPayload;
+        if (payload?.base64 && payload?.mimeType) {
+          chunkQueue.push({ base64: payload.base64, mimeType: payload.mimeType });
+          debugLog(`AUDIO_CHUNK received, queue size: ${chunkQueue.length}`);
+          processChunkQueue().catch(console.error);
+        } else {
+          console.warn("[Decker background] AUDIO_CHUNK missing base64 or mimeType", !!payload?.base64, !!payload?.mimeType);
+        }
+        return false;
+      }
+
       case MessageType.RECORDING_STOPPED: {
         const payload = msg.payload as RecordingStoppedPayload;
         debugLog(`RECORDING_STOPPED received, audio ${payload.base64?.length ?? 0} chars`);
@@ -355,7 +435,8 @@ chrome.runtime.onMessage.addListener(
           payload.selectedPoints,
           payload.customPrompt,
           payload.transcript,
-          payload.backgroundColor
+          payload.backgroundColor,
+          payload.outputFormat
         ).catch(console.error);
         sendResponse({ ok: true });
         return false;

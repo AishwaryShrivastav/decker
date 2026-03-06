@@ -3,7 +3,12 @@ import {
   MessageType,
   OffscreenStartPayload,
   RecordingStoppedPayload,
+  AudioChunkPayload,
 } from "../shared/types";
+
+/** Batch size for live transcription: 8 chunks × 2s = ~16 seconds of audio (Whisper works best with 10–30s) */
+const CHUNK_BATCH_SIZE = 8;
+const MIN_CHUNK_BYTES = 20_000; // ~5s of opus - avoid sending near-empty audio
 
 let mediaRecorder: MediaRecorder | null = null;
 let audioChunks: Blob[] = [];
@@ -67,9 +72,27 @@ async function startRecording(streamId: string): Promise<void> {
       audioBitsPerSecond: 128_000,
     });
 
-    mediaRecorder.ondataavailable = (event) => {
+    mediaRecorder.ondataavailable = async (event) => {
       if (event.data.size > 0) {
         audioChunks.push(event.data);
+        // Live transcription: when we have enough chunks, send a batch for transcription
+        while (audioChunks.length >= CHUNK_BATCH_SIZE) {
+          const batch = audioChunks.splice(0, CHUNK_BATCH_SIZE);
+          const blob = new Blob(batch, { type: mimeType });
+          if (blob.size >= MIN_CHUNK_BYTES) {
+            const base64 = await blobToBase64(blob);
+            if (base64) {
+              chrome.runtime
+                .sendMessage<Message<AudioChunkPayload>>({
+                  type: MessageType.AUDIO_CHUNK,
+                  payload: { base64, mimeType },
+                })
+                .catch((err) => console.warn("[Decker offscreen] AUDIO_CHUNK send failed:", err));
+            } else {
+              console.warn("[Decker offscreen] blobToBase64 returned empty");
+            }
+          }
+        }
       }
     };
 
@@ -153,8 +176,7 @@ function blobToBase64(blob: Blob): Promise<string> {
     const reader = new FileReader();
     reader.onloadend = () => {
       const result = reader.result as string;
-      // Strip the data URL prefix
-      const base64 = result.split(",")[1];
+      const base64 = result?.split(",")[1] ?? "";
       resolve(base64);
     };
     reader.onerror = reject;

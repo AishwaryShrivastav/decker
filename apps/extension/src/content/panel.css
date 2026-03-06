@@ -96,6 +96,22 @@
   border-color: #7c3aed;
 }
 
+.decker-select {
+  width: 100%;
+  background: #1a1a2e;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 12px;
+  color: #e0e0e0;
+  outline: none;
+  cursor: pointer;
+}
+
+.decker-select:focus {
+  border-color: #7c3aed;
+}
+
 .decker-eye {
   background: none;
   border: 1px solid #374151;
@@ -273,6 +289,20 @@
   color: #9ca3af;
   line-height: 1.5;
   max-height: 160px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.decker-live-notes {
+  margin-top: 6px;
+  background: #0f172a;
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 12px;
+  color: #d1d5db;
+  line-height: 1.4;
+  max-height: 120px;
   overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-word;

@@ -27,6 +27,7 @@ export type RecordingStatus =
   | "idle"
   | "recording"
   | "processing"
+  | "finalizing"
   | "transcribing"
   | "extracting"
   | "reviewing"
@@ -39,6 +40,8 @@ export interface StatusPayload {
   message?: string;
   transcript?: string;
   points?: string[];
+  /** Live meeting notes during recording (same as transcript when status is recording) */
+  liveNotes?: string;
 }
 
 export interface Message<T = unknown> {
@@ -69,9 +72,12 @@ export interface StartRecordingStreamPayload {
   streamId: string;
 }
 
+export type OutputFormat = "presentation" | "notes";
+
 export interface GenerateDeckPayload {
   selectedPoints: string[];
   customPrompt: string;
   transcript?: string; // optional override when user edits transcript
-  backgroundColor?: string; // e.g. "green", "blue", "dark", "light"
+  outputFormat?: OutputFormat; // "presentation" (Reveal.js) or "notes" (scrollable HTML)
+  backgroundColor?: string; // custom: "dark","green","blue","light" | Reveal: "black","white",...
 }

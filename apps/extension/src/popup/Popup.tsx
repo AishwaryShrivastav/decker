@@ -7,6 +7,7 @@ import {
   StartRecordingStreamPayload,
   ApiSettings,
   GenerateDeckPayload,
+  OutputFormat,
 } from "../shared/types";
 
 const C = {
@@ -51,6 +52,7 @@ export function Popup() {
   const [points, setPoints] = useState<string[]>([]);
   const [selectedPoints, setSelectedPoints] = useState<Set<number>>(new Set());
   const [customPrompt, setCustomPrompt] = useState("");
+  const [outputFormat, setOutputFormat] = useState<OutputFormat>("presentation");
   const [backgroundColor, setBackgroundColor] = useState<string>("dark");
   const [micDenied, setMicDenied] = useState(false);
   const [copiedHtml, setCopiedHtml] = useState(false);
@@ -79,7 +81,9 @@ export function Popup() {
         setStatusMsg(p.message);
         if (p.transcript) {
           setTranscript(p.transcript);
-          setEditedTranscript((prev) => (prev === "" ? p.transcript! : prev)); // only auto-fill editedTranscript if empty
+          setEditedTranscript((prev) =>
+            p.status === "recording" ? p.transcript! : prev === "" ? p.transcript! : prev
+          );
         }
         if (p.points) {
           setPoints(p.points);
@@ -197,7 +201,8 @@ export function Popup() {
         selectedPoints: selected,
         customPrompt: customPrompt.trim(),
         transcript: transcriptToUse,
-        backgroundColor: backgroundColor !== "dark" ? backgroundColor : undefined,
+        outputFormat: outputFormat !== "presentation" ? outputFormat : undefined,
+        backgroundColor: outputFormat === "presentation" && backgroundColor !== "dark" ? backgroundColor : undefined,
       },
     });
     setStatus("generating");
@@ -352,9 +357,29 @@ export function Popup() {
         </div>
       )}
 
-      {/* Recording: Stop */}
+      {/* Recording: live notes + Stop */}
       {isRecording && (
         <>
+          {transcript && transcript.trim().length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 6 }}>Live meeting notes</label>
+              <div
+                style={{
+                  maxHeight: 100,
+                  overflowY: "auto",
+                  padding: 8,
+                  borderRadius: 6,
+                  border: `1px solid ${C.border}`,
+                  background: C.bg,
+                  color: "#fff",
+                  fontSize: 11,
+                  lineHeight: 1.4,
+                }}
+              >
+                {transcript}
+              </div>
+            </div>
+          )}
           <button onClick={handleStop} style={{ ...btn(true), background: C.red }}>
             Stop & Transcribe
           </button>
@@ -421,18 +446,48 @@ export function Popup() {
           )}
 
           <div style={{ marginBottom: 12 }}>
-            <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 6 }}>Slide background</label>
+            <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 6 }}>Output format</label>
+            <select
+              value={outputFormat}
+              onChange={(e) => setOutputFormat(e.target.value as OutputFormat)}
+              style={{ width: "100%", padding: 8, borderRadius: 6, border: `1px solid ${C.border}`, background: C.bg, color: "#fff", fontSize: 11 }}
+            >
+              <option value="presentation">Presentation (Reveal.js)</option>
+              <option value="notes">HTML Notes (scrollable)</option>
+            </select>
+          </div>
+
+          {outputFormat === "presentation" && (
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 6 }}>Slide theme</label>
             <select
               value={backgroundColor}
               onChange={(e) => setBackgroundColor(e.target.value)}
               style={{ width: "100%", padding: 8, borderRadius: 6, border: `1px solid ${C.border}`, background: C.bg, color: "#fff", fontSize: 11 }}
             >
-              <option value="dark">Dark</option>
-              <option value="green">Green</option>
-              <option value="blue">Blue</option>
-              <option value="light">Light</option>
+              <optgroup label="Custom">
+                <option value="dark">Dark</option>
+                <option value="green">Green</option>
+                <option value="blue">Blue</option>
+                <option value="light">Light</option>
+              </optgroup>
+              <optgroup label="Reveal.js themes">
+                <option value="black">Black</option>
+                <option value="white">White</option>
+                <option value="league">League</option>
+                <option value="beige">Beige</option>
+                <option value="night">Night</option>
+                <option value="serif">Serif</option>
+                <option value="simple">Simple</option>
+                <option value="solarized">Solarized</option>
+                <option value="moon">Moon</option>
+                <option value="dracula">Dracula</option>
+                <option value="sky">Sky</option>
+                <option value="blood">Blood</option>
+              </optgroup>
             </select>
           </div>
+          )}
 
           <textarea
             value={customPrompt}
@@ -447,7 +502,7 @@ export function Popup() {
             disabled={!canGenerate}
             style={{ ...btn(true), opacity: canGenerate ? 1 : 0.5 }}
           >
-            Generate Deck {points.length > 0 ? `(${selectedPoints.size} points)` : "(from transcript)"}
+            Generate {outputFormat === "notes" ? "Notes" : "Deck"} {points.length > 0 ? `(${selectedPoints.size} points)` : "(from transcript)"}
           </button>
           {!canGenerate && transcriptToUse.length > 0 && (
             <div style={{ fontSize: 10, color: C.muted, marginTop: 6 }}>Need 50+ characters to generate</div>

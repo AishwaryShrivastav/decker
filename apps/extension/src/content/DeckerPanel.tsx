@@ -6,6 +6,7 @@ import {
   StatusPayload,
   ApiSettings,
   GenerateDeckPayload,
+  OutputFormat,
 } from "../shared/types";
 // START_RECORDING moved to popup (requires extension invocation via toolbar click)
 
@@ -57,6 +58,7 @@ export function DeckerPanel({ initialStatus }: Props) {
   const [points, setPoints] = useState<string[]>([]);
   const [selectedPoints, setSelectedPoints] = useState<Set<number>>(new Set());
   const [customPrompt, setCustomPrompt] = useState("");
+  const [outputFormat, setOutputFormat] = useState<OutputFormat>("presentation");
 
   // Load saved API key on mount
   useEffect(() => {
@@ -78,7 +80,9 @@ export function DeckerPanel({ initialStatus }: Props) {
         setStatusMessage(payload.message);
         if (payload.transcript) {
           setTranscript(payload.transcript);
-          setEditedTranscript((prev) => (prev === "" ? payload.transcript! : prev));
+          setEditedTranscript((prev) =>
+            payload.status === "recording" ? payload.transcript! : prev === "" ? payload.transcript! : prev
+          );
         }
         if (payload.points) {
           setPoints(payload.points);
@@ -145,6 +149,7 @@ export function DeckerPanel({ initialStatus }: Props) {
         selectedPoints: selected,
         customPrompt: customPrompt.trim(),
         transcript: transcriptToUse,
+        outputFormat: outputFormat !== "presentation" ? outputFormat : undefined,
       },
     });
     setStatus("generating");
@@ -259,11 +264,21 @@ export function DeckerPanel({ initialStatus }: Props) {
         </>
       )}
 
-      {/* Recording action */}
+      {/* Recording: live notes + stop */}
       {isRecording && (
-        <button className="decker-btn decker-btn-stop" onClick={handleStop}>
-          Stop &amp; Transcribe
-        </button>
+        <>
+          {transcript && transcript.trim().length > 0 && (
+            <div className="decker-section">
+              <label className="decker-label">Live meeting notes</label>
+              <div className="decker-live-notes">
+                {transcript}
+              </div>
+            </div>
+          )}
+          <button className="decker-btn decker-btn-stop" onClick={handleStop}>
+            Stop &amp; Transcribe
+          </button>
+        </>
       )}
 
       {/* Processing spinner */}
@@ -325,6 +340,19 @@ export function DeckerPanel({ initialStatus }: Props) {
             </div>
           )}
 
+          {/* Output format */}
+          <div className="decker-section">
+            <label className="decker-label">Output format</label>
+            <select
+              className="decker-select"
+              value={outputFormat}
+              onChange={(e) => setOutputFormat(e.target.value as OutputFormat)}
+            >
+              <option value="presentation">Presentation (Reveal.js)</option>
+              <option value="notes">HTML Notes (scrollable)</option>
+            </select>
+          </div>
+
           {/* Custom instructions */}
           <div className="decker-section">
             <label className="decker-label">Custom instructions</label>
@@ -343,7 +371,7 @@ export function DeckerPanel({ initialStatus }: Props) {
             onClick={handleGenerateDeck}
             disabled={!canGenerate}
           >
-            Generate Deck {points.length > 0 ? `(${selectedPoints.size} point${selectedPoints.size !== 1 ? "s" : ""})` : "(from transcript)"}
+            Generate {outputFormat === "notes" ? "Notes" : "Deck"} {points.length > 0 ? `(${selectedPoints.size} point${selectedPoints.size !== 1 ? "s" : ""})` : "(from transcript)"}
           </button>
           {!canGenerate && transcriptToUse.length > 0 && (
             <div className="decker-hint" style={{ marginTop: 6 }}>Need 50+ characters</div>

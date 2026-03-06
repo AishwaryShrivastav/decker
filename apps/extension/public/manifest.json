@@ -22,6 +22,13 @@
     "service_worker": "src/background/index.js",
     "type": "module"
   },
+  "content_scripts": [
+    {
+      "matches": ["https://meet.google.com/*"],
+      "js": ["src/content/index.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "action": {
     "default_popup": "src/popup/index.html",
     "default_icon": {
