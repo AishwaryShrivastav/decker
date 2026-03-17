@@ -12,6 +12,7 @@ const MIN_CHUNK_BYTES = 20_000; // ~5s of opus - avoid sending near-empty audio
 
 let mediaRecorder: MediaRecorder | null = null;
 let audioChunks: Blob[] = [];
+let headerChunk: Blob | null = null; // first chunk contains the WebM EBML header
 let mimeType = "audio/webm;codecs=opus";
 let audioContext: AudioContext | null = null;
 let tabStream: MediaStream | null = null;
@@ -67,6 +68,7 @@ async function startRecording(streamId: string): Promise<void> {
     mimeType = candidates.find((t) => MediaRecorder.isTypeSupported(t)) ?? "audio/webm";
 
     audioChunks = [];
+    headerChunk = null;
     mediaRecorder = new MediaRecorder(mixedStream, {
       mimeType,
       audioBitsPerSecond: 128_000,
@@ -75,10 +77,14 @@ async function startRecording(streamId: string): Promise<void> {
     mediaRecorder.ondataavailable = async (event) => {
       if (event.data.size > 0) {
         audioChunks.push(event.data);
+        // Save the first chunk — it contains the WebM EBML header needed by Whisper
+        if (!headerChunk) headerChunk = event.data;
         // Live transcription: when we have enough chunks, send a batch for transcription
         while (audioChunks.length >= CHUNK_BATCH_SIZE) {
           const batch = audioChunks.splice(0, CHUNK_BATCH_SIZE);
-          const blob = new Blob(batch, { type: mimeType });
+          // Prepend the header chunk to batches that don't start with it
+          const parts = batch[0] === headerChunk ? batch : [headerChunk!, ...batch];
+          const blob = new Blob(parts, { type: mimeType });
           if (blob.size >= MIN_CHUNK_BYTES) {
             const base64 = await blobToBase64(blob);
             if (base64) {
@@ -97,7 +103,11 @@ async function startRecording(streamId: string): Promise<void> {
     };
 
     mediaRecorder.onstop = async () => {
-      const blob = new Blob(audioChunks, { type: mimeType });
+      // Remaining chunks may lack the WebM header (it was in the first batch, already spliced out)
+      const parts = headerChunk && audioChunks[0] !== headerChunk
+        ? [headerChunk, ...audioChunks]
+        : audioChunks;
+      const blob = new Blob(parts, { type: mimeType });
       console.log("[Decker offscreen] Recording stopped, blob size:", blob.size, "chunks:", audioChunks.length);
 
       if (audioContext) {

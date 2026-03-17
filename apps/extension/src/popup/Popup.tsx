@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Message,
   MessageType,
@@ -58,6 +58,7 @@ export function Popup() {
   const [copiedHtml, setCopiedHtml] = useState(false);
   const [isOnMeet, setIsOnMeet] = useState<boolean | null>(null);
   const [micGranted, setMicGranted] = useState<boolean | null>(null);
+  const liveTranscriptEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     chrome.runtime.sendMessage<Message>({ type: MessageType.GET_STATUS })
@@ -117,6 +118,11 @@ export function Popup() {
       }
     })();
   }, []);
+
+  // Auto-scroll live transcript to bottom when new chunks arrive
+  useEffect(() => {
+    liveTranscriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [transcript]);
 
   const handleStart = async () => {
     setError(null);
@@ -252,18 +258,17 @@ export function Popup() {
   });
 
   return (
-    <div style={{ padding: "14px 16px", minWidth: 280, maxWidth: 360, maxHeight: 520, overflowY: "auto" }}>
+    <div style={{ padding: "14px 16px", minWidth: 300, maxWidth: 400 }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
-            <rect width="32" height="32" rx="8" fill={C.blue} />
-            <ellipse cx="16" cy="18" rx="9" ry="6" fill="white" />
-            <path d="M7 18 Q4 15 5 12 Q6 15 7 14" fill="white" />
-            <path d="M18 12 Q19 9 20 10 Q19 11 20 12" stroke="white" strokeWidth="1.5" fill="none" />
-            <rect x="11" y="14" width="4" height="3" rx="0.5" fill={C.blue} />
-            <rect x="16" y="14" width="4" height="3" rx="0.5" fill={C.blue} />
-          </svg>
+          <img
+            src={chrome.runtime.getURL("icons/icon48.png")}
+            width={28}
+            height={28}
+            style={{ borderRadius: 6 }}
+            alt="Decker"
+          />
           <span style={{ fontSize: 18, fontWeight: 800, color: C.blue }}>Decker</span>
         </div>
         <button
@@ -362,10 +367,12 @@ export function Popup() {
         <>
           {transcript && transcript.trim().length > 0 && (
             <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 6 }}>Live meeting notes</label>
+              <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 6 }}>
+                Live transcript ({transcript.split(" ").filter(Boolean).length} words)
+              </label>
               <div
                 style={{
-                  maxHeight: 100,
+                  maxHeight: 220,
                   overflowY: "auto",
                   padding: 8,
                   borderRadius: 6,
@@ -373,10 +380,13 @@ export function Popup() {
                   background: C.bg,
                   color: "#fff",
                   fontSize: 11,
-                  lineHeight: 1.4,
+                  lineHeight: 1.6,
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
                 }}
               >
                 {transcript}
+                <div ref={liveTranscriptEndRef} />
               </div>
             </div>
           )}
@@ -418,7 +428,7 @@ export function Popup() {
               value={editedTranscript}
               onChange={(e) => setEditedTranscript(e.target.value)}
               placeholder={transcript || "Paste or type your meeting transcript here…"}
-              rows={4}
+              rows={7}
               style={{ width: "100%", padding: 8, borderRadius: 6, border: `1px solid ${C.border}`, background: C.bg, color: "#fff", fontSize: 11, resize: "vertical", boxSizing: "border-box" }}
             />
             {transcript && editedTranscript !== transcript && (

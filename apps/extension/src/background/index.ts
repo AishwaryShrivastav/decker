@@ -10,7 +10,18 @@ import {
   GenerateDeckPayload,
   StartRecordingStreamPayload,
 } from "../shared/types";
-import { API_BASE_URL } from "../shared/constants";
+import { buildRevealHtml, DeckData } from "../shared/revealTemplate";
+import { buildNotesHtml, NotesData } from "../shared/notesTemplate";
+import {
+  EXTRACT_POINTS_SYSTEM,
+  extractPointsUser,
+  DECK_SYSTEM,
+  deckUser,
+  NOTES_SYSTEM,
+  notesUser,
+} from "../shared/prompts";
+
+const OPENAI_API_BASE = "https://api.openai.com/v1";
 
 // --- State ---
 let recordingTabId: number | null = null;
@@ -40,11 +51,67 @@ chrome.storage.local.get("apiKey", (result) => {
   if (result.apiKey) apiKey = result.apiKey as string;
 });
 
-// --- Helpers ---
-function getApiHeaders(): Record<string, string> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (apiKey) headers["X-Api-Key"] = apiKey;
-  return headers;
+// --- OpenAI helpers ---
+const MIME_TO_EXT: Record<string, string> = {
+  "audio/webm": "webm",
+  "audio/ogg": "ogg",
+  "audio/mp4": "mp4",
+  "audio/mpeg": "mp3",
+  "audio/wav": "wav",
+  "audio/flac": "flac",
+};
+
+async function openaiTranscribe(audioBlob: Blob): Promise<string> {
+  // Strip codec params: "audio/webm;codecs=opus" → "audio/webm"
+  const baseMime = audioBlob.type.split(";")[0]?.trim() || "audio/webm";
+  const ext = MIME_TO_EXT[baseMime] ?? "webm";
+  const file = new File([audioBlob], `audio.${ext}`, { type: baseMime });
+
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("model", "whisper-1");
+  formData.append("language", "en");
+
+  const res = await fetch(`${OPENAI_API_BASE}/audio/transcriptions`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Whisper error ${res.status}: ${err}`);
+  }
+
+  const data = (await res.json()) as { text: string };
+  return typeof data.text === "string" ? data.text.trim() : "";
+}
+
+async function openaiChat(
+  messages: { role: "system" | "user"; content: string }[],
+  temperature = 0.4
+): Promise<string> {
+  const res = await fetch(`${OPENAI_API_BASE}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-4o",
+      messages,
+      response_format: { type: "json_object" },
+      temperature,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`GPT-4o error ${res.status}: ${err}`);
+  }
+
+  const data = (await res.json()) as { choices: { message: { content: string } }[] };
+  return data.choices[0]?.message?.content ?? "{}";
 }
 
 // --- Offscreen document management ---
@@ -106,22 +173,7 @@ async function transcribeChunk(base64: string, mimeType: string): Promise<string
     audioBuffer[i] = audioBytes.charCodeAt(i);
   }
   const audioBlob = new Blob([audioBuffer], { type: mimeType });
-  const formData = new FormData();
-  formData.append("audio", audioBlob, "chunk.webm");
-
-  const transcribeRes = await fetch(`${API_BASE_URL}/api/transcribe`, {
-    method: "POST",
-    headers: apiKey ? { "X-Api-Key": apiKey } : {},
-    body: formData,
-  });
-
-  if (!transcribeRes.ok) {
-    const errText = await transcribeRes.text();
-    throw new Error(`Chunk transcription failed: ${transcribeRes.status} ${errText}`);
-  }
-
-  const { transcript } = (await transcribeRes.json()) as { transcript: string };
-  return typeof transcript === "string" ? transcript.trim() : "";
+  return openaiTranscribe(audioBlob);
 }
 
 async function processChunkQueue(): Promise<void> {
@@ -149,7 +201,6 @@ async function processChunkQueue(): Promise<void> {
 }
 
 // --- Recording pipeline ---
-// Called with a stream ID that was obtained by the popup (which has invocation rights)
 async function startRecordingWithStream(tabId: number, streamId: string): Promise<void> {
   recordingTabId = tabId;
   currentTranscript = null;
@@ -208,7 +259,7 @@ async function stopRecording(): Promise<void> {
   }
 }
 
-// Phase 1: wait for chunk queue to drain, transcribe remainder (if any), extract points → broadcast "reviewing"
+// Phase 1: transcribe audio → extract points → broadcast "reviewing"
 async function runPhase1(base64Audio: string, mimeType: string): Promise<void> {
   try {
     // Wait for any in-flight chunk transcriptions to finish
@@ -220,7 +271,7 @@ async function runPhase1(base64Audio: string, mimeType: string): Promise<void> {
 
     let transcript = accumulatedTranscript;
 
-    // Transcribe the final blob if we have remaining audio (from last partial batch)
+    // Transcribe the final blob if we have remaining audio
     if (base64Audio && base64Audio.length >= 100) {
       const audioBytes = atob(base64Audio);
       const audioBuffer = new Uint8Array(audioBytes.length);
@@ -233,20 +284,8 @@ async function runPhase1(base64Audio: string, mimeType: string): Promise<void> {
         broadcastStatus("transcribing", "Transcribing final segment…");
         debugLog("Transcribing final recording segment…");
 
-        const formData = new FormData();
-        formData.append("audio", audioBlob, "recording.webm");
-
-        const transcribeRes = await fetch(`${API_BASE_URL}/api/transcribe`, {
-          method: "POST",
-          headers: apiKey ? { "X-Api-Key": apiKey } : {},
-          body: formData,
-        });
-
-        if (transcribeRes.ok) {
-          const { transcript: finalSegment } = (await transcribeRes.json()) as { transcript: string };
-          const seg = typeof finalSegment === "string" ? finalSegment.trim() : "";
-          if (seg) transcript = transcript ? `${transcript} ${seg}` : seg;
-        }
+        const seg = await openaiTranscribe(audioBlob);
+        if (seg) transcript = transcript ? `${transcript} ${seg}` : seg;
       }
     }
 
@@ -258,31 +297,28 @@ async function runPhase1(base64Audio: string, mimeType: string): Promise<void> {
 
     // Extract discussion points
     broadcastStatus("extracting", "Extracting discussion points…");
-    console.log("[Decker background] Calling /api/extract-points…");
+    console.log("[Decker background] Extracting discussion points…");
 
-    const extractRes = await fetch(`${API_BASE_URL}/api/extract-points`, {
-      method: "POST",
-      headers: getApiHeaders(),
-      body: JSON.stringify({ transcript }),
-    });
+    const extractRaw = await openaiChat(
+      [
+        { role: "system", content: EXTRACT_POINTS_SYSTEM },
+        { role: "user", content: extractPointsUser(transcript) },
+      ],
+      0.3
+    );
 
-    if (!extractRes.ok) {
-      const errText = await extractRes.text();
-      throw new Error(`Point extraction failed: ${extractRes.status} ${errText}`);
-    }
+    const parsedExtract = JSON.parse(extractRaw) as { points?: unknown };
+    const points = Array.isArray(parsedExtract.points)
+      ? (parsedExtract.points as unknown[]).filter((p): p is string => typeof p === "string").slice(0, 12)
+      : [];
 
-    const { points } = (await extractRes.json()) as { points: string[] };
     console.log("[Decker background] Extracted", points.length, "points");
 
     // Phase 1 complete — let user review
     broadcastStatus("reviewing", undefined, { transcript, points });
     await closeOffscreenDocument();
   } catch (err) {
-    const raw = err instanceof Error ? err.message : String(err);
-    const msg =
-      raw === "Failed to fetch" || raw.includes("Failed to fetch")
-        ? "API unreachable. Is the web server running? Run: pnpm --filter web dev (then open http://localhost:3000)"
-        : raw;
+    const msg = err instanceof Error ? err.message : String(err);
     debugLog(`runPhase1 FAILED: ${msg}`);
     broadcastStatus("error", msg);
     await closeOffscreenDocument();
@@ -312,24 +348,124 @@ async function runPhase2(
   try {
     broadcastStatus("generating", isNotes ? "Generating notes…" : "Generating presentation…");
 
-    const generateRes = await fetch(`${API_BASE_URL}/api/generate-deck`, {
-      method: "POST",
-      headers: getApiHeaders(),
-      body: JSON.stringify({
-        transcript,
-        selectedPoints,
-        customPrompt,
-        outputFormat: outputFormat || "presentation",
-        backgroundColor: backgroundColor || undefined,
-      }),
-    });
+    let html: string;
 
-    if (!generateRes.ok) {
-      const errText = await generateRes.text();
-      throw new Error(`Deck generation failed: ${generateRes.status} ${errText}`);
+    if (isNotes) {
+      let rawJson = await openaiChat([
+        { role: "system", content: NOTES_SYSTEM },
+        { role: "user", content: notesUser(transcript, selectedPoints, customPrompt) },
+      ]);
+      rawJson = rawJson.replace(/^```json\s*/i, "").replace(/\s*```$/i, "").trim();
+
+      const parsedObj = JSON.parse(rawJson) as Record<string, unknown>;
+      const sectionsRaw = Array.isArray(parsedObj.sections) ? parsedObj.sections : [];
+      const validSections = sectionsRaw
+        .slice(0, 8)
+        .filter((s): s is Record<string, unknown> => s !== null && typeof s === "object")
+        .map((s) => {
+          const chart = s.chart as Record<string, unknown> | undefined;
+          const validChart =
+            chart &&
+            typeof chart === "object" &&
+            Array.isArray(chart.labels) &&
+            Array.isArray(chart.values) &&
+            chart.labels.length === chart.values.length
+              ? {
+                  type: (["bar", "pie", "line", "doughnut"].includes(String(chart.type))
+                    ? (chart.type as "bar" | "pie" | "line" | "doughnut")
+                    : "bar") as "bar" | "pie" | "line" | "doughnut",
+                  title: typeof chart.title === "string" ? chart.title : undefined,
+                  labels: (chart.labels as unknown[]).filter((l): l is string => typeof l === "string").slice(0, 12),
+                  values: (chart.values as unknown[]).filter((v): v is number => typeof v === "number" && !Number.isNaN(v)).slice(0, 12),
+                }
+              : undefined;
+          const mermaid = typeof s.mermaid === "string" && s.mermaid.trim() ? s.mermaid.trim().slice(0, 2000) : undefined;
+          return {
+            heading: typeof s.heading === "string" ? s.heading : "Section",
+            items: Array.isArray(s.items)
+              ? (s.items as unknown[]).filter((i): i is string => typeof i === "string").slice(0, 12)
+              : [],
+            chart: validChart,
+            mermaid,
+          };
+        })
+        .filter((s) => s.items.length > 0 || s.chart || s.mermaid);
+
+      const notesData: NotesData = {
+        title: typeof parsedObj.title === "string" ? parsedObj.title : "Meeting Notes",
+        subtitle: typeof parsedObj.subtitle === "string" ? parsedObj.subtitle : undefined,
+        sections: validSections.length >= 1 ? validSections : [{ heading: "Summary", items: ["Add content from transcript"] }],
+      };
+
+      html = buildNotesHtml(notesData);
+    } else {
+      // Presentation (Reveal.js)
+      const bgColor = (() => {
+        let c = backgroundColor?.trim().toLowerCase();
+        if (!c && /green\s*(background|theme|slide)/i.test(customPrompt)) c = "green";
+        if (!c && /blue\s*(background|theme|slide)/i.test(customPrompt)) c = "blue";
+        if (!c && /light\s*(background|theme|slide)/i.test(customPrompt)) c = "light";
+        return c;
+      })();
+
+      let rawJson = await openaiChat([
+        { role: "system", content: DECK_SYSTEM },
+        { role: "user", content: deckUser(transcript, selectedPoints, customPrompt) },
+      ]);
+      rawJson = rawJson.replace(/^```json\s*/i, "").replace(/\s*```$/i, "").trim();
+
+      const parsedObj = JSON.parse(rawJson) as Record<string, unknown>;
+      const slides = Array.isArray(parsedObj.slides) ? parsedObj.slides : [];
+      const validSlides = slides
+        .slice(0, 12)
+        .filter((s): s is Record<string, unknown> => s !== null && typeof s === "object")
+        .map((s) => {
+          const chart = s.chart as Record<string, unknown> | undefined;
+          const validChart =
+            chart &&
+            typeof chart === "object" &&
+            Array.isArray(chart.labels) &&
+            Array.isArray(chart.values) &&
+            chart.labels.length === chart.values.length
+              ? {
+                  type: (["bar", "pie", "line", "doughnut"].includes(String(chart.type))
+                    ? (chart.type as "bar" | "pie" | "line" | "doughnut")
+                    : "bar") as "bar" | "pie" | "line" | "doughnut",
+                  title: typeof chart.title === "string" ? chart.title : undefined,
+                  labels: (chart.labels as unknown[]).filter((l): l is string => typeof l === "string").slice(0, 12),
+                  values: (chart.values as unknown[]).filter((v): v is number => typeof v === "number" && !Number.isNaN(v)).slice(0, 12),
+                }
+              : undefined;
+          const mermaid = typeof s.mermaid === "string" && s.mermaid.trim() ? s.mermaid.trim().slice(0, 2000) : undefined;
+          return {
+            title: typeof s.title === "string" ? s.title : "Slide",
+            bullets: Array.isArray(s.bullets)
+              ? (s.bullets as unknown[]).filter((b): b is string => typeof b === "string").slice(0, 10)
+              : [],
+            notes: typeof s.notes === "string" ? s.notes : undefined,
+            chart: validChart,
+            mermaid,
+          };
+        });
+
+      const deckData: DeckData = {
+        title: typeof parsedObj.title === "string" ? parsedObj.title : "Presentation",
+        subtitle: typeof parsedObj.subtitle === "string" ? parsedObj.subtitle : undefined,
+        slides:
+          validSlides.length >= 3
+            ? validSlides
+            : validSlides.concat(
+                Array.from({ length: Math.max(0, 3 - validSlides.length) }, (_, i) => ({
+                  title: `Slide ${validSlides.length + i + 1}`,
+                  bullets: ["Add content from transcript"],
+                  notes: undefined as string | undefined,
+                }))
+              ),
+      };
+
+      html = buildRevealHtml(deckData, bgColor);
     }
 
-    const { html } = (await generateRes.json()) as { html: string };
     lastGeneratedHtml = html;
 
     const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
@@ -399,7 +535,6 @@ chrome.runtime.onMessage.addListener(
       }
 
       case MessageType.START_RECORDING: {
-        // Legacy path — recording now started from popup via START_RECORDING_WITH_STREAM
         sendResponse({ error: "Use START_RECORDING_WITH_STREAM from popup" });
         return false;
       }
