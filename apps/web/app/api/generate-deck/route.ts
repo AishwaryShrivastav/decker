@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import { buildRevealHtml, DeckData } from "./revealTemplate";
 import { buildNotesHtml, NotesData } from "./notesTemplate";
 
+export const runtime = "edge";
 export const maxDuration = 60;
 
 export type OutputFormat = "presentation" | "notes";
@@ -230,6 +231,8 @@ ${pointsClause}${customClause}`;
           title: `Slide ${validSlides.length + i + 1}`,
           bullets: ["Add content from transcript"],
           notes: undefined as string | undefined,
+          chart: undefined,
+          mermaid: undefined,
         }))
       ),
     };

@@ -7,6 +7,7 @@ apps/extension/dist/
 apps/extension/dist-firefox/
 apps/web/.next/
 apps/web/out/
+apps/web/.vercel/
 
 # Environment variables — never commit secrets
 .env
