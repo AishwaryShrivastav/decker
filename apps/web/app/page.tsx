@@ -151,7 +151,7 @@ export default function Home() {
             }}>
               <span>🔓 Open Source</span>
               <span style={{ color: C.dim }}>·</span>
-              <span>💳 $1 Chrome Plugin</span>
+              <span>🔑 Bring Your Own Key</span>
               <span style={{ color: C.dim }}>·</span>
               <span>🚫 No Subscription</span>
             </div>
@@ -222,6 +222,37 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Disclaimer — what Decker is and isn't */}
+      <section style={{ maxWidth: 860, margin: "0 auto", padding: "0 24px 100px" }}>
+        <div style={{
+          padding: "40px 48px",
+          background: "rgba(255,255,255,0.02)",
+          border: `1px solid rgba(245, 166, 35, 0.25)`,
+          borderRadius: 20,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+            <span style={{ fontSize: "1.4rem" }}>⚠️</span>
+            <span style={{ fontWeight: 800, fontSize: "1.05rem", color: C.gold, letterSpacing: "-0.2px" }}>
+              Decker is not a meeting notes tool. Here&apos;s what it actually is.
+            </span>
+          </div>
+          <p style={{ color: C.text, lineHeight: 1.8, marginBottom: 16, fontSize: "0.97rem" }}>
+            Don&apos;t confuse this for a MoM (minutes of meeting) tool, a meeting recorder, or a always-on transcription service.
+            Those are different things. Decker is a <strong style={{ color: C.text }}>meeting-to-deck tool</strong> — you use it at
+            specific moments, in specific meetings, when you want to <em>end with impact.</em>
+          </p>
+          <p style={{ color: C.muted, lineHeight: 1.8, marginBottom: 16, fontSize: "0.95rem" }}>
+            Think: a pitch call. A strategy session. A kickoff with a new client. A demo where you want to leave something behind.
+            You&apos;ll know the meeting. When you&apos;re in it, you&apos;ll know. Hit record, let Decker do the work,
+            and wrap the meeting by sharing a deck — right there, before anyone closes their laptop.
+          </p>
+          <p style={{ color: C.muted, lineHeight: 1.8, fontSize: "0.95rem" }}>
+            That said — <span style={{ color: C.text }}>you can absolutely use it like a meeting notes tool.</span> The HTML notes output
+            is free, clean, and shareable. But that&apos;s the bonus. The point is the presentation.
+          </p>
+        </div>
+      </section>
+
       {/* How it works */}
       <section
         id="how"
@@ -278,6 +309,34 @@ export default function Home() {
                 <p style={{ fontSize: "0.88rem", color: C.muted, margin: 0, lineHeight: 1.6 }}>{f.desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* BYOK callout */}
+      <section style={{ maxWidth: 860, margin: "0 auto", padding: "0 24px 60px" }}>
+        <div style={{
+          padding: "36px 48px",
+          background: `linear-gradient(135deg, rgba(36,150,237,0.08) 0%, rgba(36,150,237,0.03) 100%)`,
+          border: `1px solid rgba(36, 150, 237, 0.3)`,
+          borderRadius: 20,
+          display: "grid", gridTemplateColumns: "auto 1fr", gap: 24, alignItems: "center"
+        }} className="byok-grid">
+          <div style={{
+            width: 64, height: 64, borderRadius: 16,
+            background: `rgba(36,150,237,0.12)`, border: `1px solid rgba(36,150,237,0.25)`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: "1.8rem", flexShrink: 0
+          }}>🔑</div>
+          <div>
+            <div style={{ fontWeight: 800, color: C.text, fontSize: "1.1rem", marginBottom: 8, letterSpacing: "-0.3px" }}>
+              BYOK — Bring Your Own Key
+            </div>
+            <p style={{ color: C.muted, margin: 0, lineHeight: 1.7, fontSize: "0.93rem" }}>
+              Decker has <strong style={{ color: C.text }}>no AI on its servers.</strong> You plug in your own OpenAI API key —
+              it&apos;s stored locally in your browser and goes <em>directly</em> to OpenAI. We never see it, touch it, or bill you for it.
+              A typical meeting costs a few cents in API usage. You control everything: the key, the data, the cost.
+            </p>
           </div>
         </div>
       </section>
@@ -363,7 +422,8 @@ export default function Home() {
         </div>
 
         <p style={{ textAlign: "center", color: C.dim, fontSize: "0.82rem", marginTop: 24 }}>
-          Both options use your own OpenAI API key. Processing costs go directly to OpenAI — typically a few cents per meeting.
+          🔑 Both options are BYOK — your OpenAI API key, stored in your browser, billed directly to your OpenAI account.
+          We never handle your key or your data. Typical cost: a few cents per meeting.
         </p>
       </section>
 
@@ -513,6 +573,7 @@ export default function Home() {
         @media (max-width: 700px) {
           .pricing-grid { grid-template-columns: 1fr !important; }
           .privacy-grid { grid-template-columns: 1fr !important; }
+          .byok-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </main>
