@@ -79,6 +79,10 @@ Use the [bug report template](.github/ISSUE_TEMPLATE/bug_report.md). Include:
 - Steps to reproduce
 - Background service worker console logs if relevant
 
+## Code of conduct
+
+Please read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) before participating.
+
 ## License
 
 By contributing, you agree that your contributions will be licensed under the [MIT License](LICENSE).

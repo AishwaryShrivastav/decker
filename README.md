@@ -8,9 +8,13 @@ Record your Google Meet → AI transcribes it → download a polished Reveal.js 
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-blue?logo=googlechrome)](https://chrome.google.com/webstore)
 
+**Website:** [decker.techforgood.studio](https://decker.techforgood.studio)
+
 No server required. All AI calls go directly from the extension to the OpenAI API using your own key.
 
 > **Get it in one click:** [$1 on the Chrome Web Store](https://chrome.google.com/webstore) — one-time payment, use forever. Or clone this repo and self-host for free.
+
+> **Not a meeting notes tool.** Decker is for specific high-value meetings where you want to close with impact — a pitch, a strategy session, a client kickoff. You'll know when to use it. (You *can* use it for notes too — the HTML notes output is free and clean — but that's the bonus.)
 
 ---
 
@@ -242,6 +246,13 @@ Open the background logs: `chrome://extensions` → Decker → **Service Worker*
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Bug reports and PRs are welcome.
+
+Please read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) before participating.
+To report a security issue, see [SECURITY.md](SECURITY.md).
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
 
 ## Licence
 
