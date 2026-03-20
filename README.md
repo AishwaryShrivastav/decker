@@ -1,8 +1,16 @@
 # Decker
 
-Record a Google Meet call → AI transcribes it → download a Reveal.js presentation or meeting notes in one click.
+**End every meeting with an aha moment.**
+
+Record your Google Meet → AI transcribes it → download a polished Reveal.js presentation or meeting notes before anyone leaves the call.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-blue?logo=googlechrome)](https://chrome.google.com/webstore)
 
 No server required. All AI calls go directly from the extension to the OpenAI API using your own key.
+
+> **Get it in one click:** [$1 on the Chrome Web Store](https://chrome.google.com/webstore) — one-time payment, use forever. Or clone this repo and self-host for free.
 
 ---
 
@@ -43,7 +51,7 @@ No server required. All AI calls go directly from the extension to the OpenAI AP
 ### 1. Clone and install dependencies
 
 ```bash
-git clone https://github.com/your-username/decker.git
+git clone https://github.com/AishwaryShrivastav/decker.git
 cd decker
 pnpm install
 ```
@@ -230,6 +238,10 @@ Open the background logs: `chrome://extensions` → Decker → **Service Worker*
 | `400` on GPT-4o | Transcript too short (minimum 50 characters) |
 
 ---
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Bug reports and PRs are welcome.
 
 ## Licence
 

@@ -15,7 +15,6 @@ function detectBrowser(): Browser {
 const C = {
   blue: "#2496ED",
   blueDim: "#1D63ED",
-  navy: "#003F8C",
   bg: "#080c14",
   surface: "#0f1624",
   card: "#141d2e",
@@ -23,21 +22,34 @@ const C = {
   text: "#e8eef5",
   muted: "#8a9bb8",
   dim: "#4a5f7f",
+  gold: "#f5a623",
 };
 
 const FEATURES = [
-  { icon: "🎙", title: "One-click recording", desc: "Captures your Google Meet tab audio — no screen-share dialog, no installs." },
-  { icon: "🔑", title: "Bring your own AI", desc: "Add your OpenAI API key. Process transcription and extraction locally or via your own key." },
-  { icon: "🤖", title: "AI point extraction", desc: "Extracts key topics automatically — you choose what goes in the deck." },
-  { icon: "📦", title: "Self-contained output", desc: "Downloads a standalone HTML presentation that runs anywhere, offline." },
-  { icon: "🔓", title: "Open source & free", desc: "MIT licensed. Inspect the code, self-host the API, or fork it." },
-  { icon: "🛡️", title: "Privacy first", desc: "Your data never leaves your control. No backend storage, end-to-end local processing." },
+  { icon: "🎙", title: "One-click recording", desc: "Captures your Google Meet tab audio — no screen-share dialog, no extra installs, zero friction." },
+  { icon: "⚡", title: "Live transcription", desc: "Whisper processes your audio every 16 seconds as you speak. Watch the transcript build in real time." },
+  { icon: "🤖", title: "AI extracts the points", desc: "GPT-4o reads the transcript and surfaces the 5–12 most important discussion points. You pick the ones that matter." },
+  { icon: "📊", title: "Presentations AND notes", desc: "Generate a Reveal.js slide deck or a scrollable HTML notes document — your call, literally." },
+  { icon: "📈", title: "Charts & diagrams", desc: "Chart.js and Mermaid diagrams generated automatically where your data calls for them." },
+  { icon: "🛡️", title: "Your key. Your data. Always.", desc: "Calls go from your browser directly to OpenAI. No backend. No storage. No middleman. Audit the code yourself." },
 ];
 
 const STEPS = [
-  { n: 1, title: "Record", desc: "Click the Decker icon in the toolbar while in a Google Meet to start recording." },
-  { n: 2, title: "Review", desc: "AI transcribes audio and extracts discussion points — select what goes in the deck." },
-  { n: 3, title: "Download", desc: "Click Generate Deck. A polished HTML presentation downloads in seconds." },
+  {
+    n: 1,
+    title: "Record",
+    desc: "Click the Decker icon in your Chrome toolbar while you're in a Google Meet. One click starts the recording. That's it.",
+  },
+  {
+    n: 2,
+    title: "Review",
+    desc: "When you stop, AI transcribes everything and extracts the key discussion points. Edit, select, add custom instructions.",
+  },
+  {
+    n: 3,
+    title: "Ship",
+    desc: "Hit Generate. A polished HTML presentation downloads in seconds. Drop it in the chat before anyone leaves the call.",
+  },
 ];
 
 const BROWSERS = [
@@ -50,30 +62,6 @@ const BROWSERS = [
   { name: "Zen", icon: "◯", status: "roadmap" },
 ];
 
-const INSTALL_OPTIONS = [
-  {
-    title: "Install from Chrome Web Store",
-    desc: "One-click install for Chrome, Brave, Arc, Edge, and all Chromium-based browsers.",
-    cta: "Add to Chrome — it's free",
-    href: "https://chrome.google.com/webstore",
-    primary: true,
-  },
-  {
-    title: "Download & run locally",
-    desc: "Clone the repo, run the web app and extension locally. Perfect for self-hosting or custom builds.",
-    cta: "Clone & run locally",
-    href: "https://github.com/AishwaryShrivastav/decker#readme",
-    primary: false,
-  },
-  {
-    title: "Download release ZIP",
-    desc: "Grab a pre-built extension from GitHub releases and load it in developer mode.",
-    cta: "Download ZIP",
-    href: "https://github.com/AishwaryShrivastav/decker/releases",
-    primary: false,
-  },
-];
-
 function useScrollReveal(threshold = 0.1) {
   const ref = useRef<HTMLElement>(null);
   const [revealed, setRevealed] = useState(false);
@@ -81,14 +69,10 @@ function useScrollReveal(threshold = 0.1) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-
     const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) setRevealed(true);
-      },
+      ([entry]) => { if (entry.isIntersecting) setRevealed(true); },
       { threshold }
     );
-
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
@@ -100,47 +84,53 @@ export default function Home() {
   const [browser, setBrowser] = useState<Browser>("other");
 
   const heroRef = useScrollReveal(0.2);
-  const howRef = useScrollReveal(0.15);
+  const storyRef = useScrollReveal(0.1);
+  const howRef = useScrollReveal(0.1);
   const featuresRef = useScrollReveal(0.08);
-  const privacyRef = useScrollReveal(0.15);
-  const browsersRef = useScrollReveal(0.15);
-  const installRef = useScrollReveal(0.15);
-  const ctaRef = useScrollReveal(0.2);
+  const pricingRef = useScrollReveal(0.1);
+  const browsersRef = useScrollReveal(0.1);
+  const ctaRef = useScrollReveal(0.15);
 
-  useEffect(() => {
-    setBrowser(detectBrowser());
-  }, []);
+  useEffect(() => { setBrowser(detectBrowser()); }, []);
 
-  const ctaBtn =
+  const primaryCTA =
     browser === "chromium" ? (
-      <a href="https://chrome.google.com/webstore" target="_blank" rel="noopener noreferrer" className="btn btn-primary animate-fade-in-up animate-delay-4">
-        Add to Chrome — it&apos;s free
+      <a href="https://chrome.google.com/webstore" target="_blank" rel="noopener noreferrer" className="btn btn-primary">
+        Get Chrome Plugin — $1
       </a>
     ) : browser === "firefox" ? (
-      <a href="#" className="btn btn-primary" style={{ opacity: 0.6, pointerEvents: "none" }}>
+      <span className="btn btn-primary" style={{ opacity: 0.5, cursor: "not-allowed" }}>
         Firefox — Coming Soon
-      </a>
+      </span>
     ) : (
-      <a href="https://github.com/AishwaryShrivastav/decker/releases" target="_blank" rel="noopener noreferrer" className="btn btn-secondary animate-fade-in-up animate-delay-4">
-        Download ZIP
+      <a href="https://chrome.google.com/webstore" target="_blank" rel="noopener noreferrer" className="btn btn-primary">
+        Get Chrome Plugin — $1
       </a>
     );
 
   return (
     <main>
       {/* Nav */}
-      <nav className="nav-blur fixed top-0 left-0 right-0 z-50">
+      <nav className="nav-blur" style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50 }}>
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px", height: 64, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <a href="#" style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none" }}>
-            <img src="/logo.png" alt="Decker" width={38} height={38} style={{ objectFit: "contain" }} />
+          <a href="#" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
+            <img src="/logo.png" alt="Decker" width={36} height={36} style={{ objectFit: "contain" }} />
             <span style={{ fontWeight: 800, fontSize: "1.2rem", color: C.blue, letterSpacing: "-0.5px" }}>Decker</span>
           </a>
-          <div style={{ display: "flex", gap: 28, fontSize: "0.9rem" }}>
-            <a href="#how" className="nav-link" style={{ color: C.muted, textDecoration: "none", transition: "color 0.2s" }}>How it works</a>
-            <a href="#features" className="nav-link" style={{ color: C.muted, textDecoration: "none", transition: "color 0.2s" }}>Features</a>
-            <a href="#browsers" className="nav-link" style={{ color: C.muted, textDecoration: "none", transition: "color 0.2s" }}>Browsers</a>
-            <a href="#install" className="nav-link" style={{ color: C.muted, textDecoration: "none", transition: "color 0.2s" }}>Install</a>
-            <a href="https://github.com/AishwaryShrivastav/decker" target="_blank" rel="noopener noreferrer" style={{ color: C.blue, textDecoration: "none", fontWeight: 600 }}>GitHub ↗</a>
+          <div style={{ display: "flex", gap: 28, alignItems: "center", fontSize: "0.9rem" }}>
+            <a href="#story" className="nav-link" style={{ color: C.muted, textDecoration: "none" }}>Story</a>
+            <a href="#how" className="nav-link" style={{ color: C.muted, textDecoration: "none" }}>How it works</a>
+            <a href="#pricing" className="nav-link" style={{ color: C.muted, textDecoration: "none" }}>Pricing</a>
+            <a href="https://github.com/AishwaryShrivastav/decker" target="_blank" rel="noopener noreferrer" style={{ color: C.muted, textDecoration: "none" }}>GitHub</a>
+            {browser === "chromium" ? (
+              <a href="https://chrome.google.com/webstore" target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ padding: "8px 18px", fontSize: "0.85rem" }}>
+                Get Plugin — $1
+              </a>
+            ) : (
+              <a href="https://github.com/AishwaryShrivastav/decker" target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: "8px 18px", fontSize: "0.85rem" }}>
+                View on GitHub
+              </a>
+            )}
           </div>
         </div>
       </nav>
@@ -149,45 +139,86 @@ export default function Home() {
       <section
         ref={heroRef.ref}
         className="hero-gradient hero-gradient-animated"
-        style={{ padding: "120px 24px 100px", minHeight: "85vh", display: "flex", alignItems: "center" }}
+        style={{ padding: "130px 24px 110px", minHeight: "90vh", display: "flex", alignItems: "center" }}
       >
-        <div className="hero-grid" style={{ maxWidth: 1100, margin: "0 auto", width: "100%", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 60, alignItems: "center" }}>
-          <div>
-            <div className="animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
-              <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(36, 150, 237, 0.12)", borderRadius: 100, padding: "8px 16px", marginBottom: 20, fontSize: "0.85rem", color: C.blue, fontWeight: 600 }}>
-                <span>🔓 Open source</span>
-                <span style={{ color: C.dim }}>·</span>
-                <span>🛡️ Privacy first</span>
-                <span style={{ color: C.dim }}>·</span>
-                <span>🔑 Bring your AI</span>
-              </div>
+        <div style={{ maxWidth: 780, margin: "0 auto", width: "100%", textAlign: "center" }}>
+          <div className="animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 10,
+              background: "rgba(36, 150, 237, 0.1)", border: "1px solid rgba(36, 150, 237, 0.2)",
+              borderRadius: 100, padding: "8px 18px", marginBottom: 28,
+              fontSize: "0.82rem", color: C.blue, fontWeight: 600, letterSpacing: "0.02em"
+            }}>
+              <span>🔓 Open Source</span>
+              <span style={{ color: C.dim }}>·</span>
+              <span>💳 $1 Chrome Plugin</span>
+              <span style={{ color: C.dim }}>·</span>
+              <span>🚫 No Subscription</span>
             </div>
-            <h1
-              className="animate-fade-in-up animate-delay-1"
-              style={{ fontSize: "clamp(2.5rem, 4.5vw, 3.5rem)", fontWeight: 800, margin: "0 0 20px", letterSpacing: "-1.5px", color: C.text, lineHeight: 1.1 }}
-            >
-              Record a meeting.<br />
-              <span style={{ color: C.blue }}>Ship a presentation.</span>
-            </h1>
-            <p style={{ fontSize: "1.15rem", color: C.muted, maxWidth: 480, margin: "0 0 36px", lineHeight: 1.7 }} className="animate-fade-in-up animate-delay-2">
-              Decker records your Google Meet tab, transcribes it with Whisper, extracts discussion points, and downloads a Reveal.js deck — all in one click. Connect the extension and bring your own AI.
-            </p>
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-              {ctaBtn}
-              <a href="https://github.com/AishwaryShrivastav/decker" target="_blank" rel="noopener noreferrer" className="btn btn-secondary animate-fade-in-up animate-delay-5">
-                View on GitHub ↗
-              </a>
-            </div>
-            <p style={{ marginTop: 20, fontSize: "0.8rem", color: C.dim }} className="animate-fade-in-up animate-delay-6">
-              MIT licensed · Self-host friendly · No data stored
-            </p>
           </div>
-          <div
-            className="hero-image-wrap animate-float"
-            style={{ aspectRatio: "1", maxWidth: 360, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "rgba(255,255,255,0.03)", borderRadius: 24 }}
+
+          <h1
+            className="animate-fade-in-up animate-delay-1"
+            style={{
+              fontSize: "clamp(2.8rem, 6vw, 4.5rem)", fontWeight: 800,
+              margin: "0 0 24px", letterSpacing: "-2px", color: C.text, lineHeight: 1.08
+            }}
           >
-            <img src="/logo.png" alt="Decker — whale carrying presentation deck" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+            End every meeting<br />
+            <span style={{
+              background: `linear-gradient(135deg, ${C.blue} 0%, #7ab8f5 100%)`,
+              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent"
+            }}>with an aha moment.</span>
+          </h1>
+
+          <p
+            className="animate-fade-in-up animate-delay-2"
+            style={{ fontSize: "1.2rem", color: C.muted, maxWidth: 600, margin: "0 auto 40px", lineHeight: 1.7 }}
+          >
+            Record your Google Meet. Decker transcribes it, extracts the key points, and generates a polished
+            presentation — before anyone leaves the call.
+          </p>
+
+          <div className="animate-fade-in-up animate-delay-3" style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
+            {primaryCTA}
+            <a href="https://github.com/AishwaryShrivastav/decker" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
+              Self-host for free →
+            </a>
           </div>
+
+          <p className="animate-fade-in-up animate-delay-4" style={{ marginTop: 22, fontSize: "0.78rem", color: C.dim, letterSpacing: "0.04em" }}>
+            MIT licensed · Your OpenAI key · No backend · No data stored
+          </p>
+        </div>
+      </section>
+
+      {/* Story */}
+      <section
+        id="story"
+        ref={storyRef.ref}
+        className={`reveal-on-scroll ${storyRef.revealed ? "revealed" : ""}`}
+        style={{ maxWidth: 800, margin: "0 auto", padding: "100px 24px" }}
+      >
+        <div style={{
+          position: "relative",
+          padding: "48px 52px",
+          background: `linear-gradient(135deg, rgba(36, 150, 237, 0.06) 0%, rgba(36, 150, 237, 0.02) 100%)`,
+          border: `1px solid rgba(36, 150, 237, 0.18)`,
+          borderRadius: 24,
+          textAlign: "center"
+        }}>
+          <div style={{ fontSize: "2.4rem", marginBottom: 24 }}>💡</div>
+          <p style={{ fontSize: "clamp(1.1rem, 2.2vw, 1.35rem)", color: C.text, lineHeight: 1.75, margin: "0 0 28px", fontStyle: "italic" }}>
+            &ldquo;You&apos;re 45 minutes into a great meeting. Ideas are flying. Decisions are made.
+            Then everyone closes their laptops — and it&apos;s gone.&rdquo;
+          </p>
+          <p style={{ fontSize: "clamp(1rem, 1.8vw, 1.15rem)", color: C.muted, lineHeight: 1.7, margin: "0 0 28px" }}>
+            Decker captures it all. In the last minute of the call, you hit Generate.
+            A Reveal.js presentation drops in the chat.
+          </p>
+          <p style={{ fontSize: "1.2rem", fontWeight: 700, color: C.blue, margin: 0 }}>
+            That&apos;s the aha moment. ✨
+          </p>
         </div>
       </section>
 
@@ -196,32 +227,30 @@ export default function Home() {
         id="how"
         ref={howRef.ref}
         className={`reveal-on-scroll ${howRef.revealed ? "revealed" : ""}`}
-        style={{ maxWidth: 1100, margin: "0 auto", padding: "80px 24px" }}
+        style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 100px" }}
       >
-        <h2 style={{ fontSize: "2rem", fontWeight: 800, textAlign: "center", marginBottom: 48, color: C.text, letterSpacing: "-0.5px" }}>How it works</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 24 }}>
+        <h2 style={{ fontSize: "clamp(1.8rem, 3vw, 2.4rem)", fontWeight: 800, textAlign: "center", marginBottom: 12, color: C.text, letterSpacing: "-0.5px" }}>
+          How it works
+        </h2>
+        <p style={{ color: C.muted, textAlign: "center", marginBottom: 52, fontSize: "1rem" }}>
+          Three steps. Under a minute. No setup, no server, no subscription.
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 24 }}>
           {STEPS.map((s, i) => (
-            <div key={s.n} className="card" style={{ transitionDelay: `${i * 0.1}s` }}>
-              <div
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: "50%",
-                  background: `${C.blue}18`,
-                  border: `2px solid ${C.blue}`,
-                  color: C.blue,
-                  fontWeight: 800,
-                  fontSize: "1.1rem",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginBottom: 16,
-                }}
-              >
-                {s.n}
-              </div>
-              <div style={{ fontWeight: 700, color: C.text, marginBottom: 8, fontSize: "1.05rem" }}>{s.title}</div>
-              <p style={{ fontSize: "0.9rem", color: C.muted, margin: 0, lineHeight: 1.6 }}>{s.desc}</p>
+            <div key={s.n} className="card" style={{ transitionDelay: `${i * 0.1}s`, position: "relative", overflow: "hidden" }}>
+              <div style={{
+                position: "absolute", top: 0, right: 0,
+                fontSize: "6rem", fontWeight: 900, color: "rgba(36, 150, 237, 0.04)",
+                lineHeight: 1, padding: "8px 16px", fontFamily: "Space Grotesk, sans-serif"
+              }}>{s.n}</div>
+              <div style={{
+                width: 48, height: 48, borderRadius: "50%",
+                background: `rgba(36, 150, 237, 0.12)`, border: `2px solid ${C.blue}`,
+                color: C.blue, fontWeight: 800, fontSize: "1.1rem",
+                display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18
+              }}>{s.n}</div>
+              <div style={{ fontWeight: 700, color: C.text, marginBottom: 10, fontSize: "1.1rem" }}>{s.title}</div>
+              <p style={{ fontSize: "0.92rem", color: C.muted, margin: 0, lineHeight: 1.65 }}>{s.desc}</p>
             </div>
           ))}
         </div>
@@ -232,170 +261,260 @@ export default function Home() {
         id="features"
         ref={featuresRef.ref}
         className={`reveal-on-scroll ${featuresRef.revealed ? "revealed" : ""}`}
-        style={{ maxWidth: 1100, margin: "0 auto", padding: "80px 24px" }}
+        style={{ background: `rgba(255,255,255,0.015)`, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}` }}
       >
-        <h2 style={{ fontSize: "2rem", fontWeight: 800, textAlign: "center", marginBottom: 48, color: C.text, letterSpacing: "-0.5px" }}>Why Decker</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 20 }}>
-          {FEATURES.map((f) => (
-            <div key={f.title} className="card">
-              <div style={{ fontSize: "1.8rem", marginBottom: 12 }}>{f.icon}</div>
-              <div style={{ fontWeight: 700, color: C.text, marginBottom: 8, fontSize: "1rem" }}>{f.title}</div>
-              <p style={{ fontSize: "0.88rem", color: C.muted, margin: 0, lineHeight: 1.55 }}>{f.desc}</p>
-            </div>
-          ))}
+        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "100px 24px" }}>
+          <h2 style={{ fontSize: "clamp(1.8rem, 3vw, 2.4rem)", fontWeight: 800, textAlign: "center", marginBottom: 12, color: C.text, letterSpacing: "-0.5px" }}>
+            Built for meetings that matter
+          </h2>
+          <p style={{ color: C.muted, textAlign: "center", marginBottom: 52, fontSize: "1rem" }}>
+            Every feature exists to help you close meetings with conviction.
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 20 }}>
+            {FEATURES.map((f, i) => (
+              <div key={f.title} className="card" style={{ transitionDelay: `${i * 0.07}s` }}>
+                <div style={{ fontSize: "1.9rem", marginBottom: 14 }}>{f.icon}</div>
+                <div style={{ fontWeight: 700, color: C.text, marginBottom: 8, fontSize: "1rem" }}>{f.title}</div>
+                <p style={{ fontSize: "0.88rem", color: C.muted, margin: 0, lineHeight: 1.6 }}>{f.desc}</p>
+              </div>
+            ))}
+          </div>
         </div>
+      </section>
+
+      {/* Pricing */}
+      <section
+        id="pricing"
+        ref={pricingRef.ref}
+        className={`reveal-on-scroll ${pricingRef.revealed ? "revealed" : ""}`}
+        style={{ maxWidth: 860, margin: "0 auto", padding: "100px 24px" }}
+      >
+        <h2 style={{ fontSize: "clamp(1.8rem, 3vw, 2.4rem)", fontWeight: 800, textAlign: "center", marginBottom: 12, color: C.text, letterSpacing: "-0.5px" }}>
+          Simple pricing. Actually simple.
+        </h2>
+        <p style={{ color: C.muted, textAlign: "center", marginBottom: 52, fontSize: "1rem" }}>
+          Free if you build it. One dollar if you just want to use it.
+        </p>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }} className="pricing-grid">
+          {/* Free */}
+          <div className="card" style={{ padding: "36px 32px", display: "flex", flexDirection: "column" }}>
+            <div style={{ fontWeight: 700, color: C.muted, fontSize: "0.8rem", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>Open Source</div>
+            <div style={{ fontSize: "2.8rem", fontWeight: 800, color: C.text, letterSpacing: "-1px", marginBottom: 8 }}>Free</div>
+            <p style={{ fontSize: "0.9rem", color: C.muted, marginBottom: 28, lineHeight: 1.6 }}>Clone, build, and run Decker yourself. MIT licensed — fork it, extend it, ship your own version.</p>
+            <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", flex: 1 }}>
+              {[
+                "Full source code access",
+                "Self-host the Next.js backend",
+                "Build your own Chrome extension",
+                "MIT licensed — use commercially",
+                "Contribute back to the project",
+              ].map((item) => (
+                <li key={item} style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 11, color: C.muted, fontSize: "0.9rem" }}>
+                  <span style={{ color: C.blue, marginTop: 2, flexShrink: 0 }}>✓</span> {item}
+                </li>
+              ))}
+            </ul>
+            <a href="https://github.com/AishwaryShrivastav/decker" target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ width: "100%", justifyContent: "center" }}>
+              Clone on GitHub →
+            </a>
+          </div>
+
+          {/* $1 Plugin */}
+          <div
+            className="card animate-glow"
+            style={{
+              padding: "36px 32px",
+              display: "flex", flexDirection: "column",
+              background: `linear-gradient(135deg, rgba(36,150,237,0.1) 0%, rgba(36,150,237,0.04) 100%)`,
+              border: `1px solid rgba(36, 150, 237, 0.35)`,
+              position: "relative", overflow: "hidden"
+            }}
+          >
+            <div style={{
+              position: "absolute", top: 20, right: 20,
+              background: C.gold, color: "#000", fontSize: "0.7rem",
+              fontWeight: 800, padding: "4px 10px", borderRadius: 100, letterSpacing: "0.05em"
+            }}>RECOMMENDED</div>
+
+            <div style={{ fontWeight: 700, color: C.blue, fontSize: "0.8rem", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>Chrome Plugin</div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
+              <span style={{ fontSize: "2.8rem", fontWeight: 800, color: C.text, letterSpacing: "-1px" }}>$1</span>
+              <span style={{ color: C.muted, fontSize: "0.9rem" }}>one-time</span>
+            </div>
+            <p style={{ fontSize: "0.8rem", color: C.dim, marginBottom: 28 }}>No subscription. No renewal. Pay once, use forever.</p>
+            <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", flex: 1 }}>
+              {[
+                "One-click install from Chrome Web Store",
+                "Works in Chrome, Brave, Arc, Edge",
+                "Use the current build forever",
+                "Occasional free upgrades — no extra charge",
+                "No self-hosting, no build step",
+              ].map((item) => (
+                <li key={item} style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 11, color: C.text, fontSize: "0.9rem" }}>
+                  <span style={{ color: C.blue, marginTop: 2, flexShrink: 0 }}>✓</span> {item}
+                </li>
+              ))}
+            </ul>
+            <a href="https://chrome.google.com/webstore" target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ width: "100%", justifyContent: "center" }}>
+              Install from Chrome Web Store — $1
+            </a>
+          </div>
+        </div>
+
+        <p style={{ textAlign: "center", color: C.dim, fontSize: "0.82rem", marginTop: 24 }}>
+          Both options use your own OpenAI API key. Processing costs go directly to OpenAI — typically a few cents per meeting.
+        </p>
       </section>
 
       {/* Open Source & Privacy */}
       <section
-        ref={privacyRef.ref}
-        className={`reveal-on-scroll ${privacyRef.revealed ? "revealed" : ""}`}
-        style={{ maxWidth: 1100, margin: "0 auto", padding: "80px 24px" }}
+        style={{ background: `rgba(255,255,255,0.015)`, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}` }}
       >
-        <div className="card privacy-grid" style={{ padding: "48px 32px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "center" }}>
-          <div>
-            <img
-              src="/images/privacy.png"
-              alt="Privacy first — your data stays yours"
-              style={{ width: "100%", maxWidth: 320, borderRadius: 16, boxShadow: "0 20px 50px -20px rgba(0,0,0,0.5)" }}
-            />
-          </div>
-          <div>
-            <h2 style={{ fontSize: "1.75rem", fontWeight: 800, marginBottom: 16, color: C.text }}>Open source. Privacy first.</h2>
-            <p style={{ color: C.muted, marginBottom: 20, lineHeight: 1.7 }}>
-              Decker is fully open source (MIT) and privacy-first. Use your own OpenAI API key — we don&apos;t store recordings, transcripts, or decks. Everything stays local until you choose to process it. Connect the extension to your workflow and own your data.
-            </p>
-            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-              {["No backend data storage", "End-to-end local processing", "Open source — audit the code", "Bring your own API key"].map((item) => (
-                <li key={item} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, color: C.text, fontSize: "0.95rem" }}>
-                  <span style={{ color: C.blue }}>✓</span> {item}
-                </li>
+        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "100px 24px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center" }} className="privacy-grid">
+            <div>
+              <h2 style={{ fontSize: "clamp(1.6rem, 2.8vw, 2.2rem)", fontWeight: 800, marginBottom: 16, color: C.text, letterSpacing: "-0.5px" }}>
+                Open source.<br />Privacy first.
+              </h2>
+              <p style={{ color: C.muted, marginBottom: 24, lineHeight: 1.75, fontSize: "1rem" }}>
+                Decker is MIT licensed. Every line of code is on GitHub — inspect it, fork it, deploy it.
+                We don&apos;t store recordings, transcripts, or decks. Your API key goes directly from
+                your browser to OpenAI. Nothing passes through our servers.
+              </p>
+              <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                {[
+                  "No backend data storage — ever",
+                  "API calls go browser → OpenAI directly",
+                  "Fully auditable open source code",
+                  "Bring your own OpenAI or Claude key",
+                  "Self-host everything for full control",
+                ].map((item) => (
+                  <li key={item} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, color: C.text, fontSize: "0.95rem" }}>
+                    <span style={{ color: C.blue }}>✓</span> {item}
+                  </li>
+                ))}
+              </ul>
+              <div style={{ marginTop: 32, display: "flex", gap: 12 }}>
+                <a href="https://github.com/AishwaryShrivastav/decker" target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ fontSize: "0.9rem" }}>
+                  View source on GitHub ↗
+                </a>
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {[
+                { icon: "🔑", title: "Your key, your costs", desc: "Add your OpenAI API key once. All AI calls are billed to your account. A typical meeting costs under $0.05." },
+                { icon: "🏠", title: "Self-hostable", desc: "The web backend is a Next.js app. Deploy it on Vercel, fly.io, or your own server in minutes." },
+                { icon: "🔍", title: "Fully auditable", desc: "Not just open source — it&apos;s a simple codebase. No telemetry, no tracking, no surprises." },
+              ].map((item) => (
+                <div key={item.title} className="card" style={{ padding: "20px 24px", display: "flex", gap: 16, alignItems: "flex-start" }}>
+                  <span style={{ fontSize: "1.5rem", flexShrink: 0 }}>{item.icon}</span>
+                  <div>
+                    <div style={{ fontWeight: 700, color: C.text, marginBottom: 4, fontSize: "0.95rem" }}>{item.title}</div>
+                    <p style={{ fontSize: "0.85rem", color: C.muted, margin: 0, lineHeight: 1.55 }}>{item.desc}</p>
+                  </div>
+                </div>
               ))}
-            </ul>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Bring your own AI */}
-      <section
-        className={`reveal-on-scroll ${privacyRef.revealed ? "revealed" : ""}`}
-        style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 80px" }}
-      >
-        <div
-          className="card animate-glow"
-          style={{
-            padding: "40px 48px",
-            textAlign: "center",
-            border: `1px solid ${C.border}`,
-            background: `linear-gradient(135deg, rgba(36, 150, 237, 0.08) 0%, transparent 50%)`,
-          }}
-        >
-          <div style={{ fontSize: "2.5rem", marginBottom: 16 }}>🔑</div>
-          <h2 style={{ fontSize: "1.75rem", fontWeight: 800, marginBottom: 12, color: C.text }}>Bring your own AI</h2>
-          <p style={{ color: C.muted, maxWidth: 560, margin: "0 auto", lineHeight: 1.7 }}>
-            Decker doesn&apos;t run AI on our servers. Add your OpenAI API key in the extension settings — transcription (Whisper) and point extraction run through your key. You control costs, rate limits, and data flow.
-          </p>
-        </div>
-      </section>
-
-      {/* Browsers & Roadmap */}
+      {/* Browsers */}
       <section
         id="browsers"
         ref={browsersRef.ref}
         className={`reveal-on-scroll ${browsersRef.revealed ? "revealed" : ""}`}
-        style={{ maxWidth: 1100, margin: "0 auto", padding: "80px 24px", textAlign: "center" }}
+        style={{ maxWidth: 1100, margin: "0 auto", padding: "100px 24px", textAlign: "center" }}
       >
-        <h2 style={{ fontSize: "2rem", fontWeight: 800, marginBottom: 16, color: C.text, letterSpacing: "-0.5px" }}>Supported browsers</h2>
-        <p style={{ color: C.muted, marginBottom: 40, fontSize: "1rem" }}>All Chromium-based browsers supported today. More on the roadmap.</p>
-        <div style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
+        <h2 style={{ fontSize: "clamp(1.8rem, 3vw, 2.4rem)", fontWeight: 800, marginBottom: 12, color: C.text, letterSpacing: "-0.5px" }}>
+          Browser support
+        </h2>
+        <p style={{ color: C.muted, marginBottom: 44, fontSize: "1rem" }}>
+          All Chromium-based browsers work today. Firefox and Safari are on the roadmap.
+        </p>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
           {BROWSERS.map((b) => (
             <div
               key={b.name}
               className="roadmap-item"
               style={{
-                background: C.card,
-                border: `1px solid ${C.border}`,
-                borderRadius: 100,
-                padding: "10px 20px",
-                fontSize: "0.9rem",
-                color: b.status === "live" ? C.text : C.dim,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                opacity: b.status === "live" ? 1 : 0.7,
+                background: C.card, border: `1px solid ${C.border}`,
+                borderRadius: 100, padding: "10px 22px",
+                fontSize: "0.9rem", color: b.status === "live" ? C.text : C.dim,
+                display: "flex", alignItems: "center", gap: 8,
+                opacity: b.status === "live" ? 1 : 0.6,
               }}
             >
               <span>{b.icon}</span>
               <span>{b.name}</span>
-              {b.status === "roadmap" && (
-                <span style={{ fontSize: "0.7rem", background: `${C.blue}20`, color: C.blue, borderRadius: 100, padding: "2px 8px" }}>roadmap</span>
+              {b.status === "live" ? (
+                <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
+              ) : (
+                <span style={{ fontSize: "0.7rem", background: `rgba(36, 150, 237, 0.15)`, color: C.blue, borderRadius: 100, padding: "2px 8px" }}>roadmap</span>
               )}
             </div>
           ))}
         </div>
       </section>
 
-      {/* Install options */}
-      <section
-        id="install"
-        ref={installRef.ref}
-        className={`reveal-on-scroll ${installRef.revealed ? "revealed" : ""}`}
-        style={{ maxWidth: 1100, margin: "0 auto", padding: "80px 24px" }}
-      >
-        <h2 style={{ fontSize: "2rem", fontWeight: 800, textAlign: "center", marginBottom: 16, color: C.text, letterSpacing: "-0.5px" }}>Get started</h2>
-        <p style={{ color: C.muted, textAlign: "center", marginBottom: 48, fontSize: "1rem" }}>
-          Install the extension from the Chrome Web Store, or run everything locally.
-        </p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24 }}>
-          {INSTALL_OPTIONS.map((opt) => (
-            <div key={opt.title} className="card" style={{ display: "flex", flexDirection: "column" }}>
-              <div style={{ fontWeight: 700, color: C.text, marginBottom: 8, fontSize: "1.1rem" }}>{opt.title}</div>
-              <p style={{ fontSize: "0.9rem", color: C.muted, margin: "0 0 20px", lineHeight: 1.6, flex: 1 }}>{opt.desc}</p>
-              <a
-                href={opt.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={opt.primary ? "btn btn-primary" : "btn btn-secondary"}
-                style={{ alignSelf: "flex-start" }}
-              >
-                {opt.cta}
-              </a>
-            </div>
-          ))}
-        </div>
-        <div className="card" style={{ marginTop: 24, padding: "24px 32px" }}>
-          <div style={{ fontWeight: 700, color: C.text, marginBottom: 8, fontSize: "1rem" }}>Run locally</div>
-          <p style={{ fontSize: "0.9rem", color: C.muted, marginBottom: 16, lineHeight: 1.6 }}>
-            Clone the repo, install dependencies, and run the web app and extension locally for full control.
-          </p>
-          <code style={{ background: "rgba(0,0,0,0.3)", padding: "12px 16px", borderRadius: 8, fontSize: "0.85rem", display: "block", overflowX: "auto", color: C.text }}>
-            git clone https://github.com/AishwaryShrivastav/decker.git<br />
-            cd decker && pnpm install<br />
-            pnpm dev:web &amp;&amp; pnpm dev:extension
-          </code>
-        </div>
-      </section>
-
-      {/* CTA */}
+      {/* Final CTA */}
       <section
         ref={ctaRef.ref}
-        className={`hero-gradient reveal-on-scroll ${ctaRef.revealed ? "revealed" : ""}`}
-        style={{ padding: "80px 24px", textAlign: "center" }}
+        className={`reveal-on-scroll ${ctaRef.revealed ? "revealed" : ""}`}
+        style={{
+          padding: "120px 24px",
+          textAlign: "center",
+          background: `radial-gradient(ellipse 70% 60% at 50% 50%, rgba(36,150,237,0.1) 0%, transparent 70%)`,
+          borderTop: `1px solid ${C.border}`,
+        }}
       >
-        <img src="/logo.png" alt="Decker" width={64} height={64} style={{ objectFit: "contain" }} />
-        <h2 style={{ fontSize: "2rem", fontWeight: 800, marginTop: 24, marginBottom: 12, color: C.text }}>Ready to ship your first deck?</h2>
-        <p style={{ color: C.muted, marginBottom: 32, fontSize: "1rem" }}>Free, open source, and takes 30 seconds to set up.</p>
-        <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>{ctaBtn}</div>
+        <img src="/logo.png" alt="Decker" width={72} height={72} style={{ objectFit: "contain", marginBottom: 28 }} className="animate-float" />
+        <h2 style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800, marginBottom: 16, color: C.text, letterSpacing: "-1px" }}>
+          Ready to give your next meeting<br />an aha moment?
+        </h2>
+        <p style={{ color: C.muted, marginBottom: 40, fontSize: "1.05rem", maxWidth: 500, margin: "0 auto 40px" }}>
+          Free if you build it. A dollar if you just want to use it. No catch.
+        </p>
+        <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
+          <a href="https://chrome.google.com/webstore" target="_blank" rel="noopener noreferrer" className="btn btn-primary">
+            Get Chrome Plugin — $1
+          </a>
+          <a href="https://github.com/AishwaryShrivastav/decker" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
+            View on GitHub ↗
+          </a>
+        </div>
+        <p style={{ marginTop: 20, fontSize: "0.78rem", color: C.dim }}>
+          One-time payment · Use forever · MIT licensed
+        </p>
       </section>
 
       {/* Footer */}
-      <footer style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, color: C.dim, fontSize: "0.85rem", borderTop: `1px solid ${C.border}` }}>
-        <span>© {new Date().getFullYear()} Decker — MIT License · Open source</span>
+      <footer style={{
+        maxWidth: 1100, margin: "0 auto",
+        padding: "32px 24px",
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        flexWrap: "wrap", gap: 12,
+        color: C.dim, fontSize: "0.85rem",
+        borderTop: `1px solid ${C.border}`
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <img src="/logo.png" alt="Decker" width={24} height={24} style={{ objectFit: "contain", opacity: 0.6 }} />
+          <span>© {new Date().getFullYear()} Decker — MIT License</span>
+        </div>
         <div style={{ display: "flex", gap: 24 }}>
           <a href="https://github.com/AishwaryShrivastav/decker" style={{ color: C.blue, textDecoration: "none" }} target="_blank" rel="noopener noreferrer">GitHub ↗</a>
           <a href="https://github.com/AishwaryShrivastav/decker/issues" style={{ color: C.muted, textDecoration: "none" }} target="_blank" rel="noopener noreferrer">Issues</a>
+          <a href="https://github.com/AishwaryShrivastav/decker/blob/main/CONTRIBUTING.md" style={{ color: C.muted, textDecoration: "none" }} target="_blank" rel="noopener noreferrer">Contributing</a>
         </div>
       </footer>
+
+      <style>{`
+        @media (max-width: 700px) {
+          .pricing-grid { grid-template-columns: 1fr !important; }
+          .privacy-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </main>
   );
 }
