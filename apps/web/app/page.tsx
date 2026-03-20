@@ -164,11 +164,11 @@ export default function Home() {
               margin: "0 0 24px", letterSpacing: "-2px", color: C.text, lineHeight: 1.08
             }}
           >
-            End every meeting<br />
+            Close the meetings<br />that matter
             <span style={{
               background: `linear-gradient(135deg, ${C.blue} 0%, #7ab8f5 100%)`,
               WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent"
-            }}>with an aha moment.</span>
+            }}> with an aha moment.</span>
           </h1>
 
           <p
@@ -531,7 +531,7 @@ export default function Home() {
       >
         <img src="/logo.png" alt="Decker" width={72} height={72} style={{ objectFit: "contain", marginBottom: 28 }} className="animate-float" />
         <h2 style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800, marginBottom: 16, color: C.text, letterSpacing: "-1px" }}>
-          Ready to give your next meeting<br />an aha moment?
+          Ready to close your next big meeting<br />with an aha moment?
         </h2>
         <p style={{ color: C.muted, marginBottom: 40, fontSize: "1.05rem", maxWidth: 500, margin: "0 auto 40px" }}>
           Free if you build it. A dollar if you just want to use it. No catch.

@@ -1,6 +1,6 @@
 # Decker
 
-**End every meeting with an aha moment.**
+**Close the meetings that matter with an aha moment.**
 
 Record your Google Meet → AI transcribes it → download a polished Reveal.js presentation or meeting notes before anyone leaves the call.
 
