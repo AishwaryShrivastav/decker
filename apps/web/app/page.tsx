@@ -93,21 +93,6 @@ export default function Home() {
 
   useEffect(() => { setBrowser(detectBrowser()); }, []);
 
-  const primaryCTA =
-    browser === "chromium" ? (
-      <a href="https://chrome.google.com/webstore" target="_blank" rel="noopener noreferrer" className="btn btn-primary">
-        Get Chrome Plugin — $1
-      </a>
-    ) : browser === "firefox" ? (
-      <span className="btn btn-primary" style={{ opacity: 0.5, cursor: "not-allowed" }}>
-        Firefox — Coming Soon
-      </span>
-    ) : (
-      <a href="https://chrome.google.com/webstore" target="_blank" rel="noopener noreferrer" className="btn btn-primary">
-        Get Chrome Plugin — $1
-      </a>
-    );
-
   return (
     <main>
       {/* Nav */}
@@ -180,10 +165,12 @@ export default function Home() {
           </p>
 
           <div className="animate-fade-in-up animate-delay-3" style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
-            {primaryCTA}
             <a href="https://github.com/AishwaryShrivastav/decker" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
-              Self-host for free →
+              GitHub
             </a>
+            <span className="btn btn-primary" style={{ opacity: 0.5, cursor: "not-allowed" }}>
+              1 click install plugin — $1
+            </span>
           </div>
 
           <p className="animate-fade-in-up animate-delay-4" style={{ marginTop: 22, fontSize: "0.78rem", color: C.dim, letterSpacing: "0.04em" }}>
