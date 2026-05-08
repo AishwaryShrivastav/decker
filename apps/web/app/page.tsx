@@ -96,7 +96,6 @@ export default function Home() {
   const tlRef    = useReveal(0.04);
   const outRef   = useReveal(0.04);
   const featRef  = useReveal(0.04);
-  const priceRef = useReveal(0.04);
   const ctaRef   = useReveal(0.08);
 
   useEffect(() => { setBrowser(detectBrowser()); }, []);
@@ -114,7 +113,6 @@ export default function Home() {
           <div style={{ display: "flex", gap: 24, alignItems: "center", fontSize: "0.83rem" }}>
             <a href="#how"     style={{ color: C.muted, textDecoration: "none" }} className="nav-link">How it works</a>
             <a href="#outputs" style={{ color: C.muted, textDecoration: "none" }} className="nav-link">Outputs</a>
-            <a href="#pricing" style={{ color: C.muted, textDecoration: "none" }} className="nav-link">Pricing</a>
             <a href={GITHUB}   target="_blank" rel="noopener noreferrer" style={{ color: C.muted, textDecoration: "none" }} className="nav-link">GitHub</a>
             <a href={CHROME}   target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ padding: "6px 14px", fontSize: "0.79rem" }}>Add to Chrome</a>
           </div>
@@ -291,48 +289,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* PRICING */}
-      <section id="pricing" ref={priceRef.ref} className={`rv ${priceRef.on ? "on" : ""}`} style={{ maxWidth: 780, margin: "0 auto", padding: "88px 24px" }}>
-        <div style={{ textAlign: "center", marginBottom: 44 }}>
-          <p style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: C.accent, margin: "0 0 12px" }}>Pricing</p>
-          <h2 style={{ fontSize: "clamp(1.8rem, 3vw, 2.5rem)", fontWeight: 800, color: C.text, letterSpacing: "-1px", margin: "0 0 10px" }}>
-            Free to use. Open to build on.
-          </h2>
-          <p style={{ color: C.muted, fontSize: "0.95rem" }}>Download the extension or self-host the whole stack. Both are free.</p>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }} className="price-grid">
-
-          <div className="card" style={{ padding: "32px 28px", display: "flex", flexDirection: "column" }}>
-            <div style={{ fontWeight: 700, color: C.muted, fontSize: "0.67rem", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Open Source</div>
-            <div style={{ fontSize: "2.4rem", fontWeight: 800, color: C.text, letterSpacing: "-2px", marginBottom: 8 }}>Free</div>
-            <p style={{ fontSize: "0.86rem", color: C.muted, marginBottom: 24, lineHeight: 1.65 }}>Clone, self-host, extend. MIT licensed.</p>
-            <ul style={{ listStyle: "none", padding: 0, margin: "0 0 28px", flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
-              {["Full source on GitHub", "Self-host the Next.js backend", "MIT, commercial use allowed"].map((item) => (
-                <li key={item} style={{ display: "flex", gap: 8, color: C.muted, fontSize: "0.85rem" }}>
-                  <span style={{ color: C.accent, flexShrink: 0 }}>+</span>{item}
-                </li>
-              ))}
-            </ul>
-            <a href={GITHUB} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ width: "100%", justifyContent: "center" }}>View on GitHub</a>
-          </div>
-
-          <div className="card card-feat" style={{ padding: "32px 28px", display: "flex", flexDirection: "column" }}>
-            <div style={{ fontWeight: 700, color: C.accent, fontSize: "0.67rem", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Chrome Extension</div>
-            <div style={{ fontSize: "2.4rem", fontWeight: 800, color: C.text, letterSpacing: "-2px", marginBottom: 8 }}>Free</div>
-            <p style={{ fontSize: "0.86rem", color: C.muted, marginBottom: 24, lineHeight: 1.65 }}>One-click install. No build step, no self-hosting.</p>
-            <ul style={{ listStyle: "none", padding: 0, margin: "0 0 28px", flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
-              {["Chrome, Brave, Arc, Edge", "Bring your own Claude and OpenAI keys", "No subscription, no renewal"].map((item) => (
-                <li key={item} style={{ display: "flex", gap: 8, color: C.text, fontSize: "0.85rem" }}>
-                  <span style={{ color: C.accent, flexShrink: 0 }}>+</span>{item}
-                </li>
-              ))}
-            </ul>
-            <a href={CHROME} target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ width: "100%", justifyContent: "center" }}>Add to Chrome</a>
-            <p style={{ textAlign: "center", fontSize: "0.7rem", color: C.muted, marginTop: 10, marginBottom: 0 }}>Firefox coming soon</p>
-          </div>
-        </div>
-      </section>
-
       {/* BROWSER SUPPORT */}
       <section style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 88px", textAlign: "center" }}>
         <p style={{ fontSize: "0.75rem", fontWeight: 600, color: C.muted, marginBottom: 18, letterSpacing: "0.04em" }}>Works in</p>
@@ -379,6 +335,7 @@ export default function Home() {
         <div style={{ display: "flex", gap: 20 }}>
           <a href={GITHUB} style={{ color: C.accent, textDecoration: "none" }} target="_blank" rel="noopener noreferrer">GitHub</a>
           <a href={`${GITHUB}/issues`} style={{ color: C.muted, textDecoration: "none" }} target="_blank" rel="noopener noreferrer">Issues</a>
+          <a href="/privacy" style={{ color: C.muted, textDecoration: "none" }}>Privacy Policy</a>
           <a href="/demo" style={{ color: C.muted, textDecoration: "none" }}>Demo</a>
         </div>
       </footer>
@@ -418,7 +375,6 @@ export default function Home() {
         @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-7px)} }
 
         @media (max-width: 680px) {
-          .price-grid { grid-template-columns: 1fr !important; }
           .tl-spine { display: none; }
           .tl-row { grid-template-columns: 1fr !important; }
           .tl-row > div:first-child { display: none; }
