@@ -13,6 +13,7 @@ export enum MessageType {
   TOPIC_SELECTED = "TOPIC_SELECTED",
   TOPIC_DESELECTED = "TOPIC_DESELECTED",
   GET_FULL_STATE = "GET_FULL_STATE",
+  RESET_STATE = "RESET_STATE",
 
   // Background → Offscreen
   OFFSCREEN_START = "OFFSCREEN_START",
@@ -56,8 +57,6 @@ export interface StatusPayload {
   liveNotes?: string;
   /** Per-topic research state, updated incrementally */
   topicResearch?: TopicResearch[];
-  /** Live streaming preview text during generation */
-  streamText?: string;
 }
 
 export interface Message<T = unknown> {
@@ -111,5 +110,4 @@ export interface GenerateDeckPayload {
   customPrompt: string;
   transcript?: string;
   outputFormat?: OutputFormat;
-  backgroundColor?: string;
 }

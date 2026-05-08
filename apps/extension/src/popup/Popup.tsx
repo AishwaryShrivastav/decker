@@ -484,8 +484,8 @@ export function Popup() {
 
       {/* ── BUSY (processing/transcribing/extracting) ── */}
       {isBusy && (
-        <div style={{ padding: "14px 12px", textAlign: "center", color: C.muted, fontSize: 12, background: C.surface, borderRadius: 8 }}>
-          Working…
+        <div style={{ padding: "14px 12px", textAlign: "center", color: C.dimText, fontSize: 12, background: C.surface, borderRadius: 8, border: `1px solid ${C.border}` }}>
+          {statusMsg ?? statusText(status)}
         </div>
       )}
 
@@ -596,6 +596,11 @@ export function Popup() {
                 A full website covering everything discussed — hero, sections, insights. Not notes, a brief.
               </p>
             )}
+            {outputFormat === "doc" && (
+              <p style={{ fontSize: 10, color: C.muted, marginTop: 5, lineHeight: 1.5 }}>
+                Structured document with per-topic summaries, key decisions, and an action items table.
+              </p>
+            )}
           </div>
 
           {/* Custom prompt — hint changes for prototype */}
@@ -639,7 +644,16 @@ export function Popup() {
             </div>
           )}
           <button
-            onClick={() => { setStatus("idle"); setTranscript(null); setPoints([]); setSelectedPoints(new Set()); setTopicResearch(new Map()); setEditedTranscript(""); }}
+            onClick={() => {
+              chrome.runtime.sendMessage<Message>({ type: MessageType.RESET_STATE }).catch(() => {});
+              setStatus("idle");
+              setStatusMsg(undefined);
+              setTranscript(null);
+              setEditedTranscript("");
+              setPoints([]);
+              setSelectedPoints(new Set());
+              setTopicResearch(new Map());
+            }}
             style={{ ...btn(false), marginTop: 8, padding: "7px 12px", fontSize: 11 }}
           >
             Start over

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Decker",
   "version": "0.1.0",
-  "description": "Record Google Meet calls and generate Reveal.js presentations",
+  "description": "Record Google Meet calls and generate prototypes, presentations, and product briefs with Claude AI.",
   "permissions": [
     "tabCapture",
     "tabs",

@@ -8,13 +8,12 @@ import {
   AudioChunkPayload,
   ApiSettings,
   GenerateDeckPayload,
+  OutputFormat,
   StartRecordingStreamPayload,
   TopicResearch,
   TopicSelectedPayload,
   FullStateResponse,
 } from "../shared/types";
-import { buildRevealHtml, DeckData } from "../shared/revealTemplate";
-import { buildNotesHtml, NotesData } from "../shared/notesTemplate";
 import { buildMeetingDoc, MeetingDocData, DocTopic } from "../shared/docTemplate";
 import {
   EXTRACT_POINTS_SYSTEM,
@@ -48,6 +47,7 @@ let isExtractingTopics = false;
 let claudeKey = "";   // Anthropic key — text generation + research
 let openaiKey = "";   // OpenAI key — Whisper transcription
 let lastGeneratedHtml: string | null = null;
+let currentMessage: string | undefined;
 
 // Live topic + research state
 let liveTopics: string[] = [];
@@ -174,7 +174,7 @@ async function claudeStream(
     },
     body: JSON.stringify({
       model: modelId,
-      max_tokens: 8192,
+      max_tokens: 32768,
       stream: true,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
@@ -265,10 +265,10 @@ function broadcastStatus(
     points?: string[];
     liveNotes?: string;
     topicResearch?: TopicResearch[];
-    streamText?: string;
   }
 ): void {
   currentStatus = status;
+  if (message !== undefined) currentMessage = message;
   const payload: StatusPayload = { status, message, ...extra };
   chrome.runtime
     .sendMessage<Message<StatusPayload>>({ type: MessageType.STATUS_UPDATE, payload })
@@ -544,24 +544,6 @@ function parseJsonResponse(raw: string): Record<string, unknown> {
   return JSON.parse(cleaned) as Record<string, unknown>;
 }
 
-function validChart(
-  chart: unknown
-): { type: "bar" | "pie" | "line" | "doughnut"; title?: string; labels: string[]; values: number[] } | undefined {
-  if (!chart || typeof chart !== "object") return undefined;
-  const c = chart as Record<string, unknown>;
-  if (!Array.isArray(c.labels) || !Array.isArray(c.values)) return undefined;
-  if (c.labels.length !== c.values.length || c.labels.length === 0) return undefined;
-  const type = ["bar", "pie", "line", "doughnut"].includes(String(c.type))
-    ? (c.type as "bar" | "pie" | "line" | "doughnut")
-    : "bar";
-  return {
-    type,
-    title: typeof c.title === "string" ? c.title : undefined,
-    labels: (c.labels as unknown[]).filter((l): l is string => typeof l === "string").slice(0, 12),
-    values: (c.values as unknown[]).filter((v): v is number => typeof v === "number" && !isNaN(v)).slice(0, 12),
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Phase 2: research selected topics → generate document/deck
 // ---------------------------------------------------------------------------
@@ -569,8 +551,7 @@ async function runPhase2(
   selectedPoints: string[],
   customPrompt: string,
   transcriptOverride?: string,
-  backgroundColor?: string,
-  outputFormat?: "doc" | "presentation" | "notes"
+  outputFormat?: OutputFormat
 ): Promise<void> {
   const transcript = transcriptOverride?.trim() || currentTranscript?.trim();
   if (!transcript) {
@@ -582,8 +563,7 @@ async function runPhase2(
     return;
   }
 
-  const format = outputFormat ?? "doc";
-  const isPrototype = format === "prototype";
+  const format: OutputFormat = outputFormat ?? "doc";
 
   try {
     // ── Research phase: run in parallel for all selected topics ──
@@ -600,7 +580,10 @@ async function runPhase2(
     // ── Generation phase ──
     broadcastStatus(
       "generating",
-      isPrototype ? "Claude is building your prototype…" : format === "doc" ? "Claude is writing your document…" : "Generating…"
+      format === "prototype" ? "Claude is building your prototype…"
+        : format === "doc" ? "Claude is writing your document…"
+        : format === "presentation" ? "Claude is building your presentation…"
+        : "Claude is building your discussion site…"
     );
 
     // Collect research context for all formats
@@ -746,7 +729,7 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
     case MessageType.GET_FULL_STATE: {
       const fullState: FullStateResponse = {
         status: currentStatus,
-        message: undefined,
+        message: currentMessage,
         transcript: currentTranscript ?? (accumulatedTranscript || undefined),
         points: liveTopics.length > 0 ? liveTopics : undefined,
         topicResearch:
@@ -840,9 +823,24 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
         payload.selectedPoints,
         payload.customPrompt,
         payload.transcript,
-        payload.backgroundColor,
         payload.outputFormat
       ).catch(console.error);
+      sendResponse({ ok: true });
+      return false;
+    }
+
+    case MessageType.RESET_STATE: {
+      currentStatus = "idle";
+      currentMessage = undefined;
+      currentTranscript = null;
+      accumulatedTranscript = "";
+      liveTopics = [];
+      topicResearchMap.clear();
+      researchInProgress.clear();
+      lastGeneratedHtml = null;
+      chunkQueue = [];
+      chunkTranscribedCount = 0;
+      recordingTabId = null;
       sendResponse({ ok: true });
       return false;
     }
