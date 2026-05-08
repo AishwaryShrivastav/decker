@@ -106,6 +106,55 @@ export function docUser(
 }
 
 // ---------------------------------------------------------------------------
+// Static prototype — Claude decides what to build
+// ---------------------------------------------------------------------------
+
+export const PROTOTYPE_SYSTEM =
+  `You are an expert frontend developer and product designer. Given a meeting transcript with selected topics and research context, generate a complete, self-contained static HTML page that best represents the ideas discussed.
+
+YOU decide what to build. Based on the content it could be a product spec, a feature brief, a dashboard mockup with real data from the meeting, a landing page concept, a comparison table, a decision log, a roadmap view, or anything else that would be genuinely useful and shareable.
+
+Requirements:
+- Return ONLY the raw HTML — no markdown fences, no explanation, nothing else
+- Completely self-contained: all CSS and JS must be inline
+- Visually polished and immediately shareable — make it feel like a real deliverable
+- Use modern HTML/CSS (flexbox, grid, CSS variables, clean typography)
+- Include actual content from the meeting — names, numbers, decisions, not placeholder text
+- Make it interactive where it adds value (tabs, toggles, expandable sections)
+- Choose whatever visual theme (dark/light/brand) fits the content best
+
+The output HTML should be something the user is proud to send to a colleague.`;
+
+export function prototypeUser(
+  transcript: string,
+  selectedTopics: string[],
+  customPrompt: string,
+  research: { topic: string; summary?: string; keyInsight?: string; subtopics?: string[] }[]
+): string {
+  const topicsSection =
+    selectedTopics.length > 0
+      ? `\n<selected_topics>\n${selectedTopics.map((t) => `- ${t}`).join("\n")}\n</selected_topics>`
+      : "";
+
+  const researchSection =
+    research.length > 0
+      ? `\n<research_context>\n${research
+          .filter((r) => r.summary || r.keyInsight)
+          .map(
+            (r) =>
+              `Topic: ${r.topic}\nContext: ${r.summary ?? ""}\nKey insight: ${r.keyInsight ?? ""}\nSub-points: ${(r.subtopics ?? []).join(", ")}`
+          )
+          .join("\n\n")}\n</research_context>`
+      : "";
+
+  const customSection = customPrompt.trim()
+    ? `\n<additional_instructions>\n${customPrompt.trim()}\n</additional_instructions>`
+    : "";
+
+  return `Build a static HTML prototype from this meeting.${topicsSection}${researchSection}${customSection}\n\n<transcript>\n${transcript}\n</transcript>`;
+}
+
+// ---------------------------------------------------------------------------
 // Reveal.js presentation prompts (kept for compatibility)
 // ---------------------------------------------------------------------------
 

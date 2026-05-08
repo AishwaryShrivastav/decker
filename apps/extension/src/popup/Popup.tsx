@@ -273,7 +273,7 @@ export function Popup() {
         outputFormat,
       },
     });
-    setStatus("researching");
+    setStatus(outputFormat === "prototype" ? "generating" : "researching");
   };
 
   const handleOpenHtml = () => {
@@ -570,29 +570,40 @@ export function Popup() {
 
           {/* Output format */}
           <div style={{ marginBottom: 10 }}>
-            <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 4 }}>Output format</label>
+            <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 4 }}>Output</label>
             <select
               value={outputFormat}
               onChange={(e) => setOutputFormat(e.target.value as OutputFormat)}
               style={{ width: "100%", padding: 7, borderRadius: 6, border: `1px solid ${C.border}`, background: C.surface, color: C.text, fontSize: 11 }}
             >
-              <option value="doc">Meeting Document (recommended)</option>
+              <option value="prototype">Static Prototype — Claude decides</option>
+              <option value="doc">Meeting Document</option>
               <option value="presentation">Presentation (Reveal.js)</option>
-              <option value="notes">HTML Notes (scrollable)</option>
+              <option value="notes">HTML Notes</option>
             </select>
+            {outputFormat === "prototype" && (
+              <p style={{ fontSize: 10, color: C.muted, marginTop: 5, lineHeight: 1.5 }}>
+                Claude reads the meeting and builds whatever static page fits best — spec, dashboard, brief, roadmap, etc.
+              </p>
+            )}
           </div>
 
-          {/* Custom prompt */}
+          {/* Custom prompt — hint changes for prototype */}
           <textarea
             value={customPrompt}
             onChange={(e) => setCustomPrompt(e.target.value)}
-            placeholder="Custom instructions (optional)"
+            placeholder={
+              outputFormat === "prototype"
+                ? "Anything specific to build? (optional — Claude decides if blank)"
+                : "Custom instructions (optional)"
+            }
             rows={2}
             style={{ width: "100%", padding: 8, borderRadius: 6, border: `1px solid ${C.border}`, background: C.surface, color: C.text, fontSize: 11, marginBottom: 10, resize: "vertical" }}
           />
 
           <button onClick={handleGenerateDeck} disabled={!canGenerate} style={{ ...btn(true), opacity: canGenerate ? 1 : 0.5 }}>
-            Generate {outputFormat === "doc" ? "Document" : outputFormat === "notes" ? "Notes" : "Deck"}{selectedPoints.size > 0 ? ` (${selectedPoints.size} topics)` : ""}
+            {outputFormat === "prototype" ? "Build Prototype" : outputFormat === "doc" ? "Generate Document" : outputFormat === "notes" ? "Generate Notes" : "Generate Deck"}
+            {selectedPoints.size > 0 ? ` (${selectedPoints.size} topics)` : ""}
           </button>
           {!canGenerate && transcriptToUse.length > 0 && (
             <div style={{ fontSize: 10, color: C.muted, marginTop: 5 }}>Need 50+ chars to generate</div>

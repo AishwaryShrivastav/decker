@@ -23,6 +23,8 @@ import {
   researchUser,
   DOC_SYSTEM,
   docUser,
+  PROTOTYPE_SYSTEM,
+  prototypeUser,
   DECK_SYSTEM,
   deckUser,
   NOTES_SYSTEM,
@@ -581,6 +583,7 @@ async function runPhase2(
   }
 
   const format = outputFormat ?? "doc";
+  const isPrototype = format === "prototype";
 
   try {
     // ── Research phase: run in parallel for all selected topics ──
@@ -597,12 +600,35 @@ async function runPhase2(
     // ── Generation phase ──
     broadcastStatus(
       "generating",
-      format === "doc" ? "Claude is writing your document…" : "Generating presentation…"
+      isPrototype ? "Claude is building your prototype…" : format === "doc" ? "Claude is writing your document…" : "Generating…"
     );
 
     let html: string;
 
-    if (format === "doc") {
+    if (format === "prototype") {
+      // Claude outputs raw HTML — no JSON parsing needed
+      const researchContext = selectedPoints
+        .map((t) => topicResearchMap.get(t))
+        .filter((r): r is TopicResearch => !!r && r.status === "done")
+        .map((r) => ({ topic: r.topic, summary: r.summary, keyInsight: r.keyInsight, subtopics: r.subtopics }));
+
+      let tokenCount = 0;
+      html = await claudeStream(
+        PROTOTYPE_SYSTEM,
+        prototypeUser(transcript, selectedPoints, customPrompt, researchContext),
+        "sonnet",
+        (t) => {
+          tokenCount = t;
+          broadcastStatus("generating", `Building prototype… (~${Math.round(tokenCount / 4)} words)`);
+        }
+      );
+
+      // Strip any accidental markdown fences Claude might add
+      html = html.replace(/^```html\s*/i, "").replace(/\s*```$/i, "").trim();
+      if (!html.toLowerCase().startsWith("<!") && !html.toLowerCase().startsWith("<html")) {
+        throw new Error("Claude did not return valid HTML for the prototype. Try again.");
+      }
+    } else if (format === "doc") {
       // Gather research context for selected topics
       const researchContext = selectedPoints
         .map((t) => topicResearchMap.get(t))
@@ -739,9 +765,12 @@ async function runPhase2(
 
     lastGeneratedHtml = html;
 
-    const ext = format === "doc" ? "html" : format === "notes" ? "html" : "html";
-    const prefix = format === "doc" ? "decker-doc" : format === "notes" ? "decker-notes" : "decker-deck";
-    const filename = `${prefix}-${Date.now()}.${ext}`;
+    const prefix =
+      format === "prototype" ? "decker-prototype"
+      : format === "doc" ? "decker-doc"
+      : format === "notes" ? "decker-notes"
+      : "decker-deck";
+    const filename = `${prefix}-${Date.now()}.html`;
 
     const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
     await chrome.downloads.download({ url: dataUrl, filename, saveAs: false });

@@ -104,7 +104,7 @@ export interface TopicSelectedPayload {
   topic: string;
 }
 
-export type OutputFormat = "doc" | "presentation" | "notes";
+export type OutputFormat = "doc" | "prototype" | "presentation" | "notes";
 
 export interface GenerateDeckPayload {
   selectedPoints: string[];
