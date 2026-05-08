@@ -43,7 +43,8 @@ let chunkQueue: { base64: string; mimeType: string }[] = [];
 let chunkProcessing = false;
 let chunkTranscribedCount = 0;
 let isExtractingTopics = false;
-let apiKey = "";
+let claudeKey = "";   // Anthropic key — text generation + research
+let openaiKey = "";   // OpenAI key — Whisper transcription
 let lastGeneratedHtml: string | null = null;
 
 // Live topic + research state
@@ -64,8 +65,9 @@ async function debugLog(msg: string): Promise<void> {
   });
 }
 
-chrome.storage.local.get("apiKey", (result) => {
-  if (result.apiKey) apiKey = result.apiKey as string;
+chrome.storage.local.get(["claudeKey", "openaiKey"], (result) => {
+  if (result.claudeKey) claudeKey = result.claudeKey as string;
+  if (result.openaiKey) openaiKey = result.openaiKey as string;
 });
 
 // ---------------------------------------------------------------------------
@@ -90,9 +92,10 @@ async function openaiTranscribe(audioBlob: Blob): Promise<string> {
   formData.append("model", "whisper-1");
   formData.append("language", "en");
 
+  if (!openaiKey) throw new Error("No OpenAI key set — add it in Decker settings (⚙) for Whisper transcription.");
   const res = await fetch(`${OPENAI_API_BASE}/audio/transcriptions`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}` },
+    headers: { Authorization: `Bearer ${openaiKey}` },
     body: formData,
   });
 
@@ -118,12 +121,13 @@ async function claudeComplete(
   userMessage: string,
   model: "haiku" | "sonnet" = "haiku"
 ): Promise<string> {
+  if (!claudeKey) throw new Error("No Claude key set — add it in Decker settings (⚙).");
   const modelId = model === "haiku" ? CLAUDE_HAIKU : CLAUDE_SONNET;
 
   const res = await fetch(`${ANTHROPIC_API_BASE}/messages`, {
     method: "POST",
     headers: {
-      "x-api-key": apiKey,
+      "x-api-key": claudeKey,
       "anthropic-version": "2023-06-01",
       "content-type": "application/json",
     },
@@ -154,12 +158,13 @@ async function claudeStream(
   model: "haiku" | "sonnet" = "sonnet",
   onProgress?: (tokenCount: number) => void
 ): Promise<string> {
+  if (!claudeKey) throw new Error("No Claude key set — add it in Decker settings (⚙).");
   const modelId = model === "haiku" ? CLAUDE_HAIKU : CLAUDE_SONNET;
 
   const res = await fetch(`${ANTHROPIC_API_BASE}/messages`, {
     method: "POST",
     headers: {
-      "x-api-key": apiKey,
+      "x-api-key": claudeKey,
       "anthropic-version": "2023-06-01",
       "content-type": "application/json",
     },
@@ -774,14 +779,15 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
         topicResearch:
           topicResearchMap.size > 0 ? Array.from(topicResearchMap.values()) : undefined,
         hasHtml: lastGeneratedHtml !== null,
-        apiKey,
+        claudeKey,
+        openaiKey,
       };
       sendResponse(fullState);
       return false;
     }
 
     case MessageType.GET_API_SETTINGS: {
-      sendResponse({ apiKey });
+      sendResponse({ claudeKey, openaiKey });
       return false;
     }
 
@@ -796,8 +802,9 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
 
     case MessageType.SET_API_SETTINGS: {
       const settings = msg.payload as ApiSettings;
-      apiKey = settings.apiKey ?? "";
-      chrome.storage.local.set({ apiKey });
+      claudeKey = settings.claudeKey ?? "";
+      openaiKey = settings.openaiKey ?? "";
+      chrome.storage.local.set({ claudeKey, openaiKey });
       sendResponse({ ok: true });
       return false;
     }

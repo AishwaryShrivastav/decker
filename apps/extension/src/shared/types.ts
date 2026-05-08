@@ -80,7 +80,8 @@ export interface RecordingStoppedPayload {
 }
 
 export interface ApiSettings {
-  apiKey: string;
+  claudeKey: string;
+  openaiKey: string;
 }
 
 export interface StartRecordingStreamPayload {
@@ -95,7 +96,8 @@ export interface FullStateResponse {
   points?: string[];
   topicResearch?: TopicResearch[];
   hasHtml: boolean;
-  apiKey: string;
+  claudeKey: string;
+  openaiKey: string;
 }
 
 export interface TopicSelectedPayload {

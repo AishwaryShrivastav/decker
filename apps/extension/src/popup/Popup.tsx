@@ -79,8 +79,10 @@ export function Popup() {
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [apiKeyInput, setApiKeyInput] = useState("");
-  const [showKey, setShowKey] = useState(false);
+  const [claudeKeyInput, setClaudeKeyInput] = useState("");
+  const [openaiKeyInput, setOpenaiKeyInput] = useState("");
+  const [showClaudeKey, setShowClaudeKey] = useState(false);
+  const [showOpenaiKey, setShowOpenaiKey] = useState(false);
   const [keySaved, setKeySaved] = useState(false);
   const [transcript, setTranscript] = useState<string | null>(null);
   const [editedTranscript, setEditedTranscript] = useState("");
@@ -103,7 +105,8 @@ export function Popup() {
         const r = res as FullStateResponse;
         if (!r) return;
         if (r.status) setStatus(r.status);
-        if (r.apiKey) setApiKeyInput(r.apiKey);
+        if (r.claudeKey) setClaudeKeyInput(r.claudeKey);
+        if (r.openaiKey) setOpenaiKeyInput(r.openaiKey);
         if (r.transcript) {
           setTranscript(r.transcript);
           setEditedTranscript((prev) => (prev === "" ? r.transcript! : prev));
@@ -240,7 +243,7 @@ export function Popup() {
   const handleSaveKey = () => {
     chrome.runtime.sendMessage<Message<ApiSettings>>({
       type: MessageType.SET_API_SETTINGS,
-      payload: { apiKey: apiKeyInput.trim() },
+      payload: { claudeKey: claudeKeyInput.trim(), openaiKey: openaiKeyInput.trim() },
     });
     setKeySaved(true);
     setTimeout(() => setKeySaved(false), 2000);
@@ -322,10 +325,7 @@ export function Popup() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <img src={chrome.runtime.getURL("icons/icon48.png")} width={28} height={28} style={{ borderRadius: 6 }} alt="Decker" />
-          <div>
-            <span style={{ fontSize: 17, fontWeight: 800, color: C.blue }}>Decker</span>
-            <span style={{ fontSize: 10, color: C.muted, marginLeft: 6 }}>Claude-powered</span>
-          </div>
+          <span style={{ fontSize: 17, fontWeight: 800, color: C.blue }}>Decker</span>
         </div>
         <button onClick={() => setShowSettings((s) => !s)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: C.muted, padding: 4 }} title="Settings">⚙</button>
       </div>
@@ -333,26 +333,41 @@ export function Popup() {
       {/* Settings */}
       {showSettings && (
         <div style={{ marginBottom: 12, padding: 12, background: C.surface, borderRadius: 8, border: `1px solid ${C.border}` }}>
-          <button onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL("permission.html") })} style={{ ...btn(false), marginBottom: 10, padding: "6px 12px", fontSize: 11 }}>
+          <button onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL("permission.html") })} style={{ ...btn(false), marginBottom: 12, padding: "6px 12px", fontSize: 11 }}>
             🎤 Allow microphone
           </button>
-          <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>
-            API Key (Anthropic: <code style={{ color: C.blue }}>sk-ant-…</code>)
+
+          <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 4 }}>
+            Claude key <span style={{ color: C.blue, fontFamily: "monospace" }}>sk-ant-…</span>
+            <span style={{ color: C.muted }}> · topics, research, generation</span>
           </label>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
             <input
-              type={showKey ? "text" : "password"}
-              value={apiKeyInput}
-              onChange={(e) => setApiKeyInput(e.target.value)}
-              placeholder="sk-ant-api…"
+              type={showClaudeKey ? "text" : "password"}
+              value={claudeKeyInput}
+              onChange={(e) => setClaudeKeyInput(e.target.value)}
+              placeholder="sk-ant-api03…"
               style={{ flex: 1, padding: 7, borderRadius: 6, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 12 }}
             />
-            <button onClick={() => setShowKey((s) => !s)} style={{ ...btn(false), width: 36 }}>{showKey ? "🙈" : "👁"}</button>
+            <button onClick={() => setShowClaudeKey((s) => !s)} style={{ ...btn(false), width: 36, padding: 0 }}>{showClaudeKey ? "🙈" : "👁"}</button>
           </div>
-          <p style={{ fontSize: 10, color: C.muted, marginTop: 5 }}>
-            Whisper (audio transcription) still uses an OpenAI key. If you only have a Claude key, enter it here — the Whisper calls will use a server fallback if available.
-          </p>
-          <button onClick={handleSaveKey} style={{ ...btn(false), marginTop: 8, padding: "6px 12px" }}>{keySaved ? "Saved ✓" : "Save"}</button>
+
+          <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 4 }}>
+            OpenAI key <span style={{ color: "#10b981", fontFamily: "monospace" }}>sk-…</span>
+            <span style={{ color: C.muted }}> · Whisper audio transcription</span>
+          </label>
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            <input
+              type={showOpenaiKey ? "text" : "password"}
+              value={openaiKeyInput}
+              onChange={(e) => setOpenaiKeyInput(e.target.value)}
+              placeholder="sk-proj-…"
+              style={{ flex: 1, padding: 7, borderRadius: 6, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 12 }}
+            />
+            <button onClick={() => setShowOpenaiKey((s) => !s)} style={{ ...btn(false), width: 36, padding: 0 }}>{showOpenaiKey ? "🙈" : "👁"}</button>
+          </div>
+
+          <button onClick={handleSaveKey} style={{ ...btn(true), padding: "7px 12px" }}>{keySaved ? "Saved ✓" : "Save keys"}</button>
         </div>
       )}
 
