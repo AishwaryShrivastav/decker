@@ -10,6 +10,9 @@ export enum MessageType {
   GET_DEBUG_LOG = "GET_DEBUG_LOG",
   GENERATE_DECK = "GENERATE_DECK",
   START_RECORDING_WITH_STREAM = "START_RECORDING_WITH_STREAM",
+  TOPIC_SELECTED = "TOPIC_SELECTED",
+  TOPIC_DESELECTED = "TOPIC_DESELECTED",
+  GET_FULL_STATE = "GET_FULL_STATE",
 
   // Background → Offscreen
   OFFSCREEN_START = "OFFSCREEN_START",
@@ -30,10 +33,19 @@ export type RecordingStatus =
   | "finalizing"
   | "transcribing"
   | "extracting"
+  | "researching"
   | "reviewing"
   | "generating"
   | "done"
   | "error";
+
+export interface TopicResearch {
+  topic: string;
+  status: "pending" | "researching" | "done" | "error";
+  summary?: string;
+  keyInsight?: string;
+  subtopics?: string[];
+}
 
 export interface StatusPayload {
   status: RecordingStatus;
@@ -42,6 +54,10 @@ export interface StatusPayload {
   points?: string[];
   /** Live meeting notes during recording (same as transcript when status is recording) */
   liveNotes?: string;
+  /** Per-topic research state, updated incrementally */
+  topicResearch?: TopicResearch[];
+  /** Live streaming preview text during generation */
+  streamText?: string;
 }
 
 export interface Message<T = unknown> {
@@ -72,12 +88,26 @@ export interface StartRecordingStreamPayload {
   streamId: string;
 }
 
-export type OutputFormat = "presentation" | "notes";
+export interface FullStateResponse {
+  status: RecordingStatus;
+  message?: string;
+  transcript?: string;
+  points?: string[];
+  topicResearch?: TopicResearch[];
+  hasHtml: boolean;
+  apiKey: string;
+}
+
+export interface TopicSelectedPayload {
+  topic: string;
+}
+
+export type OutputFormat = "doc" | "presentation" | "notes";
 
 export interface GenerateDeckPayload {
   selectedPoints: string[];
   customPrompt: string;
-  transcript?: string; // optional override when user edits transcript
-  outputFormat?: OutputFormat; // "presentation" (Reveal.js) or "notes" (scrollable HTML)
-  backgroundColor?: string; // custom: "dark","green","blue","light" | Reveal: "black","white",...
+  transcript?: string;
+  outputFormat?: OutputFormat;
+  backgroundColor?: string;
 }
