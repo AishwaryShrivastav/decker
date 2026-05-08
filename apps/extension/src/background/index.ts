@@ -25,10 +25,10 @@ import {
   docUser,
   PROTOTYPE_SYSTEM,
   prototypeUser,
-  DECK_SYSTEM,
-  deckUser,
-  NOTES_SYSTEM,
-  notesUser,
+  PRESENTATION_SYSTEM,
+  presentationUser,
+  DISCUSSION_SPA_SYSTEM,
+  discussionSpaUser,
 } from "../shared/prompts";
 
 const OPENAI_API_BASE = "https://api.openai.com/v1";
@@ -603,15 +603,15 @@ async function runPhase2(
       isPrototype ? "Claude is building your prototype…" : format === "doc" ? "Claude is writing your document…" : "Generating…"
     );
 
+    // Collect research context for all formats
+    const researchContext = selectedPoints
+      .map((t) => topicResearchMap.get(t))
+      .filter((r): r is TopicResearch => !!r && r.status === "done")
+      .map((r) => ({ topic: r.topic, summary: r.summary, keyInsight: r.keyInsight, subtopics: r.subtopics }));
+
     let html: string;
 
     if (format === "prototype") {
-      // Claude outputs raw HTML — no JSON parsing needed
-      const researchContext = selectedPoints
-        .map((t) => topicResearchMap.get(t))
-        .filter((r): r is TopicResearch => !!r && r.status === "done")
-        .map((r) => ({ topic: r.topic, summary: r.summary, keyInsight: r.keyInsight, subtopics: r.subtopics }));
-
       let tokenCount = 0;
       html = await claudeStream(
         PROTOTYPE_SYSTEM,
@@ -629,17 +629,6 @@ async function runPhase2(
         throw new Error("Claude did not return valid HTML for the prototype. Try again.");
       }
     } else if (format === "doc") {
-      // Gather research context for selected topics
-      const researchContext = selectedPoints
-        .map((t) => topicResearchMap.get(t))
-        .filter((r): r is TopicResearch => !!r && r.status === "done")
-        .map((r) => ({
-          topic: r.topic,
-          summary: r.summary,
-          keyInsight: r.keyInsight,
-          subtopics: r.subtopics,
-        }));
-
       let tokenCount = 0;
       const rawJson = await claudeStream(
         DOC_SYSTEM,
@@ -689,78 +678,31 @@ async function runPhase2(
 
       html = buildMeetingDoc(docData);
     } else if (format === "notes") {
-      const rawJson = await claudeStream(NOTES_SYSTEM, notesUser(transcript, selectedPoints, customPrompt));
-      const parsedObj = parseJsonResponse(rawJson);
-      const sectionsRaw = Array.isArray(parsedObj.sections) ? parsedObj.sections : [];
-      const validSections = sectionsRaw
-        .slice(0, 8)
-        .filter((s): s is Record<string, unknown> => s !== null && typeof s === "object")
-        .map((s) => ({
-          heading: typeof s.heading === "string" ? s.heading : "Section",
-          items: Array.isArray(s.items)
-            ? (s.items as unknown[]).filter((i): i is string => typeof i === "string").slice(0, 12)
-            : [],
-          chart: validChart(s.chart),
-          mermaid:
-            typeof s.mermaid === "string" && s.mermaid.trim()
-              ? s.mermaid.trim().slice(0, 2000)
-              : undefined,
-        }))
-        .filter((s) => s.items.length > 0 || s.chart || s.mermaid);
-
-      const notesData: NotesData = {
-        title: typeof parsedObj.title === "string" ? parsedObj.title : "Meeting Notes",
-        subtitle: typeof parsedObj.subtitle === "string" ? parsedObj.subtitle : undefined,
-        sections:
-          validSections.length >= 1
-            ? validSections
-            : [{ heading: "Summary", items: ["Add content from transcript"] }],
-      };
-      html = buildNotesHtml(notesData);
+      // Discussion SPA — Claude generates raw HTML website
+      let tokenCount = 0;
+      html = await claudeStream(
+        DISCUSSION_SPA_SYSTEM,
+        discussionSpaUser(transcript, selectedPoints, customPrompt, researchContext),
+        "sonnet",
+        (t) => {
+          tokenCount = t;
+          broadcastStatus("generating", `Building discussion site… (~${Math.round(tokenCount / 4)} words)`);
+        }
+      );
+      html = html.replace(/^```html\s*/i, "").replace(/\s*```$/i, "").trim();
     } else {
-      // Reveal.js presentation
-      const bgColor = (() => {
-        let c = backgroundColor?.trim().toLowerCase();
-        if (!c && /green\s*(background|theme|slide)/i.test(customPrompt)) c = "green";
-        if (!c && /blue\s*(background|theme|slide)/i.test(customPrompt)) c = "blue";
-        if (!c && /light\s*(background|theme|slide)/i.test(customPrompt)) c = "light";
-        return c;
-      })();
-
-      const rawJson = await claudeStream(DECK_SYSTEM, deckUser(transcript, selectedPoints, customPrompt));
-      const parsedObj = parseJsonResponse(rawJson);
-      const slides = Array.isArray(parsedObj.slides) ? parsedObj.slides : [];
-      const validSlides = slides
-        .slice(0, 12)
-        .filter((s): s is Record<string, unknown> => s !== null && typeof s === "object")
-        .map((s) => ({
-          title: typeof s.title === "string" ? s.title : "Slide",
-          bullets: Array.isArray(s.bullets)
-            ? (s.bullets as unknown[]).filter((b): b is string => typeof b === "string").slice(0, 10)
-            : [],
-          notes: typeof s.notes === "string" ? s.notes : undefined,
-          chart: validChart(s.chart),
-          mermaid:
-            typeof s.mermaid === "string" && s.mermaid.trim()
-              ? s.mermaid.trim().slice(0, 2000)
-              : undefined,
-        }));
-
-      const deckData: DeckData = {
-        title: typeof parsedObj.title === "string" ? parsedObj.title : "Presentation",
-        subtitle: typeof parsedObj.subtitle === "string" ? parsedObj.subtitle : undefined,
-        slides:
-          validSlides.length >= 3
-            ? validSlides
-            : validSlides.concat(
-                Array.from({ length: Math.max(0, 3 - validSlides.length) }, (_, i) => ({
-                  title: `Slide ${validSlides.length + i + 1}`,
-                  bullets: ["Add content from transcript"],
-                  notes: undefined as string | undefined,
-                }))
-              ),
-      };
-      html = buildRevealHtml(deckData, bgColor);
+      // Presentation — Claude generates raw HTML deck
+      let tokenCount = 0;
+      html = await claudeStream(
+        PRESENTATION_SYSTEM,
+        presentationUser(transcript, selectedPoints, customPrompt, researchContext),
+        "sonnet",
+        (t) => {
+          tokenCount = t;
+          broadcastStatus("generating", `Building presentation… (~${Math.round(tokenCount / 4)} words)`);
+        }
+      );
+      html = html.replace(/^```html\s*/i, "").replace(/\s*```$/i, "").trim();
     }
 
     lastGeneratedHtml = html;

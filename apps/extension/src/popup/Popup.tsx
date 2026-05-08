@@ -576,14 +576,24 @@ export function Popup() {
               onChange={(e) => setOutputFormat(e.target.value as OutputFormat)}
               style={{ width: "100%", padding: 7, borderRadius: 6, border: `1px solid ${C.border}`, background: C.surface, color: C.text, fontSize: 11 }}
             >
-              <option value="prototype">Static Prototype — Claude decides</option>
-              <option value="doc">Meeting Document</option>
-              <option value="presentation">Presentation (Reveal.js)</option>
-              <option value="notes">HTML Notes</option>
+              <option value="prototype">Static Prototype — Claude builds the app</option>
+              <option value="presentation">Presentation — HTML slide deck</option>
+              <option value="notes">Discussion SPA — product brief website</option>
+              <option value="doc">Meeting Brief — structured document</option>
             </select>
             {outputFormat === "prototype" && (
               <p style={{ fontSize: 10, color: C.muted, marginTop: 5, lineHeight: 1.5 }}>
-                Claude reads the meeting and builds whatever static page fits best — spec, dashboard, brief, roadmap, etc.
+                Claude builds an interactive prototype of the product you discussed. Show it live before the call ends.
+              </p>
+            )}
+            {outputFormat === "presentation" && (
+              <p style={{ fontSize: 10, color: C.muted, marginTop: 5, lineHeight: 1.5 }}>
+                A beautiful HTML slide deck — click or arrow-key to navigate. Share in chat as a single file.
+              </p>
+            )}
+            {outputFormat === "notes" && (
+              <p style={{ fontSize: 10, color: C.muted, marginTop: 5, lineHeight: 1.5 }}>
+                A full website covering everything discussed — hero, sections, insights. Not notes, a brief.
               </p>
             )}
           </div>
@@ -602,7 +612,10 @@ export function Popup() {
           />
 
           <button onClick={handleGenerateDeck} disabled={!canGenerate} style={{ ...btn(true), opacity: canGenerate ? 1 : 0.5 }}>
-            {outputFormat === "prototype" ? "Build Prototype" : outputFormat === "doc" ? "Generate Document" : outputFormat === "notes" ? "Generate Notes" : "Generate Deck"}
+            {outputFormat === "prototype" ? "Build Prototype"
+              : outputFormat === "presentation" ? "Build Presentation"
+              : outputFormat === "notes" ? "Build Discussion Site"
+              : "Generate Brief"}
             {selectedPoints.size > 0 ? ` (${selectedPoints.size} topics)` : ""}
           </button>
           {!canGenerate && transcriptToUse.length > 0 && (
