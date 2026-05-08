@@ -42,8 +42,8 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["src/offscreen/index.html", "chunks/*.js"],
-      "matches": ["<all_urls>"]
+      "resources": ["src/offscreen/index.html", "chunks/*.js", "permission.html", "permission.js", "icons/*.png"],
+      "matches": ["chrome-extension://*/*"]
     }
   ]
 }
