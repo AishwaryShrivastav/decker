@@ -129,6 +129,7 @@ async function claudeComplete(
     headers: {
       "x-api-key": claudeKey,
       "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true",
       "content-type": "application/json",
     },
     body: JSON.stringify({
@@ -166,6 +167,7 @@ async function claudeStream(
     headers: {
       "x-api-key": claudeKey,
       "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true",
       "content-type": "application/json",
     },
     body: JSON.stringify({
