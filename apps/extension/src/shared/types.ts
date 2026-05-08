@@ -53,9 +53,6 @@ export interface StatusPayload {
   message?: string;
   transcript?: string;
   points?: string[];
-  /** Live meeting notes during recording (same as transcript when status is recording) */
-  liveNotes?: string;
-  /** Per-topic research state, updated incrementally */
   topicResearch?: TopicResearch[];
 }
 

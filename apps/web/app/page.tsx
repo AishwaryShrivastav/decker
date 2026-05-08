@@ -15,124 +15,114 @@ function detectBrowser(): Browser {
 const C = {
   accent: "#818cf8",
   accentBright: "#a5b4fc",
-  accentDim: "rgba(99,102,241,0.15)",
-  accentBorder: "rgba(99,102,241,0.3)",
+  accentDim: "rgba(99,102,241,0.12)",
+  accentBorder: "rgba(99,102,241,0.25)",
   violet: "#a78bfa",
-  bg: "#080c18",
-  surface: "#0d1224",
-  card: "#111827",
-  border: "rgba(255,255,255,0.07)",
+  bg: "#060910",
+  surface: "#0c1020",
+  card: "#0e1528",
+  cardHover: "#111c32",
+  border: "rgba(255,255,255,0.06)",
+  borderHover: "rgba(99,102,241,0.3)",
   text: "#e2e8f0",
   muted: "#64748b",
-  dim: "#374151",
+  dim: "#2d3748",
   green: "#34d399",
+  amber: "#f59e0b",
 };
+
+const TIMELINE = [
+  { time: "0:00", label: "Hit Record", sub: "One click in Chrome while you're live on Meet.", color: C.accent },
+  { time: "0:16", label: "First topics appear", sub: "Claude extracts discussion points from the live transcript.", color: C.violet },
+  { time: "0:32", label: "Research starts", sub: "Select a topic → Haiku researches it instantly in the background.", color: C.green },
+  { time: "ongoing", label: "Meeting continues", sub: "Topics update. Research runs. Nothing interrupts your call.", color: C.muted },
+  { time: "end", label: "Hit Generate", sub: "Claude Sonnet builds the artifact. Research is already done.", color: C.amber },
+  { time: "+90s", label: "Share in chat", sub: "Working prototype, deck, or brief. Before anyone hangs up.", color: C.green },
+];
 
 const OUTPUTS = [
   {
-    tag: "Static Prototype",
+    tag: "Prototype",
     icon: "⚡",
-    headline: "Claude builds the actual product",
-    desc: "Describe it in a meeting. Decker builds a working, clickable prototype while you talk. Show it before the call ends.",
+    headline: "A working product, not a mockup",
+    who: "For: product owners, founders",
+    desc: "You described the feature. Claude builds it — tabs, forms, data, interactions. Show the team an actual product before the call ends.",
     color: C.violet,
-    colorDim: "rgba(167,139,250,0.12)",
-    colorBorder: "rgba(167,139,250,0.3)",
+    colorDim: "rgba(167,139,250,0.08)",
+    colorBorder: "rgba(167,139,250,0.2)",
   },
   {
-    tag: "HTML Presentation",
+    tag: "Presentation",
     icon: "🎯",
-    headline: "A slide deck without the slides software",
-    desc: "Pure HTML. Click or arrow-key to navigate. Drop it in the chat. No PowerPoint, no Google Slides, no exports.",
+    headline: "A slide deck with no slide software",
+    who: "For: engineering leads, PMs",
+    desc: "Pure HTML. Navigate with arrow keys or buttons. One self-contained file you can drop in Slack right now.",
     color: C.accent,
-    colorDim: C.accentDim,
-    colorBorder: C.accentBorder,
+    colorDim: "rgba(99,102,241,0.08)",
+    colorBorder: "rgba(99,102,241,0.2)",
   },
   {
     tag: "Discussion SPA",
     icon: "🌐",
-    headline: "A website about the ideas you just discussed",
-    desc: "A full single-page brief: hero, sections, decisions, insights. Something you'd share with your whole org.",
-    color: "#34d399",
-    colorDim: "rgba(52,211,153,0.1)",
-    colorBorder: "rgba(52,211,153,0.3)",
+    headline: "A website about what you just built",
+    who: "For: cross-functional reviews, stakeholders",
+    desc: "Not meeting notes. A real product brief site — hero, decisions, insights, sections. Something you'd actually share with your org.",
+    color: C.green,
+    colorDim: "rgba(52,211,153,0.08)",
+    colorBorder: "rgba(52,211,153,0.2)",
   },
   {
     tag: "Meeting Brief",
     icon: "📋",
-    headline: "A structured brief, not bullet points",
-    desc: "Key decisions, action items, and research context — laid out like a proper product document.",
-    color: "#f59e0b",
-    colorDim: "rgba(245,158,11,0.1)",
-    colorBorder: "rgba(245,158,11,0.3)",
-  },
-];
-
-const HOW_STEPS = [
-  {
-    n: "01",
-    title: "Hit record",
-    desc: "Click the Decker icon in Chrome while you're live in Google Meet. One click. No setup, no screen share, no friction.",
-  },
-  {
-    n: "02",
-    title: "Topics appear live",
-    desc: "Claude listens as you talk and surfaces topics in real time. Check the ones that matter — research starts instantly in the background.",
-  },
-  {
-    n: "03",
-    title: "Generate at any point",
-    desc: "Hit Generate whenever you're ready — mid-meeting or after. Claude builds your artifact using everything it researched while you were talking.",
-  },
-  {
-    n: "04",
-    title: "Show it before the call ends",
-    desc: "A working prototype, a presentation, a website — drop it in the chat. That's the aha moment. That's how you close a meeting.",
+    headline: "Decisions and actions, not bullet points",
+    who: "For: any technical meeting",
+    desc: "Structured dark-themed document with topic sections, key decisions highlighted, and a full action item table.",
+    color: C.amber,
+    colorDim: "rgba(245,158,11,0.08)",
+    colorBorder: "rgba(245,158,11,0.2)",
   },
 ];
 
 const FEATURES = [
   {
-    icon: "🔴",
-    title: "Live topic discovery",
-    desc: "Claude extracts discussion topics in real time as audio is transcribed — every 16 seconds while the meeting runs.",
+    icon: "◉",
+    title: "Live transcription",
+    desc: "Whisper processes your audio every 16 seconds. The transcript builds while the meeting runs — nothing waits for the end.",
+    color: C.accent,
   },
   {
-    icon: "🔬",
-    title: "Background research",
-    desc: "The moment you select a topic, Claude Haiku researches it in parallel. By generate time, the context is already there.",
+    icon: "◎",
+    title: "Parallel research",
+    desc: "Check a topic and Claude Haiku researches it immediately, in the background. Zero interruption to your call.",
+    color: C.violet,
   },
   {
-    icon: "⚡",
+    icon: "◈",
     title: "Four output formats",
-    desc: "Prototype, presentation, SPA, or brief — Claude generates a complete, self-contained HTML file for each.",
+    desc: "Prototype, presentation, product SPA, or structured brief. Claude generates a complete self-contained HTML file for each.",
+    color: C.green,
   },
   {
-    icon: "🎙",
-    title: "Tab + mic recording",
-    desc: "Captures Google Meet tab audio (everyone else) plus your microphone. No screen share dialog, no extra installs.",
+    icon: "◐",
+    title: "Tab + mic capture",
+    desc: "Captures everyone else through the Meet tab, captures you through the mic. Mixed and transcribed together.",
+    color: C.accent,
   },
   {
-    icon: "🔑",
-    title: "Your keys. Your data.",
-    desc: "Claude key for generation. OpenAI key for Whisper transcription. Both stored locally. Nothing touches our servers.",
+    icon: "◑",
+    title: "State persists always",
+    desc: "Close and reopen the popup during the call. Every topic and research result is exactly where you left it.",
+    color: C.violet,
   },
   {
-    icon: "🧠",
-    title: "State persists across opens",
-    desc: "Close and reopen the popup anytime. Topics, research, and transcripts are all still there — exactly where you left them.",
+    icon: "◒",
+    title: "Runs entirely in Chrome",
+    desc: "No backend. No servers. Claude key for generation, OpenAI key for Whisper — both stored locally in your browser.",
+    color: C.green,
   },
 ];
 
-const BROWSERS = [
-  { name: "Chrome", icon: "🌐", status: "live" as const },
-  { name: "Brave", icon: "🦁", status: "live" as const },
-  { name: "Arc", icon: "◐", status: "live" as const },
-  { name: "Edge", icon: "🔷", status: "live" as const },
-  { name: "Firefox", icon: "🦊", status: "soon" as const },
-  { name: "Safari", icon: "🧭", status: "soon" as const },
-];
-
-function useScrollReveal(threshold = 0.08) {
+function useScrollReveal(threshold = 0.06) {
   const ref = useRef<HTMLElement>(null);
   const [revealed, setRevealed] = useState(false);
   useEffect(() => {
@@ -150,194 +140,248 @@ function useScrollReveal(threshold = 0.08) {
 
 export default function Home() {
   const [browser, setBrowser] = useState<Browser>("other");
-  const heroRef = useScrollReveal(0.15);
-  const outputsRef = useScrollReveal(0.05);
-  const howRef = useScrollReveal(0.05);
-  const featuresRef = useScrollReveal(0.05);
-  const pricingRef = useScrollReveal(0.05);
-  const ctaRef = useScrollReveal(0.1);
+  const timelineRef = useScrollReveal(0.04);
+  const outputsRef = useScrollReveal(0.04);
+  const howRef = useScrollReveal(0.04);
+  const featuresRef = useScrollReveal(0.04);
+  const pricingRef = useScrollReveal(0.04);
+  const ctaRef = useScrollReveal(0.08);
 
   useEffect(() => { setBrowser(detectBrowser()); }, []);
 
   const primaryCTA = browser === "firefox"
     ? <span className="btn btn-primary" style={{ opacity: 0.45, cursor: "not-allowed" }}>Firefox — Coming Soon</span>
-    : <a href="https://chrome.google.com/webstore" target="_blank" rel="noopener noreferrer" className="btn btn-primary">Get the Extension — $1</a>;
+    : <a href="https://chrome.google.com/webstore" target="_blank" rel="noopener noreferrer" className="btn btn-primary">Get Decker — $1</a>;
 
   return (
     <main style={{ background: C.bg, color: C.text, fontFamily: "Inter, -apple-system, sans-serif" }}>
 
       {/* ── NAV ── */}
-      <nav style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50, backdropFilter: "blur(16px)", background: "rgba(8,12,24,0.8)", borderBottom: `1px solid ${C.border}` }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <a href="#" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-            <img src="/logo.png" alt="Decker" width={32} height={32} style={{ objectFit: "contain" }} />
-            <span style={{ fontWeight: 800, fontSize: "1.15rem", color: C.accent, letterSpacing: "-0.5px" }}>Decker</span>
+      <nav style={{
+        position: "fixed", top: 0, left: 0, right: 0, zIndex: 50,
+        backdropFilter: "blur(20px)",
+        background: "rgba(6,9,16,0.85)",
+        borderBottom: `1px solid ${C.border}`,
+      }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px", height: 58, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <a href="#" style={{ display: "flex", alignItems: "center", gap: 9, textDecoration: "none" }}>
+            <img src="/logo.png" alt="Decker" width={28} height={28} style={{ objectFit: "contain" }} />
+            <span style={{ fontWeight: 800, fontSize: "1.1rem", color: C.accent, letterSpacing: "-0.5px" }}>Decker</span>
           </a>
-          <div style={{ display: "flex", gap: 24, alignItems: "center", fontSize: "0.875rem" }}>
-            <a href="#how" style={{ color: C.muted, textDecoration: "none" }}>How it works</a>
-            <a href="#outputs" style={{ color: C.muted, textDecoration: "none" }}>Outputs</a>
-            <a href="#pricing" style={{ color: C.muted, textDecoration: "none" }}>Pricing</a>
-            <a href="https://github.com/AishwaryShrivastav/decker" target="_blank" rel="noopener noreferrer" style={{ color: C.muted, textDecoration: "none" }}>GitHub</a>
+          <div style={{ display: "flex", gap: 28, alignItems: "center", fontSize: "0.85rem" }}>
+            <a href="#how" style={{ color: C.muted, textDecoration: "none" }} className="nav-link">How it works</a>
+            <a href="#outputs" style={{ color: C.muted, textDecoration: "none" }} className="nav-link">Outputs</a>
+            <a href="#pricing" style={{ color: C.muted, textDecoration: "none" }} className="nav-link">Pricing</a>
+            <a href="https://github.com/AishwaryShrivastav/decker" target="_blank" rel="noopener noreferrer" style={{ color: C.muted, textDecoration: "none" }} className="nav-link">GitHub</a>
             {browser === "chromium"
-              ? <a href="https://chrome.google.com/webstore" target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ padding: "7px 16px", fontSize: "0.82rem" }}>Get Extension — $1</a>
-              : <a href="https://github.com/AishwaryShrivastav/decker" target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: "7px 16px", fontSize: "0.82rem" }}>View on GitHub</a>}
+              ? <a href="https://chrome.google.com/webstore" target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ padding: "6px 14px", fontSize: "0.8rem" }}>Get Extension — $1</a>
+              : <a href="https://github.com/AishwaryShrivastav/decker" target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: "6px 14px", fontSize: "0.8rem" }}>GitHub ↗</a>}
           </div>
         </div>
       </nav>
 
       {/* ── HERO ── */}
-      <section
-        ref={heroRef.ref}
-        style={{
-          padding: "140px 24px 100px",
-          minHeight: "88vh",
-          display: "flex",
-          alignItems: "center",
-          background: `radial-gradient(ellipse 80% 50% at 50% -10%, rgba(99,102,241,0.2) 0%, transparent 60%),
-                       radial-gradient(ellipse 60% 40% at 85% 60%, rgba(167,139,250,0.08) 0%, transparent 50%),
-                       ${C.bg}`,
-        }}
-      >
-        <div style={{ maxWidth: 800, margin: "0 auto", width: "100%", textAlign: "center" }}>
-          <div className="animate-fade-in-up" style={{ animationDelay: "0.05s" }}>
+      <section style={{
+        padding: "148px 24px 110px",
+        minHeight: "92vh",
+        display: "flex",
+        alignItems: "center",
+        background: `
+          radial-gradient(ellipse 90% 60% at 50% -5%, rgba(99,102,241,0.18) 0%, transparent 55%),
+          radial-gradient(ellipse 50% 40% at 80% 70%, rgba(167,139,250,0.07) 0%, transparent 50%),
+          ${C.bg}`,
+      }}>
+        <div style={{ maxWidth: 760, margin: "0 auto", width: "100%", textAlign: "center" }}>
+
+          <div className="fade-up" style={{ animationDelay: "0s" }}>
             <div style={{
               display: "inline-flex", alignItems: "center", gap: 8,
               background: C.accentDim, border: `1px solid ${C.accentBorder}`,
-              borderRadius: 99, padding: "6px 16px", marginBottom: 32,
-              fontSize: "0.78rem", color: C.accentBright, fontWeight: 600, letterSpacing: "0.04em",
+              borderRadius: 99, padding: "5px 14px", marginBottom: 36,
+              fontSize: "0.75rem", color: C.accentBright, fontWeight: 600, letterSpacing: "0.05em",
             }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.green, display: "inline-block" }} />
-              For product owners and tech leads in meetings
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: C.green, display: "inline-block", boxShadow: `0 0 6px ${C.green}` }} />
+              Chrome Extension · Works on Google Meet
             </div>
           </div>
 
-          <h1 className="animate-fade-in-up animate-delay-1" style={{
-            fontSize: "clamp(2.6rem, 6vw, 4.8rem)", fontWeight: 800,
-            margin: "0 0 20px", letterSpacing: "-2.5px", lineHeight: 1.05, color: C.text,
+          <h1 className="fade-up" style={{
+            animationDelay: "0.08s",
+            fontSize: "clamp(2.8rem, 6.5vw, 5rem)", fontWeight: 800,
+            margin: "0 0 22px", letterSpacing: "-3px", lineHeight: 1.02, color: C.text,
           }}>
-            Ship the idea,
+            Build the thing
             <br />
             <span style={{
-              background: `linear-gradient(135deg, ${C.accent} 0%, ${C.violet} 60%, ${C.accentBright} 100%)`,
-              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-            }}>not the follow-up.</span>
+              background: `linear-gradient(135deg, ${C.accent} 0%, ${C.violet} 50%, ${C.accentBright} 100%)`,
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}>
+              before you hang up.
+            </span>
           </h1>
 
-          <p className="animate-fade-in-up animate-delay-2" style={{
-            fontSize: "1.2rem", color: C.muted, maxWidth: 580, margin: "0 auto 36px", lineHeight: 1.7,
+          <p className="fade-up" style={{
+            animationDelay: "0.16s",
+            fontSize: "1.15rem", color: C.muted, maxWidth: 560, margin: "0 auto 40px", lineHeight: 1.75,
           }}>
-            Record your meeting. Decker researches every topic in the background as you talk.
-            At the end of the call — hit Generate. Claude ships a working prototype, a slide deck,
-            or a product brief. Right there. Before anyone closes their laptop.
+            Decker records your Google Meet and researches every topic in the background
+            as you talk. Hit Generate at the end — Claude ships a working prototype,
+            a slide deck, or a product brief. Right there. Before the call ends.
           </p>
 
-          <div className="animate-fade-in-up animate-delay-3" style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+          <div className="fade-up" style={{ animationDelay: "0.22s", display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
             {primaryCTA}
             <a href="https://github.com/AishwaryShrivastav/decker" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
-              Self-host for free →
+              Self-host free →
             </a>
           </div>
 
-          <p className="animate-fade-in-up animate-delay-4" style={{ marginTop: 20, fontSize: "0.76rem", color: C.dim }}>
-            MIT licensed · BYOK (Claude + OpenAI) · No backend · No data stored
+          <p className="fade-up" style={{ animationDelay: "0.28s", marginTop: 22, fontSize: "0.74rem", color: C.dim, letterSpacing: "0.02em" }}>
+            MIT licensed · BYOK (Claude + OpenAI) · No backend · Your data never leaves your browser
           </p>
         </div>
       </section>
 
-      {/* ── AHA MOMENT BLOCK ── */}
-      <section style={{ maxWidth: 820, margin: "0 auto", padding: "0 24px 100px" }}>
+      {/* ── THE PROBLEM ── */}
+      <section style={{ maxWidth: 860, margin: "0 auto", padding: "0 24px 100px" }}>
         <div style={{
           padding: "52px 56px",
-          background: `linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(167,139,250,0.04) 100%)`,
-          border: `1px solid ${C.accentBorder}`,
-          borderRadius: 24,
-          textAlign: "center",
+          background: `linear-gradient(135deg, rgba(14,21,40,1) 0%, rgba(12,16,32,1) 100%)`,
+          border: `1px solid ${C.border}`,
+          borderLeft: `3px solid ${C.accent}`,
+          borderRadius: 20,
         }}>
-          <div style={{ fontSize: "2rem", marginBottom: 20 }}>💡</div>
-          <p style={{ fontSize: "clamp(1.05rem, 2vw, 1.3rem)", color: C.text, lineHeight: 1.8, margin: "0 0 24px", fontStyle: "italic", fontWeight: 300 }}>
-            &ldquo;You&apos;re 50 minutes into a great product session. The idea is clear. The decisions are made.
-            The old way: someone takes notes, sends a recap tomorrow, momentum dies.&rdquo;
+          <p style={{ fontSize: "clamp(1rem, 2vw, 1.25rem)", color: "#94a3b8", lineHeight: 1.85, margin: "0 0 20px", fontWeight: 300 }}>
+            You&apos;ve had that meeting. 50 minutes, great energy, real decisions made.
+            Someone says "I&apos;ll send a summary" — and three days later you&apos;re looking at a
+            blank Jira board trying to remember what you actually agreed on.
           </p>
-          <p style={{ fontSize: "clamp(0.95rem, 1.7vw, 1.1rem)", color: C.muted, lineHeight: 1.75, margin: "0 0 24px" }}>
-            The Decker way: you hit Generate in the last minute.
-            Claude builds the prototype you just described. You share it in the chat.
-            <br />
-            <strong style={{ color: C.text }}>Everyone sees it. Right now. Before the call ends.</strong>
+          <p style={{ fontSize: "clamp(0.95rem, 1.7vw, 1.1rem)", color: C.text, lineHeight: 1.8, margin: 0, fontWeight: 500 }}>
+            Decker solves the last minute of the meeting — when the idea is live,
+            decisions are fresh, and everyone&apos;s still on the call.{" "}
+            <span style={{ color: C.accentBright }}>That&apos;s when you generate.</span>
           </p>
-          <p style={{ fontSize: "1.15rem", fontWeight: 700, color: C.accentBright, margin: 0 }}>
-            That&apos;s the aha moment. ✨
+        </div>
+      </section>
+
+      {/* ── TIMELINE ── */}
+      <section
+        id="how"
+        ref={timelineRef.ref as React.RefObject<HTMLElement>}
+        className={`reveal ${timelineRef.revealed ? "revealed" : ""}`}
+        style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 110px" }}
+      >
+        <div style={{ textAlign: "center", marginBottom: 64 }}>
+          <div style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: C.accent, marginBottom: 14 }}>How it works</div>
+          <h2 style={{ fontSize: "clamp(1.8rem, 3.2vw, 2.7rem)", fontWeight: 800, color: C.text, letterSpacing: "-1px", margin: "0 0 14px" }}>
+            The work happens while you talk.
+          </h2>
+          <p style={{ color: C.muted, fontSize: "1rem", maxWidth: 500, margin: "0 auto", lineHeight: 1.7 }}>
+            By the time you hit Generate, the research is done, the transcript is built,
+            and Claude just needs to write.
           </p>
+        </div>
+
+        <div style={{ position: "relative" }}>
+          {/* Vertical line */}
+          <div style={{
+            position: "absolute", left: "50%", top: 20, bottom: 20,
+            width: 1, background: `linear-gradient(180deg, transparent 0%, ${C.accentBorder} 10%, ${C.accentBorder} 90%, transparent 100%)`,
+            transform: "translateX(-50%)",
+          }} className="timeline-line" />
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+            {TIMELINE.map((item, i) => {
+              const isLeft = i % 2 === 0;
+              return (
+                <div key={item.time} className="timeline-item" style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 80px 1fr",
+                  alignItems: "center",
+                  gap: 0,
+                  marginBottom: 8,
+                  transitionDelay: `${i * 0.08}s`,
+                }}>
+                  {/* Left content */}
+                  <div style={{ textAlign: "right", padding: "16px 32px 16px 0", opacity: isLeft ? 1 : 0 }}>
+                    {isLeft && (
+                      <div style={{ display: "inline-block", padding: "14px 20px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, textAlign: "left" }}>
+                        <div style={{ fontWeight: 700, color: C.text, marginBottom: 4, fontSize: "0.95rem" }}>{item.label}</div>
+                        <div style={{ fontSize: "0.82rem", color: C.muted, lineHeight: 1.5 }}>{item.sub}</div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Center dot + time */}
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: "50%",
+                      background: C.card,
+                      border: `2px solid ${item.color}`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      boxShadow: `0 0 12px ${item.color}40`,
+                      flexShrink: 0,
+                      zIndex: 1,
+                    }}>
+                      <div style={{ width: 10, height: 10, borderRadius: "50%", background: item.color }} />
+                    </div>
+                    <div style={{ fontSize: "0.62rem", fontFamily: "monospace", color: item.color, fontWeight: 700, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{item.time}</div>
+                  </div>
+
+                  {/* Right content */}
+                  <div style={{ padding: "16px 0 16px 32px", opacity: isLeft ? 0 : 1 }}>
+                    {!isLeft && (
+                      <div style={{ display: "inline-block", padding: "14px 20px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 }}>
+                        <div style={{ fontWeight: 700, color: C.text, marginBottom: 4, fontSize: "0.95rem" }}>{item.label}</div>
+                        <div style={{ fontSize: "0.82rem", color: C.muted, lineHeight: 1.5 }}>{item.sub}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </section>
 
       {/* ── OUTPUTS ── */}
       <section
         id="outputs"
-        ref={outputsRef.ref}
-        className={`reveal-on-scroll ${outputsRef.revealed ? "revealed" : ""}`}
-        style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 100px" }}
-      >
-        <div style={{ textAlign: "center", marginBottom: 56 }}>
-          <h2 style={{ fontSize: "clamp(1.8rem, 3vw, 2.6rem)", fontWeight: 800, color: C.text, letterSpacing: "-0.5px", marginBottom: 12 }}>
-            Four outputs. One meeting.
-          </h2>
-          <p style={{ color: C.muted, fontSize: "1rem", maxWidth: 520, margin: "0 auto" }}>
-            Claude decides the best format for what you built — or you choose. Every output is a self-contained HTML file you can share instantly.
-          </p>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 20 }}>
-          {OUTPUTS.map((o, i) => (
-            <div key={o.tag} className="card" style={{
-              transitionDelay: `${i * 0.08}s`,
-              background: o.colorDim,
-              border: `1px solid ${o.colorBorder}`,
-              padding: "28px 26px",
-            }}>
-              <div style={{ fontSize: "1.6rem", marginBottom: 12 }}>{o.icon}</div>
-              <div style={{
-                display: "inline-block",
-                fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.08em",
-                textTransform: "uppercase", color: o.color,
-                background: `rgba(255,255,255,0.04)`,
-                border: `1px solid ${o.colorBorder}`,
-                borderRadius: 99, padding: "3px 10px", marginBottom: 12,
-              }}>{o.tag}</div>
-              <div style={{ fontWeight: 700, color: C.text, fontSize: "1rem", marginBottom: 8, lineHeight: 1.35 }}>{o.headline}</div>
-              <p style={{ fontSize: "0.88rem", color: C.muted, margin: 0, lineHeight: 1.65 }}>{o.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── HOW IT WORKS ── */}
-      <section
-        id="how"
-        ref={howRef.ref}
-        className={`reveal-on-scroll ${howRef.revealed ? "revealed" : ""}`}
-        style={{ background: "rgba(255,255,255,0.015)", borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}` }}
+        ref={outputsRef.ref as React.RefObject<HTMLElement>}
+        className={`reveal ${outputsRef.revealed ? "revealed" : ""}`}
+        style={{ background: `rgba(255,255,255,0.01)`, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}` }}
       >
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "100px 24px" }}>
           <div style={{ textAlign: "center", marginBottom: 60 }}>
-            <h2 style={{ fontSize: "clamp(1.8rem, 3vw, 2.6rem)", fontWeight: 800, color: C.text, letterSpacing: "-0.5px", marginBottom: 12 }}>
-              How it works
+            <div style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: C.accent, marginBottom: 14 }}>Outputs</div>
+            <h2 style={{ fontSize: "clamp(1.8rem, 3.2vw, 2.7rem)", fontWeight: 800, color: C.text, letterSpacing: "-1px", margin: "0 0 14px" }}>
+              One meeting. Four kinds of shipped.
             </h2>
-            <p style={{ color: C.muted, fontSize: "1rem" }}>
-              One extension. Four steps. Zero follow-up emails.
+            <p style={{ color: C.muted, fontSize: "1rem", maxWidth: 480, margin: "0 auto", lineHeight: 1.7 }}>
+              Every output is a single self-contained HTML file. Open it, share it, drop it in Slack — no logins, no exports, no waiting.
             </p>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 24 }}>
-            {HOW_STEPS.map((s, i) => (
-              <div key={s.n} className="card" style={{ transitionDelay: `${i * 0.1}s`, position: "relative", paddingTop: 32 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
+            {OUTPUTS.map((o, i) => (
+              <div key={o.tag} className="card reveal-card" style={{
+                transitionDelay: `${i * 0.07}s`,
+                background: o.colorDim,
+                border: `1px solid ${o.colorBorder}`,
+                padding: "28px 24px",
+                display: "flex", flexDirection: "column",
+              }}>
+                <div style={{ fontSize: "1.5rem", marginBottom: 14 }}>{o.icon}</div>
                 <div style={{
-                  position: "absolute", top: -1, left: 24,
-                  fontFamily: "monospace", fontSize: "0.68rem", fontWeight: 700,
-                  color: C.accent, background: C.accentDim,
-                  border: `1px solid ${C.accentBorder}`,
-                  padding: "3px 10px", borderRadius: "0 0 8px 8px",
-                  letterSpacing: "0.06em",
-                }}>{s.n}</div>
-                <div style={{ fontWeight: 700, color: C.text, marginBottom: 10, fontSize: "1.05rem" }}>{s.title}</div>
-                <p style={{ fontSize: "0.9rem", color: C.muted, margin: 0, lineHeight: 1.65 }}>{s.desc}</p>
+                  display: "inline-block", alignSelf: "flex-start",
+                  fontSize: "0.65rem", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase",
+                  color: o.color, border: `1px solid ${o.colorBorder}`,
+                  borderRadius: 99, padding: "3px 10px", marginBottom: 14,
+                }}>{o.tag}</div>
+                <div style={{ fontWeight: 700, color: C.text, fontSize: "1rem", marginBottom: 8, lineHeight: 1.3 }}>{o.headline}</div>
+                <p style={{ fontSize: "0.87rem", color: C.muted, margin: "0 0 14px", lineHeight: 1.65, flex: 1 }}>{o.desc}</p>
+                <div style={{ fontSize: "0.72rem", color: o.color, fontWeight: 600, opacity: 0.8 }}>{o.who}</div>
               </div>
             ))}
           </div>
@@ -346,26 +390,26 @@ export default function Home() {
 
       {/* ── FEATURES ── */}
       <section
-        id="features"
-        ref={featuresRef.ref}
-        className={`reveal-on-scroll ${featuresRef.revealed ? "revealed" : ""}`}
+        ref={featuresRef.ref as React.RefObject<HTMLElement>}
+        className={`reveal ${featuresRef.revealed ? "revealed" : ""}`}
         style={{ maxWidth: 1100, margin: "0 auto", padding: "100px 24px" }}
       >
-        <div style={{ textAlign: "center", marginBottom: 52 }}>
-          <h2 style={{ fontSize: "clamp(1.8rem, 3vw, 2.6rem)", fontWeight: 800, color: C.text, letterSpacing: "-0.5px", marginBottom: 12 }}>
-            Built for the last minute of a meeting
+        <div style={{ textAlign: "center", marginBottom: 56 }}>
+          <div style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: C.accent, marginBottom: 14 }}>Under the hood</div>
+          <h2 style={{ fontSize: "clamp(1.8rem, 3.2vw, 2.7rem)", fontWeight: 800, color: C.text, letterSpacing: "-1px", margin: "0 0 14px" }}>
+            Designed to be ready when you are.
           </h2>
-          <p style={{ color: C.muted, fontSize: "1rem" }}>
-            Every feature is designed so generation is instant by the time you need it.
+          <p style={{ color: C.muted, fontSize: "1rem", lineHeight: 1.7 }}>
+            Every part of the architecture is built around one goal: zero wait time when you hit Generate.
           </p>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 14 }}>
           {FEATURES.map((f, i) => (
-            <div key={f.title} className="card" style={{ transitionDelay: `${i * 0.06}s`, display: "flex", gap: 16, alignItems: "flex-start", padding: "20px 22px" }}>
-              <span style={{ fontSize: "1.4rem", flexShrink: 0 }}>{f.icon}</span>
+            <div key={f.title} className="card reveal-card" style={{ transitionDelay: `${i * 0.06}s`, display: "flex", gap: 18, alignItems: "flex-start", padding: "22px 24px" }}>
+              <span style={{ fontSize: "1.3rem", flexShrink: 0, color: f.color, marginTop: 1 }}>{f.icon}</span>
               <div>
                 <div style={{ fontWeight: 700, color: C.text, marginBottom: 5, fontSize: "0.95rem" }}>{f.title}</div>
-                <p style={{ fontSize: "0.86rem", color: C.muted, margin: 0, lineHeight: 1.6 }}>{f.desc}</p>
+                <p style={{ fontSize: "0.86rem", color: C.muted, margin: 0, lineHeight: 1.65 }}>{f.desc}</p>
               </div>
             </div>
           ))}
@@ -373,20 +417,30 @@ export default function Home() {
       </section>
 
       {/* ── WHO IT'S FOR ── */}
-      <section style={{ background: "rgba(255,255,255,0.015)", borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}` }}>
-        <div style={{ maxWidth: 900, margin: "0 auto", padding: "100px 24px", textAlign: "center" }}>
-          <h2 style={{ fontSize: "clamp(1.6rem, 2.8vw, 2.2rem)", fontWeight: 800, color: C.text, letterSpacing: "-0.5px", marginBottom: 16 }}>
-            Built for people who make things in meetings
+      <section style={{ background: `rgba(255,255,255,0.01)`, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}` }}>
+        <div style={{ maxWidth: 820, margin: "0 auto", padding: "96px 24px", textAlign: "center" }}>
+          <div style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: C.accent, marginBottom: 14 }}>Who it&apos;s for</div>
+          <h2 style={{ fontSize: "clamp(1.6rem, 2.8vw, 2.3rem)", fontWeight: 800, color: C.text, letterSpacing: "-0.5px", margin: "0 0 18px" }}>
+            For the meetings where something real gets decided.
           </h2>
-          <p style={{ color: C.muted, lineHeight: 1.8, fontSize: "1.05rem", maxWidth: 640, margin: "0 auto 48px" }}>
-            If you&apos;re a product owner walking through a spec, a tech lead scoping an architecture, an engineer explaining a feature — Decker is for that meeting. The one where the idea is real, decisions get made, and you want to leave with something tangible.
+          <p style={{ color: C.muted, lineHeight: 1.85, fontSize: "1.05rem", maxWidth: 600, margin: "0 auto 48px" }}>
+            Not every standup. The spec review. The architecture discussion.
+            The session where a founder explains a product to an engineer for the first time.
+            The kind of meeting where you want to leave with something in your hands.
           </p>
-          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            {["Product Owners", "Engineering Leads", "CTOs & VPs Eng", "Founders", "Design Leads", "Technical PMs"].map((role) => (
+          <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+            {[
+              "Product Owners",
+              "Engineering Leads",
+              "CTOs & VPs Eng",
+              "Founders",
+              "Design Leads",
+              "Technical PMs",
+            ].map((role) => (
               <div key={role} style={{
                 padding: "8px 18px", borderRadius: 99,
                 background: C.accentDim, border: `1px solid ${C.accentBorder}`,
-                fontSize: "0.85rem", color: C.accentBright, fontWeight: 500,
+                fontSize: "0.84rem", color: C.accentBright, fontWeight: 500,
               }}>{role}</div>
             ))}
           </div>
@@ -397,23 +451,23 @@ export default function Home() {
       <section style={{ maxWidth: 860, margin: "0 auto", padding: "80px 24px 0" }}>
         <div style={{
           padding: "36px 44px",
-          background: `linear-gradient(135deg, rgba(99,102,241,0.07) 0%, rgba(99,102,241,0.02) 100%)`,
+          background: `linear-gradient(135deg, rgba(99,102,241,0.06) 0%, rgba(99,102,241,0.02) 100%)`,
           border: `1px solid ${C.accentBorder}`,
-          borderRadius: 20,
-          display: "grid", gridTemplateColumns: "auto 1fr", gap: 24, alignItems: "center",
+          borderRadius: 18,
+          display: "grid", gridTemplateColumns: "auto 1fr", gap: 28, alignItems: "center",
         }} className="byok-grid">
           <div style={{
-            width: 60, height: 60, borderRadius: 14,
+            width: 56, height: 56, borderRadius: 14,
             background: C.accentDim, border: `1px solid ${C.accentBorder}`,
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: "1.6rem", flexShrink: 0,
+            fontSize: "1.5rem", flexShrink: 0,
           }}>🔑</div>
           <div>
-            <div style={{ fontWeight: 800, color: C.text, fontSize: "1.05rem", marginBottom: 7 }}>
-              Bring Your Own Keys — Claude + OpenAI
+            <div style={{ fontWeight: 800, color: C.text, fontSize: "1rem", marginBottom: 8 }}>
+              Your keys. Your data. Always.
             </div>
-            <p style={{ color: C.muted, margin: 0, lineHeight: 1.7, fontSize: "0.92rem" }}>
-              Decker uses <strong style={{ color: C.text }}>your Claude key</strong> (Anthropic) for topic extraction, research, and generation — and <strong style={{ color: C.text }}>your OpenAI key</strong> for Whisper transcription. Both are stored locally in your browser. Nothing touches our servers. A typical meeting costs a few cents.
+            <p style={{ color: C.muted, margin: 0, lineHeight: 1.75, fontSize: "0.92rem" }}>
+              Bring your <strong style={{ color: C.text }}>Claude key</strong> (topics, research, generation) and your <strong style={{ color: C.text }}>OpenAI key</strong> (Whisper transcription). Both stored locally in Chrome — never sent to our servers. A full 60-minute meeting costs a few cents.
             </p>
           </div>
         </div>
@@ -422,27 +476,27 @@ export default function Home() {
       {/* ── PRICING ── */}
       <section
         id="pricing"
-        ref={pricingRef.ref}
-        className={`reveal-on-scroll ${pricingRef.revealed ? "revealed" : ""}`}
+        ref={pricingRef.ref as React.RefObject<HTMLElement>}
+        className={`reveal ${pricingRef.revealed ? "revealed" : ""}`}
         style={{ maxWidth: 860, margin: "0 auto", padding: "100px 24px" }}
       >
         <div style={{ textAlign: "center", marginBottom: 52 }}>
-          <h2 style={{ fontSize: "clamp(1.8rem, 3vw, 2.6rem)", fontWeight: 800, color: C.text, letterSpacing: "-0.5px", marginBottom: 12 }}>
-            Simple pricing.
+          <div style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: C.accent, marginBottom: 14 }}>Pricing</div>
+          <h2 style={{ fontSize: "clamp(1.8rem, 3.2vw, 2.7rem)", fontWeight: 800, color: C.text, letterSpacing: "-1px", margin: "0 0 12px" }}>
+            Free to build. A dollar to install.
           </h2>
-          <p style={{ color: C.muted, fontSize: "1rem" }}>Free if you build it. One dollar if you just want to use it.</p>
+          <p style={{ color: C.muted, fontSize: "1rem" }}>No subscription. No usage limits. No catch.</p>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }} className="pricing-grid">
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }} className="pricing-grid">
 
-          {/* Open Source */}
           <div className="card" style={{ padding: "36px 32px", display: "flex", flexDirection: "column" }}>
-            <div style={{ fontWeight: 700, color: C.muted, fontSize: "0.75rem", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>Open Source</div>
-            <div style={{ fontSize: "2.6rem", fontWeight: 800, color: C.text, letterSpacing: "-1px", marginBottom: 8 }}>Free</div>
-            <p style={{ fontSize: "0.9rem", color: C.muted, marginBottom: 28, lineHeight: 1.6 }}>Clone, self-host, extend. MIT licensed — use it commercially, fork it, make it yours.</p>
-            <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", flex: 1 }}>
-              {["Full source code on GitHub", "Self-host the Next.js backend", "Build your own Chrome extension", "MIT licensed — use commercially"].map((item) => (
-                <li key={item} style={{ display: "flex", gap: 10, marginBottom: 10, color: C.muted, fontSize: "0.88rem" }}>
-                  <span style={{ color: C.accent, flexShrink: 0 }}>✓</span> {item}
+            <div style={{ fontWeight: 700, color: C.muted, fontSize: "0.7rem", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 18 }}>Open Source</div>
+            <div style={{ fontSize: "2.8rem", fontWeight: 800, color: C.text, letterSpacing: "-2px", marginBottom: 10 }}>Free</div>
+            <p style={{ fontSize: "0.9rem", color: C.muted, marginBottom: 28, lineHeight: 1.65 }}>Clone, self-host, extend. MIT licensed. Use it commercially, fork it, make it yours.</p>
+            <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+              {["Full source code on GitHub", "Self-host the Next.js backend", "Build your own Chrome extension", "MIT — commercial use allowed"].map((item) => (
+                <li key={item} style={{ display: "flex", gap: 10, color: C.muted, fontSize: "0.88rem", alignItems: "flex-start" }}>
+                  <span style={{ color: C.accent, flexShrink: 0, marginTop: 1 }}>✓</span> {item}
                 </li>
               ))}
             </ul>
@@ -451,28 +505,28 @@ export default function Home() {
             </a>
           </div>
 
-          {/* $1 Plugin */}
-          <div className="card animate-glow" style={{
+          <div className="card" style={{
             padding: "36px 32px", display: "flex", flexDirection: "column",
-            background: `linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(99,102,241,0.04) 100%)`,
+            background: `linear-gradient(135deg, rgba(99,102,241,0.10) 0%, rgba(99,102,241,0.04) 100%)`,
             border: `1px solid ${C.accentBorder}`,
             position: "relative", overflow: "hidden",
+            boxShadow: `0 0 0 1px rgba(99,102,241,0.15), 0 8px 32px rgba(99,102,241,0.08)`,
           }}>
             <div style={{
-              position: "absolute", top: 18, right: 18,
-              background: "#f59e0b", color: "#000",
-              fontSize: "0.65rem", fontWeight: 800, padding: "3px 10px", borderRadius: 99, letterSpacing: "0.06em",
+              position: "absolute", top: 16, right: 16,
+              background: C.amber, color: "#000",
+              fontSize: "0.6rem", fontWeight: 800, padding: "3px 10px", borderRadius: 99, letterSpacing: "0.06em",
             }}>RECOMMENDED</div>
-            <div style={{ fontWeight: 700, color: C.accent, fontSize: "0.75rem", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>Chrome Extension</div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
-              <span style={{ fontSize: "2.6rem", fontWeight: 800, color: C.text, letterSpacing: "-1px" }}>$1</span>
-              <span style={{ color: C.muted, fontSize: "0.9rem" }}>one-time</span>
+            <div style={{ fontWeight: 700, color: C.accent, fontSize: "0.7rem", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 18 }}>Chrome Extension</div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 6 }}>
+              <span style={{ fontSize: "2.8rem", fontWeight: 800, color: C.text, letterSpacing: "-2px" }}>$1</span>
+              <span style={{ color: C.muted, fontSize: "0.88rem" }}>one-time</span>
             </div>
-            <p style={{ fontSize: "0.8rem", color: C.muted, marginBottom: 28 }}>No subscription. No renewal. Pay once, use forever.</p>
-            <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", flex: 1 }}>
-              {["One-click install from Chrome Web Store", "Works in Chrome, Brave, Arc, Edge", "Use the current build forever", "No self-hosting, no build step"].map((item) => (
-                <li key={item} style={{ display: "flex", gap: 10, marginBottom: 10, color: C.text, fontSize: "0.88rem" }}>
-                  <span style={{ color: C.accent, flexShrink: 0 }}>✓</span> {item}
+            <p style={{ fontSize: "0.85rem", color: C.muted, marginBottom: 28, lineHeight: 1.55 }}>Pay once. Use it in every meeting, forever. No renewal, no upsell.</p>
+            <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+              {["One-click install from Chrome Web Store", "Works in Chrome, Brave, Arc, Edge", "Current build forever, free updates", "No self-hosting, no build step"].map((item) => (
+                <li key={item} style={{ display: "flex", gap: 10, color: C.text, fontSize: "0.88rem", alignItems: "flex-start" }}>
+                  <span style={{ color: C.accent, flexShrink: 0, marginTop: 1 }}>✓</span> {item}
                 </li>
               ))}
             </ul>
@@ -481,29 +535,35 @@ export default function Home() {
             </a>
           </div>
         </div>
-        <p style={{ textAlign: "center", color: C.dim, fontSize: "0.8rem", marginTop: 20 }}>
-          🔑 Both options are BYOK — your Claude and OpenAI keys, stored in your browser. We never handle your data.
+        <p style={{ textAlign: "center", color: C.dim, fontSize: "0.78rem", marginTop: 18, lineHeight: 1.6 }}>
+          Both options require your own Claude + OpenAI keys. Keys stay in your browser — we never see them.
         </p>
       </section>
 
-      {/* ── BROWSERS ── */}
-      <section style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 100px", textAlign: "center" }}>
-        <h2 style={{ fontSize: "1.6rem", fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "-0.3px" }}>Browser support</h2>
-        <p style={{ color: C.muted, marginBottom: 36, fontSize: "0.95rem" }}>All Chromium-based browsers today. Firefox and Safari on the roadmap.</p>
+      {/* ── BROWSER SUPPORT ── */}
+      <section style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 96px", textAlign: "center" }}>
+        <h3 style={{ fontSize: "1rem", fontWeight: 700, color: C.muted, marginBottom: 24, letterSpacing: "0.02em" }}>Works in</h3>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-          {BROWSERS.map((b) => (
+          {[
+            { name: "Chrome", icon: "🌐", live: true },
+            { name: "Brave", icon: "🦁", live: true },
+            { name: "Arc", icon: "◐", live: true },
+            { name: "Edge", icon: "🔷", live: true },
+            { name: "Firefox", icon: "🦊", live: false },
+            { name: "Safari", icon: "🧭", live: false },
+          ].map((b) => (
             <div key={b.name} style={{
-              background: C.card, border: `1px solid ${C.border}`,
-              borderRadius: 99, padding: "9px 20px",
-              fontSize: "0.88rem", color: b.status === "live" ? C.text : C.dim,
+              background: C.card, border: `1px solid ${b.live ? C.border : "transparent"}`,
+              borderRadius: 99, padding: "8px 18px",
+              fontSize: "0.85rem", color: b.live ? C.text : C.dim,
               display: "flex", alignItems: "center", gap: 8,
-              opacity: b.status === "live" ? 1 : 0.55,
+              opacity: b.live ? 1 : 0.45,
             }}>
               <span>{b.icon}</span>
               <span>{b.name}</span>
-              {b.status === "live"
-                ? <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.green }} />
-                : <span style={{ fontSize: "0.65rem", background: C.accentDim, color: C.accent, borderRadius: 99, padding: "2px 7px" }}>soon</span>}
+              {b.live
+                ? <span style={{ width: 5, height: 5, borderRadius: "50%", background: C.green, boxShadow: `0 0 5px ${C.green}` }} />
+                : <span style={{ fontSize: "0.6rem", background: C.accentDim, color: C.accent, borderRadius: 99, padding: "2px 7px" }}>soon</span>}
             </div>
           ))}
         </div>
@@ -511,47 +571,54 @@ export default function Home() {
 
       {/* ── FINAL CTA ── */}
       <section
-        ref={ctaRef.ref}
-        className={`reveal-on-scroll ${ctaRef.revealed ? "revealed" : ""}`}
+        ref={ctaRef.ref as React.RefObject<HTMLElement>}
+        className={`reveal ${ctaRef.revealed ? "revealed" : ""}`}
         style={{
-          padding: "120px 24px",
+          padding: "120px 24px 140px",
           textAlign: "center",
-          background: `radial-gradient(ellipse 70% 60% at 50% 50%, rgba(99,102,241,0.12) 0%, transparent 70%)`,
+          background: `radial-gradient(ellipse 70% 60% at 50% 50%, rgba(99,102,241,0.10) 0%, transparent 70%)`,
           borderTop: `1px solid ${C.border}`,
         }}
       >
-        <img src="/logo.png" alt="Decker" width={68} height={68} style={{ objectFit: "contain", marginBottom: 28 }} className="animate-float" />
-        <h2 style={{ fontSize: "clamp(1.9rem, 4vw, 3rem)", fontWeight: 800, marginBottom: 14, color: C.text, letterSpacing: "-1px" }}>
-          End your next big meeting
-          <br />with a working prototype.
+        <div className="logo-float" style={{ marginBottom: 32 }}>
+          <img src="/logo.png" alt="Decker" width={64} height={64} style={{ objectFit: "contain" }} />
+        </div>
+        <h2 style={{ fontSize: "clamp(2rem, 4.5vw, 3.2rem)", fontWeight: 800, margin: "0 0 16px", color: C.text, letterSpacing: "-1.5px", lineHeight: 1.1 }}>
+          End your next meeting
+          <br />
+          <span style={{
+            background: `linear-gradient(135deg, ${C.accent} 0%, ${C.violet} 100%)`,
+            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
+          }}>with something shipped.</span>
         </h2>
-        <p style={{ color: C.muted, marginBottom: 40, fontSize: "1.05rem", maxWidth: 460, margin: "0 auto 40px" }}>
-          Free to build. A dollar to install. No subscription. No catch.
+        <p style={{ color: C.muted, marginBottom: 44, fontSize: "1.05rem", maxWidth: 440, margin: "0 auto 44px", lineHeight: 1.75 }}>
+          Free to build. A dollar to install.
+          No subscriptions. No follow-up required.
         </p>
         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-          <a href="https://chrome.google.com/webstore" target="_blank" rel="noopener noreferrer" className="btn btn-primary">
-            Get the Extension — $1
+          <a href="https://chrome.google.com/webstore" target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ padding: "13px 28px", fontSize: "0.95rem" }}>
+            Get Decker — $1
           </a>
-          <a href="https://github.com/AishwaryShrivastav/decker" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
-            View on GitHub ↗
+          <a href="https://github.com/AishwaryShrivastav/decker" target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: "13px 28px", fontSize: "0.95rem" }}>
+            Self-host on GitHub ↗
           </a>
         </div>
-        <p style={{ marginTop: 18, fontSize: "0.76rem", color: C.dim }}>
-          One-time payment · MIT licensed · BYOK
+        <p style={{ marginTop: 20, fontSize: "0.73rem", color: C.dim, letterSpacing: "0.03em" }}>
+          MIT · BYOK · Chrome Extension · No backend
         </p>
       </section>
 
       {/* ── FOOTER ── */}
       <footer style={{
-        maxWidth: 1100, margin: "0 auto", padding: "28px 24px",
+        maxWidth: 1100, margin: "0 auto", padding: "24px 24px",
         display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12,
-        color: C.dim, fontSize: "0.82rem", borderTop: `1px solid ${C.border}`,
+        color: C.dim, fontSize: "0.8rem", borderTop: `1px solid ${C.border}`,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <img src="/logo.png" alt="Decker" width={22} height={22} style={{ objectFit: "contain", opacity: 0.5 }} />
+          <img src="/logo.png" alt="Decker" width={18} height={18} style={{ objectFit: "contain", opacity: 0.4 }} />
           <span>© {new Date().getFullYear()} Decker — MIT License</span>
         </div>
-        <div style={{ display: "flex", gap: 20 }}>
+        <div style={{ display: "flex", gap: 22 }}>
           <a href="https://github.com/AishwaryShrivastav/decker" style={{ color: C.accent, textDecoration: "none" }} target="_blank" rel="noopener noreferrer">GitHub ↗</a>
           <a href="https://github.com/AishwaryShrivastav/decker/issues" style={{ color: C.muted, textDecoration: "none" }} target="_blank" rel="noopener noreferrer">Issues</a>
           <a href="/demo" style={{ color: C.muted, textDecoration: "none" }}>Demo →</a>
@@ -559,34 +626,63 @@ export default function Home() {
       </footer>
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-        * { box-sizing: border-box; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300&display=swap');
+        *, *::before, *::after { box-sizing: border-box; }
         body { margin: 0; }
-        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 22px; border-radius: 8px; font-size: 0.9rem; font-weight: 700; text-decoration: none; transition: all 0.18s; cursor: pointer; border: none; }
+
+        /* Buttons */
+        .btn {
+          display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+          padding: 11px 22px; border-radius: 8px; font-size: 0.88rem; font-weight: 700;
+          text-decoration: none; transition: all 0.18s; cursor: pointer; border: none;
+          font-family: inherit; letter-spacing: 0.01em;
+        }
         .btn-primary { background: ${C.accent}; color: ${C.bg}; }
-        .btn-primary:hover { background: ${C.accentBright}; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(99,102,241,0.3); }
+        .btn-primary:hover { background: ${C.accentBright}; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(99,102,241,0.28); }
         .btn-secondary { background: transparent; color: ${C.text}; border: 1px solid ${C.border}; }
         .btn-secondary:hover { border-color: ${C.accent}; color: ${C.accent}; }
-        .card { background: ${C.card}; border: 1px solid ${C.border}; border-radius: 14px; padding: 26px; transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s; }
-        .card:hover { border-color: rgba(99,102,241,0.3); transform: translateY(-2px); box-shadow: 0 12px 32px rgba(0,0,0,0.3); }
+
+        /* Cards */
+        .card {
+          background: ${C.card}; border: 1px solid ${C.border}; border-radius: 14px; padding: 24px;
+          transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+        }
+        .card:hover {
+          border-color: rgba(99,102,241,0.25);
+          transform: translateY(-2px);
+          box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+        }
+
+        /* Nav links */
         .nav-link:hover { color: ${C.text} !important; }
-        .animate-glow { box-shadow: 0 0 0 1px rgba(99,102,241,0.2); }
-        .animate-glow:hover { box-shadow: 0 0 0 1px rgba(99,102,241,0.4), 0 8px 32px rgba(99,102,241,0.15); }
-        .animate-float { animation: float 3s ease-in-out infinite; }
-        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
-        .animate-fade-in-up { animation: fadeInUp 0.7s ease both; }
-        .animate-delay-1 { animation-delay: 0.15s; }
-        .animate-delay-2 { animation-delay: 0.25s; }
-        .animate-delay-3 { animation-delay: 0.35s; }
-        .animate-delay-4 { animation-delay: 0.45s; }
-        @keyframes fadeInUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
-        .reveal-on-scroll { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
-        .reveal-on-scroll.revealed { opacity: 1; transform: translateY(0); }
-        .reveal-on-scroll .card { opacity: 0; transform: translateY(16px); transition: opacity 0.5s ease, transform 0.5s ease, border-color 0.2s, box-shadow 0.2s; }
-        .reveal-on-scroll.revealed .card { opacity: 1; transform: translateY(0); }
-        @media (max-width: 700px) {
+
+        /* Fade in up — hero */
+        .fade-up { animation: fadeInUp 0.65s ease both; }
+        @keyframes fadeInUp { from { opacity:0; transform:translateY(22px); } to { opacity:1; transform:translateY(0); } }
+
+        /* Reveal on scroll */
+        .reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.65s ease, transform 0.65s ease; }
+        .reveal.revealed { opacity: 1; transform: translateY(0); }
+        .reveal-card { opacity: 0; transform: translateY(14px); transition: opacity 0.5s ease, transform 0.5s ease, border-color 0.2s, box-shadow 0.2s; }
+        .reveal.revealed .reveal-card { opacity: 1; transform: translateY(0); }
+
+        /* Timeline */
+        .timeline-line { display: block; }
+        .timeline-item { opacity: 0; transform: translateY(12px); transition: opacity 0.45s ease, transform 0.45s ease; }
+        .reveal.revealed .timeline-item { opacity: 1; transform: translateY(0); }
+
+        /* Floating logo */
+        .logo-float { animation: float 3.5s ease-in-out infinite; }
+        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-9px)} }
+
+        /* Responsive */
+        @media (max-width: 760px) {
           .pricing-grid { grid-template-columns: 1fr !important; }
           .byok-grid { grid-template-columns: 1fr !important; }
+          .timeline-line { display: none; }
+          .timeline-item { grid-template-columns: 1fr !important; }
+          .timeline-item > div:first-child { display: none; }
+          .timeline-item > div:last-child { opacity: 1 !important; padding-left: 0 !important; }
         }
       `}</style>
     </main>

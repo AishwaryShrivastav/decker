@@ -263,7 +263,6 @@ function broadcastStatus(
   extra?: {
     transcript?: string;
     points?: string[];
-    liveNotes?: string;
     topicResearch?: TopicResearch[];
   }
 ): void {
@@ -367,14 +366,31 @@ async function startTopicResearch(topic: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+function base64ToBlob(base64: string, mimeType: string): Blob {
+  const bytes = atob(base64);
+  const buf = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) buf[i] = bytes.charCodeAt(i);
+  return new Blob([buf], { type: mimeType });
+}
+
+function stripHtmlFences(raw: string): string {
+  return raw.replace(/^```html\s*/i, "").replace(/\s*```$/i, "").trim();
+}
+
+function assertValidHtml(html: string, label: string): void {
+  const lower = html.toLowerCase();
+  if (!lower.startsWith("<!") && !lower.startsWith("<html")) {
+    throw new Error(`Claude did not return valid HTML for the ${label}. Try again.`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Chunk transcription pipeline
 // ---------------------------------------------------------------------------
 async function transcribeChunk(base64: string, mimeType: string): Promise<string> {
-  const audioBytes = atob(base64);
-  const buf = new Uint8Array(audioBytes.length);
-  for (let i = 0; i < audioBytes.length; i++) buf[i] = audioBytes.charCodeAt(i);
-  const blob = new Blob([buf], { type: mimeType });
-  return openaiTranscribe(blob);
+  return openaiTranscribe(base64ToBlob(base64, mimeType));
 }
 
 async function processChunkQueue(): Promise<void> {
@@ -486,11 +502,7 @@ async function runPhase1(base64Audio: string, mimeType: string): Promise<void> {
 
     // Transcribe final audio segment
     if (base64Audio && base64Audio.length >= 100) {
-      const audioBytes = atob(base64Audio);
-      const buf = new Uint8Array(audioBytes.length);
-      for (let i = 0; i < audioBytes.length; i++) buf[i] = audioBytes.charCodeAt(i);
-      const blob = new Blob([buf], { type: mimeType });
-
+      const blob = base64ToBlob(base64Audio, mimeType);
       if (blob.size >= 1000) {
         broadcastStatus("transcribing", "Transcribing final audio…");
         const seg = await openaiTranscribe(blob);
@@ -606,11 +618,8 @@ async function runPhase2(
         }
       );
 
-      // Strip any accidental markdown fences Claude might add
-      html = html.replace(/^```html\s*/i, "").replace(/\s*```$/i, "").trim();
-      if (!html.toLowerCase().startsWith("<!") && !html.toLowerCase().startsWith("<html")) {
-        throw new Error("Claude did not return valid HTML for the prototype. Try again.");
-      }
+      html = stripHtmlFences(html);
+      assertValidHtml(html, "prototype");
     } else if (format === "doc") {
       let tokenCount = 0;
       const rawJson = await claudeStream(
@@ -672,7 +681,8 @@ async function runPhase2(
           broadcastStatus("generating", `Building discussion site… (~${Math.round(tokenCount / 4)} words)`);
         }
       );
-      html = html.replace(/^```html\s*/i, "").replace(/\s*```$/i, "").trim();
+      html = stripHtmlFences(html);
+      assertValidHtml(html, "discussion site");
     } else {
       // Presentation — Claude generates raw HTML deck
       let tokenCount = 0;
@@ -685,7 +695,8 @@ async function runPhase2(
           broadcastStatus("generating", `Building presentation… (~${Math.round(tokenCount / 4)} words)`);
         }
       );
-      html = html.replace(/^```html\s*/i, "").replace(/\s*```$/i, "").trim();
+      html = stripHtmlFences(html);
+      assertValidHtml(html, "presentation");
     }
 
     lastGeneratedHtml = html;
