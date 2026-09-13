@@ -10,7 +10,7 @@ Decker captures the Meet tab from your own browser, so no extra participant join
 
 **Website:** [decker.techforgood.studio](https://decker.techforgood.studio)
 
-No server required. AI calls go directly from the extension to OpenAI and Anthropic using your own keys.
+No server required. AI calls go directly from the extension to OpenAI using your own key.
 
 > **Free and open source.** Decker is not on the Chrome Web Store yet. Build from source (five minutes, steps below) or email [aishwaryshrivastava@gmail.com](mailto:aishwaryshrivastava@gmail.com?subject=Decker%20early%20access) for early access.
 
@@ -22,9 +22,9 @@ No server required. AI calls go directly from the extension to OpenAI and Anthro
 
 - **One-click tab-audio recording** via Chrome's `tabCapture` API — no bot, no screen share, no extra installs
 - **Live transcription** — Whisper processes audio roughly every 16 seconds as you record
-- **Live topic extraction and research** — Claude pulls discussion points from the transcript and researches the ones you select, while the meeting runs
+- **Live topic extraction and research** — GPT-4o mini pulls discussion points from the transcript and researches the ones you select, while the meeting runs
 - **Custom instructions** — steer the AI with your own plain-text prompt
-- **Bring your own keys** — OpenAI and Anthropic keys, stored locally in the browser, never sent to any third party
+- **Bring your own key** — one OpenAI key, stored locally in the browser, never sent to any third party
 - **Four output formats** — working prototype, presentation deck, discussion SPA, or meeting brief, each a single self-contained HTML file
 - **Charts and diagrams** — Chart.js and Mermaid generated automatically where relevant
 
@@ -43,10 +43,8 @@ No server required. AI calls go directly from the extension to OpenAI and Anthro
 ## Requirements
 
 - Google Chrome 120+ (or Chromium-based equivalent)
-- An **OpenAI API key** with access to `whisper-1` (transcription)
+- An **OpenAI API key** — one key covers everything: `whisper-1` transcription plus topic extraction, research, and generation via GPT-4o mini and GPT-4o
   - Get one at [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
-- An **Anthropic API key** (topic extraction, research, and generation via Claude)
-  - Get one at [console.anthropic.com](https://console.anthropic.com/settings/keys)
 - Node.js 18+ and [pnpm](https://pnpm.io) (for local development/building only)
 
 ---
@@ -78,17 +76,16 @@ This outputs the built extension to `apps/extension/dist/`.
 
 The Decker icon will appear in your Chrome toolbar. Pin it for easy access.
 
-### 4. Add your API keys
+### 4. Add your API key
 
-> Both keys are stored in `chrome.storage.local` — they stay in your browser and are only ever sent directly to `api.openai.com` and `api.anthropic.com`.
+> The key is stored in `chrome.storage.local` — it stays in your browser and is only ever sent directly to `api.openai.com`.
 
 1. Click the **Decker icon** in the Chrome toolbar
 2. Click the **⚙ gear icon** in the top-right of the popup
-3. Paste your Anthropic key (`sk-ant-...`) into the **Claude key** field
-4. Paste your OpenAI key (`sk-...`) into the **OpenAI key** field
-5. Click **Save**
+3. Paste your OpenAI key (`sk-...`) into the **OpenAI key** field
+4. Click **Save**
 
-The keys persist across browser restarts. You only need to set them once.
+The key persists across browser restarts. You only need to set it once.
 
 ---
 
@@ -109,7 +106,7 @@ Live transcript chunks appear in the popup as Whisper processes them in the back
 
 Click **Stop & Transcribe**. Decker will:
 1. Transcribe any remaining audio
-2. Extract key discussion points using Claude
+2. Extract key discussion points using GPT-4o mini
 3. Show a **Review & generate** screen
 
 On the review screen you can:
@@ -132,15 +129,15 @@ After generation:
 
 ---
 
-## Where the API keys are stored and used
+## Where the API key is stored and used
 
 | Location | Purpose |
 |----------|---------|
 | `chrome.storage.local` | Persisted across browser sessions |
-| Extension popup (⚙ settings) | Where you enter/update the keys |
+| Extension popup (⚙ settings) | Where you enter/update the key |
 | Background service worker | Loaded on startup, used for all API calls |
 
-The OpenAI key is sent as a `Bearer` token directly to `https://api.openai.com/v1/*`. The Anthropic key is sent as an `x-api-key` header directly to `https://api.anthropic.com/v1/*`. No intermediate server receives either key.
+The OpenAI key is sent as a `Bearer` token directly to `https://api.openai.com/v1/*`. No intermediate server receives it.
 
 ---
 
@@ -229,7 +226,7 @@ Click **Allow microphone** in the popup. This opens a dedicated permission page.
 - Check that your microphone is not muted system-wide
 - Silent recordings produce empty transcripts
 
-**Claude ignores my custom instructions**
+**The model ignores my custom instructions**
 - Use imperative language: *"Include a timeline diagram"* not *"maybe add a diagram"*
 - Keep instructions short and specific (under 200 characters works best)
 
@@ -241,7 +238,7 @@ Open the background logs: `chrome://extensions` → Decker → **Service Worker*
 | `401` | API key is missing or invalid — check the ⚙ settings |
 | `429` | Rate limit — wait a moment and try again |
 | `400` on Whisper | Audio too short, silent, or corrupted |
-| `400` on Claude | Transcript too short (minimum 50 characters) |
+| `400` on chat completions | Transcript too short (minimum 50 characters) |
 
 ---
 

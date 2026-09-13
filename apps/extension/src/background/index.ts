@@ -31,9 +31,8 @@ import {
 } from "../shared/prompts";
 
 const OPENAI_API_BASE = "https://api.openai.com/v1";
-const ANTHROPIC_API_BASE = "https://api.anthropic.com/v1";
-const CLAUDE_HAIKU = "claude-haiku-4-5-20251001";
-const CLAUDE_SONNET = "claude-sonnet-4-6";
+const GPT_MINI = "gpt-4o-mini"; // fast + cheap — topic extraction, research
+const GPT_FULL = "gpt-4o";      // final doc/deck generation
 
 // --- State ---
 let recordingTabId: number | null = null;
@@ -44,8 +43,7 @@ let chunkQueue: { base64: string; mimeType: string }[] = [];
 let chunkProcessing = false;
 let chunkTranscribedCount = 0;
 let isExtractingTopics = false;
-let claudeKey = "";   // Anthropic key — text generation + research
-let openaiKey = "";   // OpenAI key — Whisper transcription
+let openaiKey = "";   // OpenAI key — Whisper transcription + text generation
 let lastGeneratedHtml: string | null = null;
 let currentMessage: string | undefined;
 
@@ -67,8 +65,7 @@ async function debugLog(msg: string): Promise<void> {
   });
 }
 
-chrome.storage.local.get(["claudeKey", "openaiKey"], (result) => {
-  if (result.claudeKey) claudeKey = result.claudeKey as string;
+chrome.storage.local.get(["openaiKey"], (result) => {
   if (result.openaiKey) openaiKey = result.openaiKey as string;
 });
 
@@ -111,79 +108,79 @@ async function openaiTranscribe(audioBlob: Blob): Promise<string> {
 }
 
 // ---------------------------------------------------------------------------
-// Claude helpers
+// LLM helpers (OpenAI chat completions)
 // ---------------------------------------------------------------------------
 
 /**
- * Non-streaming Claude call — for topic extraction and research.
- * Uses Haiku by default (fast + cheap for structured extraction).
+ * Non-streaming completion — for topic extraction and research.
+ * Uses gpt-4o-mini by default (fast + cheap for structured extraction).
  */
-async function claudeComplete(
+async function llmComplete(
   systemPrompt: string,
   userMessage: string,
-  model: "haiku" | "sonnet" = "haiku"
+  model: "mini" | "full" = "mini"
 ): Promise<string> {
-  if (!claudeKey) throw new Error("No Claude key set — add it in Decker settings (⚙).");
-  const modelId = model === "haiku" ? CLAUDE_HAIKU : CLAUDE_SONNET;
+  if (!openaiKey) throw new Error("No OpenAI key set — add it in Decker settings (⚙).");
+  const modelId = model === "mini" ? GPT_MINI : GPT_FULL;
 
-  const res = await fetch(`${ANTHROPIC_API_BASE}/messages`, {
+  const res = await fetch(`${OPENAI_API_BASE}/chat/completions`, {
     method: "POST",
     headers: {
-      "x-api-key": claudeKey,
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true",
+      Authorization: `Bearer ${openaiKey}`,
       "content-type": "application/json",
     },
     body: JSON.stringify({
       model: modelId,
       max_tokens: 2048,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userMessage }],
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
     }),
   });
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`Claude ${model} error ${res.status}: ${err}`);
+    throw new Error(`OpenAI ${modelId} error ${res.status}: ${err}`);
   }
 
-  const data = (await res.json()) as { content: { type: string; text: string }[] };
-  return data.content.find((c) => c.type === "text")?.text ?? "{}";
+  const data = (await res.json()) as { choices: { message?: { content?: string | null } }[] };
+  return data.choices[0]?.message?.content ?? "{}";
 }
 
 /**
- * Streaming Claude call — for final doc/deck generation.
- * Uses Sonnet by default. Calls onProgress every ~100 tokens.
+ * Streaming completion — for final doc/deck generation.
+ * Uses gpt-4o by default. Calls onProgress every ~100 tokens.
  */
-async function claudeStream(
+async function llmStream(
   systemPrompt: string,
   userMessage: string,
-  model: "haiku" | "sonnet" = "sonnet",
+  model: "mini" | "full" = "full",
   onProgress?: (tokenCount: number) => void
 ): Promise<string> {
-  if (!claudeKey) throw new Error("No Claude key set — add it in Decker settings (⚙).");
-  const modelId = model === "haiku" ? CLAUDE_HAIKU : CLAUDE_SONNET;
+  if (!openaiKey) throw new Error("No OpenAI key set — add it in Decker settings (⚙).");
+  const modelId = model === "mini" ? GPT_MINI : GPT_FULL;
 
-  const res = await fetch(`${ANTHROPIC_API_BASE}/messages`, {
+  const res = await fetch(`${OPENAI_API_BASE}/chat/completions`, {
     method: "POST",
     headers: {
-      "x-api-key": claudeKey,
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true",
+      Authorization: `Bearer ${openaiKey}`,
       "content-type": "application/json",
     },
     body: JSON.stringify({
       model: modelId,
-      max_tokens: 32768,
+      max_tokens: 16384,
       stream: true,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userMessage }],
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
     }),
   });
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`Claude ${model} stream error ${res.status}: ${err}`);
+    throw new Error(`OpenAI ${modelId} stream error ${res.status}: ${err}`);
   }
 
   const reader = res.body!.getReader();
@@ -207,15 +204,11 @@ async function claudeStream(
         if (!data || data === "[DONE]") continue;
         try {
           const event = JSON.parse(data) as {
-            type: string;
-            delta?: { type: string; text?: string };
+            choices?: { delta?: { content?: string | null } }[];
           };
-          if (
-            event.type === "content_block_delta" &&
-            event.delta?.type === "text_delta" &&
-            event.delta.text
-          ) {
-            fullText += event.delta.text;
+          const deltaText = event.choices?.[0]?.delta?.content;
+          if (deltaText) {
+            fullText += deltaText;
             tokenCount++;
             if (tokenCount % 100 === 0) onProgress?.(tokenCount);
           }
@@ -299,7 +292,7 @@ async function updateLiveTopics(): Promise<void> {
   if (isExtractingTopics || accumulatedTranscript.length < 100) return;
   isExtractingTopics = true;
   try {
-    const raw = await claudeComplete(EXTRACT_POINTS_SYSTEM, extractPointsUser(accumulatedTranscript));
+    const raw = await llmComplete(EXTRACT_POINTS_SYSTEM, extractPointsUser(accumulatedTranscript));
     const cleaned = raw.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
     const parsed = JSON.parse(cleaned) as { points?: unknown };
     const newPoints = Array.isArray(parsed.points)
@@ -336,7 +329,7 @@ async function startTopicResearch(topic: string): Promise<void> {
   const transcript = accumulatedTranscript || currentTranscript || "";
 
   try {
-    const raw = await claudeComplete(RESEARCH_SYSTEM, researchUser(topic, transcript));
+    const raw = await llmComplete(RESEARCH_SYSTEM, researchUser(topic, transcript));
     const cleaned = raw.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
     const parsed = JSON.parse(cleaned) as {
       context?: string;
@@ -382,7 +375,7 @@ function stripHtmlFences(raw: string): string {
 function assertValidHtml(html: string, label: string): void {
   const lower = html.toLowerCase();
   if (!lower.startsWith("<!") && !lower.startsWith("<html")) {
-    throw new Error(`Claude did not return valid HTML for the ${label}. Try again.`);
+    throw new Error(`The model did not return valid HTML for the ${label}. Try again.`);
   }
 }
 
@@ -517,7 +510,7 @@ async function runPhase1(base64Audio: string, mimeType: string): Promise<void> {
 
     // Final topic extraction (using accumulated live topics or re-extract)
     broadcastStatus("extracting", "Extracting discussion topics…");
-    const raw = await claudeComplete(EXTRACT_POINTS_SYSTEM, extractPointsUser(transcript));
+    const raw = await llmComplete(EXTRACT_POINTS_SYSTEM, extractPointsUser(transcript));
     const cleaned = raw.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
     const parsed = JSON.parse(cleaned) as { points?: unknown };
     const points = Array.isArray(parsed.points)
@@ -592,10 +585,10 @@ async function runPhase2(
     // ── Generation phase ──
     broadcastStatus(
       "generating",
-      format === "prototype" ? "Claude is building your prototype…"
-        : format === "doc" ? "Claude is writing your document…"
-        : format === "presentation" ? "Claude is building your presentation…"
-        : "Claude is building your discussion site…"
+      format === "prototype" ? "Building your prototype…"
+        : format === "doc" ? "Writing your document…"
+        : format === "presentation" ? "Building your presentation…"
+        : "Building your discussion site…"
     );
 
     // Collect research context for all formats
@@ -608,10 +601,10 @@ async function runPhase2(
 
     if (format === "prototype") {
       let tokenCount = 0;
-      html = await claudeStream(
+      html = await llmStream(
         PROTOTYPE_SYSTEM,
         prototypeUser(transcript, selectedPoints, customPrompt, researchContext),
-        "sonnet",
+        "full",
         (t) => {
           tokenCount = t;
           broadcastStatus("generating", `Building prototype… (~${Math.round(tokenCount / 4)} words)`);
@@ -622,13 +615,13 @@ async function runPhase2(
       assertValidHtml(html, "prototype");
     } else if (format === "doc") {
       let tokenCount = 0;
-      const rawJson = await claudeStream(
+      const rawJson = await llmStream(
         DOC_SYSTEM,
         docUser(transcript, selectedPoints, customPrompt, researchContext),
-        "sonnet",
+        "full",
         (t) => {
           tokenCount = t;
-          broadcastStatus("generating", `Claude is writing… (~${Math.round(tokenCount / 4)} words)`);
+          broadcastStatus("generating", `Writing your document… (~${Math.round(tokenCount / 4)} words)`);
         }
       );
 
@@ -670,12 +663,12 @@ async function runPhase2(
 
       html = buildMeetingDoc(docData);
     } else if (format === "notes") {
-      // Discussion SPA — Claude generates raw HTML website
+      // Discussion SPA — the model generates a raw HTML website
       let tokenCount = 0;
-      html = await claudeStream(
+      html = await llmStream(
         DISCUSSION_SPA_SYSTEM,
         discussionSpaUser(transcript, selectedPoints, customPrompt, researchContext),
-        "sonnet",
+        "full",
         (t) => {
           tokenCount = t;
           broadcastStatus("generating", `Building discussion site… (~${Math.round(tokenCount / 4)} words)`);
@@ -684,12 +677,12 @@ async function runPhase2(
       html = stripHtmlFences(html);
       assertValidHtml(html, "discussion site");
     } else {
-      // Presentation — Claude generates raw HTML deck
+      // Presentation — the model generates a raw HTML deck
       let tokenCount = 0;
-      html = await claudeStream(
+      html = await llmStream(
         PRESENTATION_SYSTEM,
         presentationUser(transcript, selectedPoints, customPrompt, researchContext),
-        "sonnet",
+        "full",
         (t) => {
           tokenCount = t;
           broadcastStatus("generating", `Building presentation… (~${Math.round(tokenCount / 4)} words)`);
@@ -746,7 +739,6 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
         topicResearch:
           topicResearchMap.size > 0 ? Array.from(topicResearchMap.values()) : undefined,
         hasHtml: lastGeneratedHtml !== null,
-        claudeKey,
         openaiKey,
       };
       sendResponse(fullState);
@@ -754,7 +746,7 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
     }
 
     case MessageType.GET_API_SETTINGS: {
-      sendResponse({ claudeKey, openaiKey });
+      sendResponse({ openaiKey });
       return false;
     }
 
@@ -769,9 +761,8 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
 
     case MessageType.SET_API_SETTINGS: {
       const settings = msg.payload as ApiSettings;
-      claudeKey = settings.claudeKey ?? "";
       openaiKey = settings.openaiKey ?? "";
-      chrome.storage.local.set({ claudeKey, openaiKey });
+      chrome.storage.local.set({ openaiKey });
       sendResponse({ ok: true });
       return false;
     }
@@ -873,4 +864,4 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
   }
 });
 
-console.log("[Decker background] Service worker started (Claude-powered)");
+console.log("[Decker background] Service worker started (OpenAI-powered)");

@@ -19,7 +19,7 @@ Decker is a Chrome Extension + optional landing page. Here's what you need to kn
 
 ### API Key Storage
 
-Your OpenAI (or Claude) API key is stored in `chrome.storage.local` — a per-extension sandboxed storage area inside your browser. It is:
+Your OpenAI API key is stored in `chrome.storage.local` — a per-extension sandboxed storage area inside your browser. It is:
 
 - **Never sent to any Decker server** — calls go directly from your browser to `api.openai.com`
 - **Not accessible to web pages** — `chrome.storage.local` is only accessible to the extension itself

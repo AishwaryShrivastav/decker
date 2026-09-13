@@ -48,23 +48,23 @@ const OUTPUTS = [
 
 const TIMELINE = [
   { time: "0:00",     label: "Hit Record",                    sub: "One click in Chrome while you're live on Meet.",                        side: "left" },
-  { time: "0:16",     label: "Topics appear",                 sub: "Claude extracts discussion points from the live transcript.",            side: "right" },
-  { time: "0:32",     label: "Select a topic, research runs", sub: "Haiku researches it in the background the moment you check it.",         side: "left" },
+  { time: "0:16",     label: "Topics appear",                 sub: "GPT-4o mini extracts discussion points from the live transcript.",       side: "right" },
+  { time: "0:32",     label: "Select a topic, research runs", sub: "Research starts in the background the moment you check it.",             side: "left" },
   { time: "ongoing",  label: "Meeting continues",             sub: "Topics refresh. Research completes. Nothing interrupts the call.",       side: "right" },
-  { time: "end",      label: "Hit Generate",                  sub: "Sonnet builds the artifact. The research is already done.",              side: "left" },
+  { time: "end",      label: "Hit Generate",                  sub: "GPT-4o builds the artifact. The research is already done.",              side: "left" },
   { time: "+90s",     label: "Share before you hang up",      sub: "Drop the file in Slack while everyone is still on the call.",           side: "right" },
 ];
 
 const FEATURES = [
   { title: "Live transcription",        desc: "Whisper processes audio every 16 seconds. The transcript builds as you talk." },
-  { title: "Parallel research",         desc: "Select a topic and Haiku researches it immediately, while the meeting runs." },
+  { title: "Parallel research",         desc: "Select a topic and GPT-4o mini researches it immediately, while the meeting runs." },
   { title: "Four artifact formats",     desc: "Prototype, deck, SPA, or brief. One self-contained HTML file, every time." },
   { title: "Tab and mic capture",       desc: "Captures the Meet tab audio and your mic. Mixed and transcribed together." },
   { title: "State persists",            desc: "Close and reopen the popup anytime. Topics and research are still there." },
   { title: "Runs entirely in Chrome",   desc: "No backend, no servers. Keys stored locally. Nothing leaves your browser." },
 ];
 
-const TECH = ["Claude Haiku", "Claude Sonnet", "OpenAI Whisper"];
+const TECH = ["OpenAI Whisper", "GPT-4o mini", "GPT-4o"];
 
 function useReveal(threshold = 0.06) {
   const ref = useRef<HTMLDivElement>(null);
@@ -263,10 +263,10 @@ export default function Home() {
       {/* BYOK */}
       <section style={{ maxWidth: 780, margin: "0 auto", padding: "72px 24px 0" }}>
         <div style={{ padding: "36px 44px", background: C.surface, border: `1px solid ${C.accentBorder}`, borderRadius: 16 }}>
-          <p style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: C.accent, margin: "0 0 10px" }}>Your own API keys</p>
-          <p style={{ fontSize: "1rem", fontWeight: 700, color: C.text, margin: "0 0 10px" }}>Your keys stay in your browser.</p>
+          <p style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: C.accent, margin: "0 0 10px" }}>Your own API key</p>
+          <p style={{ fontSize: "1rem", fontWeight: 700, color: C.text, margin: "0 0 10px" }}>One OpenAI key. It stays in your browser.</p>
           <p style={{ color: C.muted, margin: "0 0 20px", lineHeight: 1.75, fontSize: "0.9rem" }}>
-            Calls go straight to OpenAI and Anthropic. We never see your audio, transcript, or keys. There is no server to send them to. A full 60-minute meeting costs a few cents.
+            Calls go straight to OpenAI. We never see your audio, transcript, or key. There is no server to send them to. A full 60-minute meeting costs a few cents.
           </p>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {TECH.map((t) => (

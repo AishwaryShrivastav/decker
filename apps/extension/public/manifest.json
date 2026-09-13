@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Decker",
+  "name": "Decker: Google Meet Notes, Decks & AI",
   "version": "0.1.0",
-  "description": "Record Google Meet calls and generate prototypes, presentations, and product briefs with Claude AI.",
+  "description": "Record Google Meet without a bot. Get a slide deck, prototype, or meeting brief before the call ends. Your own OpenAI key.",
   "permissions": [
     "tabCapture",
     "tabs",
@@ -13,8 +13,7 @@
   ],
   "host_permissions": [
     "https://meet.google.com/*",
-    "https://api.openai.com/*",
-    "https://api.anthropic.com/*"
+    "https://api.openai.com/*"
   ],
   "background": {
     "service_worker": "src/background/index.js",

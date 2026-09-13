@@ -1,5 +1,5 @@
 /**
- * All LLM prompts for Decker — optimised for Claude models.
+ * All LLM prompts for Decker — optimised for OpenAI models.
  *
  * Context: Decker is used by product owners and tech leads during meetings.
  * At the end of the call they hit Generate and show the output live —
@@ -8,7 +8,7 @@
  */
 
 // ---------------------------------------------------------------------------
-// Extract discussion points (Claude Haiku — fast, called live during recording)
+// Extract discussion points (gpt-4o-mini — fast, called live during recording)
 // ---------------------------------------------------------------------------
 
 export const EXTRACT_POINTS_SYSTEM =
@@ -25,7 +25,7 @@ export function extractPointsUser(transcript: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Per-topic background research (Claude Haiku — parallel, runs while recording)
+// Per-topic background research (gpt-4o-mini — parallel, runs while recording)
 // ---------------------------------------------------------------------------
 
 export const RESEARCH_SYSTEM =
@@ -45,7 +45,7 @@ export function researchUser(topic: string, transcript: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Meeting Document / Brief (Claude Sonnet — structured JSON → rendered HTML)
+// Meeting Document / Brief (gpt-4o — structured JSON → rendered HTML)
 // ---------------------------------------------------------------------------
 
 export const DOC_SYSTEM =
@@ -92,7 +92,7 @@ export function docUser(
 }
 
 // ---------------------------------------------------------------------------
-// HTML Presentation — pure HTML/CSS/JS, no CDN frameworks (Claude generates it)
+// HTML Presentation — pure HTML/CSS/JS, no CDN frameworks (the model generates it)
 // ---------------------------------------------------------------------------
 
 export const PRESENTATION_SYSTEM =
@@ -138,7 +138,7 @@ export function presentationUser(
 }
 
 // ---------------------------------------------------------------------------
-// Discussion SPA — full product brief website (Claude generates raw HTML)
+// Discussion SPA — full product brief website (the model generates raw HTML)
 // ---------------------------------------------------------------------------
 
 export const DISCUSSION_SPA_SYSTEM =
@@ -183,7 +183,7 @@ export function discussionSpaUser(
 }
 
 // ---------------------------------------------------------------------------
-// Static Prototype — Claude builds the actual product (free form)
+// Static Prototype — the model builds the actual product (free form)
 // ---------------------------------------------------------------------------
 
 export const PROTOTYPE_SYSTEM =

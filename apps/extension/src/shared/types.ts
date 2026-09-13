@@ -76,7 +76,6 @@ export interface RecordingStoppedPayload {
 }
 
 export interface ApiSettings {
-  claudeKey: string;
   openaiKey: string;
 }
 
@@ -92,7 +91,6 @@ export interface FullStateResponse {
   points?: string[];
   topicResearch?: TopicResearch[];
   hasHtml: boolean;
-  claudeKey: string;
   openaiKey: string;
 }
 

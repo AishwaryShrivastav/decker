@@ -22,8 +22,8 @@ export default function PrivacyPolicy() {
       body: "Decker does not collect, store, transmit, or have access to any of your data. We have no servers, no database, and no analytics. There is nothing to collect.",
     },
     {
-      title: "API keys",
-      body: "Decker requires you to provide your own Anthropic (Claude) and OpenAI (Whisper) API keys. These keys are stored exclusively in Chrome's local extension storage (chrome.storage.local) on your device. They are never transmitted to Decker or any server operated by us.",
+      title: "API key",
+      body: "Decker requires you to provide your own OpenAI API key. The key is stored exclusively in Chrome's local extension storage (chrome.storage.local) on your device. It is never transmitted to Decker or any server operated by us.",
     },
     {
       title: "Audio and transcripts",
@@ -31,11 +31,11 @@ export default function PrivacyPolicy() {
     },
     {
       title: "Third-party APIs",
-      body: "When you use Decker, your audio is sent to OpenAI (Whisper) and your transcript is sent to Anthropic (Claude) for processing. These transmissions use your own API keys and are governed by OpenAI's and Anthropic's respective privacy policies. Decker has no visibility into these requests.",
+      body: "When you use Decker, your audio is sent to OpenAI's Whisper API and your transcript is sent to OpenAI's chat completions API for processing. These transmissions use your own API key and are governed by OpenAI's privacy policy. Decker has no visibility into these requests.",
     },
     {
       title: "Permissions",
-      body: "Decker requests the following Chrome permissions: tabCapture (to record the active Meet tab), tabs (to identify the active tab URL), storage (to save your API keys locally), activeTab (to interact with the active tab), offscreen (to run the audio recorder), and downloads (to save the generated HTML file). Host permissions for meet.google.com, api.openai.com, and api.anthropic.com are required to record Meet and call the AI APIs directly from the extension.",
+      body: "Decker requests the following Chrome permissions: tabCapture (to record the active Meet tab), tabs (to identify the active tab URL), storage (to save your API key locally), activeTab (to interact with the active tab), offscreen (to run the audio recorder), and downloads (to save the generated HTML file). Host permissions for meet.google.com and api.openai.com are required to record Meet and call the OpenAI APIs directly from the extension.",
     },
     {
       title: "Open source",
@@ -69,7 +69,7 @@ export default function PrivacyPolicy() {
 
         <div style={{ padding: "24px 28px", background: C.surface, border: `1px solid ${C.accentBorder}`, borderLeft: `3px solid ${C.accent}`, borderRadius: 12, marginBottom: 48 }}>
           <p style={{ color: C.text, fontSize: "1rem", lineHeight: 1.8, margin: 0, fontWeight: 500 }}>
-            Decker does not collect any personal data. It runs entirely in your browser using your own API keys. Nothing is sent to our servers because we have no servers.
+            Decker does not collect any personal data. It runs entirely in your browser using your own API key. Nothing is sent to our servers because we have no servers.
           </p>
         </div>
 

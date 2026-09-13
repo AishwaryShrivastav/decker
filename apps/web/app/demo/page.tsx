@@ -136,5 +136,5 @@ export default function DemoPage() {
 
 export const metadata = {
   title: "Decker Demo — Sample Meeting Document",
-  description: "See what a Decker-generated meeting document looks like. Claude researches every topic while you're still in the call.",
+  description: "See what a Decker-generated meeting document looks like. Decker researches every topic while you're still in the call.",
 };

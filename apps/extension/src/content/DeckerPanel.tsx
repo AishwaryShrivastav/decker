@@ -36,6 +36,8 @@ function statusLabel(status: RecordingStatus, message?: string): string {
       return message ?? "Deck ready! Check Downloads.";
     case "error":
       return `Error: ${message ?? "Unknown error"}`;
+    default:
+      return String(status);
   }
 }
 
@@ -54,7 +56,6 @@ export function DeckerPanel({ initialStatus }: Props) {
   // Review phase
   const [transcript, setTranscript] = useState<string | null>(null);
   const [editedTranscript, setEditedTranscript] = useState("");
-  const [showTranscript, setShowTranscript] = useState(false);
   const [points, setPoints] = useState<string[]>([]);
   const [selectedPoints, setSelectedPoints] = useState<Set<number>>(new Set());
   const [customPrompt, setCustomPrompt] = useState("");
@@ -65,7 +66,7 @@ export function DeckerPanel({ initialStatus }: Props) {
     chrome.runtime.sendMessage<Message>(
       { type: MessageType.GET_API_SETTINGS },
       (resp: ApiSettings) => {
-        if (resp?.apiKey) setApiKeyInput(resp.apiKey);
+        if (resp?.openaiKey) setApiKeyInput(resp.openaiKey);
       }
     );
   }, []);
@@ -97,7 +98,7 @@ export function DeckerPanel({ initialStatus }: Props) {
   const handleSaveKey = () => {
     chrome.runtime.sendMessage<Message<ApiSettings>>({
       type: MessageType.SET_API_SETTINGS,
-      payload: { apiKey: apiKeyInput.trim() },
+      payload: { openaiKey: apiKeyInput.trim() },
     });
     setKeySaved(true);
     setTimeout(() => setKeySaved(false), 2000);
@@ -187,7 +188,7 @@ export function DeckerPanel({ initialStatus }: Props) {
             <input
               type={showKey ? "text" : "password"}
               className="decker-input"
-              placeholder="sk-... or sk-ant-..."
+              placeholder="sk-..."
               value={apiKeyInput}
               onChange={(e) => setApiKeyInput(e.target.value)}
               spellCheck={false}
@@ -199,7 +200,7 @@ export function DeckerPanel({ initialStatus }: Props) {
           <button className="decker-btn decker-btn-save" onClick={handleSaveKey}>
             {keySaved ? "Saved ✓" : "Save"}
           </button>
-          <p className="decker-hint">OpenAI (sk-…) or Anthropic (sk-ant-…)</p>
+          <p className="decker-hint">OpenAI API key (sk-…)</p>
 
           <div className="decker-section" style={{ marginTop: 16 }}>
             <button

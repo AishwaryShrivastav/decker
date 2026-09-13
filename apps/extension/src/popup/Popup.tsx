@@ -14,7 +14,7 @@ import {
 } from "../shared/types";
 
 const C = {
-  blue: "#818cf8",     // indigo-400 (Claude brand accent)
+  blue: "#818cf8",     // indigo-400
   red: "#ef4444",
   green: "#34d399",
   amber: "#f59e0b",
@@ -79,9 +79,7 @@ export function Popup() {
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [claudeKeyInput, setClaudeKeyInput] = useState("");
   const [openaiKeyInput, setOpenaiKeyInput] = useState("");
-  const [showClaudeKey, setShowClaudeKey] = useState(false);
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
   const [keySaved, setKeySaved] = useState(false);
   const [transcript, setTranscript] = useState<string | null>(null);
@@ -105,7 +103,6 @@ export function Popup() {
         const r = res as FullStateResponse;
         if (!r) return;
         if (r.status) setStatus(r.status);
-        if (r.claudeKey) setClaudeKeyInput(r.claudeKey);
         if (r.openaiKey) setOpenaiKeyInput(r.openaiKey);
         if (r.transcript) {
           setTranscript(r.transcript);
@@ -243,7 +240,7 @@ export function Popup() {
   const handleSaveKey = () => {
     chrome.runtime.sendMessage<Message<ApiSettings>>({
       type: MessageType.SET_API_SETTINGS,
-      payload: { claudeKey: claudeKeyInput.trim(), openaiKey: openaiKeyInput.trim() },
+      payload: { openaiKey: openaiKeyInput.trim() },
     });
     setKeySaved(true);
     setTimeout(() => setKeySaved(false), 2000);
@@ -338,23 +335,8 @@ export function Popup() {
           </button>
 
           <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 4 }}>
-            Claude key <span style={{ color: C.blue, fontFamily: "monospace" }}>sk-ant-…</span>
-            <span style={{ color: C.muted }}> · topics, research, generation</span>
-          </label>
-          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-            <input
-              type={showClaudeKey ? "text" : "password"}
-              value={claudeKeyInput}
-              onChange={(e) => setClaudeKeyInput(e.target.value)}
-              placeholder="sk-ant-api03…"
-              style={{ flex: 1, padding: 7, borderRadius: 6, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 12 }}
-            />
-            <button onClick={() => setShowClaudeKey((s) => !s)} style={{ ...btn(false), width: 36, padding: 0 }}>{showClaudeKey ? "🙈" : "👁"}</button>
-          </div>
-
-          <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 4 }}>
             OpenAI key <span style={{ color: "#10b981", fontFamily: "monospace" }}>sk-…</span>
-            <span style={{ color: C.muted }}> · Whisper audio transcription</span>
+            <span style={{ color: C.muted }}> · transcription, topics, research, generation</span>
           </label>
           <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
             <input
@@ -367,7 +349,7 @@ export function Popup() {
             <button onClick={() => setShowOpenaiKey((s) => !s)} style={{ ...btn(false), width: 36, padding: 0 }}>{showOpenaiKey ? "🙈" : "👁"}</button>
           </div>
 
-          <button onClick={handleSaveKey} style={{ ...btn(true), padding: "7px 12px" }}>{keySaved ? "Saved ✓" : "Save keys"}</button>
+          <button onClick={handleSaveKey} style={{ ...btn(true), padding: "7px 12px" }}>{keySaved ? "Saved ✓" : "Save key"}</button>
         </div>
       )}
 
@@ -444,7 +426,7 @@ export function Popup() {
                 })}
               </div>
               <p style={{ fontSize: 10, color: C.muted, marginTop: 5 }}>
-                Select topics to research in background. New topics appear as Claude listens.
+                Select topics to research in background. New topics appear as Decker listens.
               </p>
             </div>
           )}
@@ -492,7 +474,7 @@ export function Popup() {
       {/* ── GENERATING / RESEARCHING ── */}
       {isGeneratingOrResearching && (
         <div style={{ padding: 12, background: C.surface, borderRadius: 8, border: `1px solid ${C.border}` }}>
-          <div style={{ fontSize: 11, color: C.dimText, marginBottom: 6 }}>{statusMsg ?? "Claude is working…"}</div>
+          <div style={{ fontSize: 11, color: C.dimText, marginBottom: 6 }}>{statusMsg ?? "Working…"}</div>
           {points.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
               {points.filter((_, i) => selectedPoints.has(i)).map((p) => {
@@ -576,14 +558,14 @@ export function Popup() {
               onChange={(e) => setOutputFormat(e.target.value as OutputFormat)}
               style={{ width: "100%", padding: 7, borderRadius: 6, border: `1px solid ${C.border}`, background: C.surface, color: C.text, fontSize: 11 }}
             >
-              <option value="prototype">Static Prototype — Claude builds the app</option>
+              <option value="prototype">Static Prototype — AI builds the app</option>
               <option value="presentation">Presentation — HTML slide deck</option>
               <option value="notes">Discussion SPA — product brief website</option>
               <option value="doc">Meeting Brief — structured document</option>
             </select>
             {outputFormat === "prototype" && (
               <p style={{ fontSize: 10, color: C.muted, marginTop: 5, lineHeight: 1.5 }}>
-                Claude builds an interactive prototype of the product you discussed. Show it live before the call ends.
+                Decker builds an interactive prototype of the product you discussed. Show it live before the call ends.
               </p>
             )}
             {outputFormat === "presentation" && (
@@ -609,7 +591,7 @@ export function Popup() {
             onChange={(e) => setCustomPrompt(e.target.value)}
             placeholder={
               outputFormat === "prototype"
-                ? "Anything specific to build? (optional — Claude decides if blank)"
+                ? "Anything specific to build? (optional — the model decides if blank)"
                 : "Custom instructions (optional)"
             }
             rows={2}
@@ -663,7 +645,7 @@ export function Popup() {
 
       {isIdle && isOnMeet === true && (
         <p style={{ marginTop: 10, fontSize: 10, color: C.muted, lineHeight: 1.5 }}>
-          Records tab audio + mic. Topics appear live as Claude listens. Select topics to auto-research them.
+          Records tab audio + mic. Topics appear live as Decker listens. Select topics to auto-research them.
         </p>
       )}
 
