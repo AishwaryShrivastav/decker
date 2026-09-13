@@ -2,15 +2,6 @@
 
 import { useEffect, useState, useRef } from "react";
 
-type Browser = "chromium" | "firefox" | "other";
-function detectBrowser(): Browser {
-  if (typeof navigator === "undefined") return "other";
-  const ua = navigator.userAgent;
-  if (ua.includes("Firefox")) return "firefox";
-  if (ua.includes("Chrome") || ua.includes("Edg") || ua.includes("Brave") || ua.includes("Arc")) return "chromium";
-  return "other";
-}
-
 const C = {
   accent: "#1AADE4",
   accentBright: "#4DC8F0",
@@ -88,17 +79,14 @@ function useReveal(threshold = 0.06) {
   return { ref, on };
 }
 
-const CHROME = "https://chrome.google.com/webstore";
+const EARLY_ACCESS = "mailto:aishwaryshrivastava@gmail.com?subject=Decker%20early%20access";
 const GITHUB = "https://github.com/AishwaryShrivastav/decker";
 
 export default function Home() {
-  const [browser, setBrowser] = useState<Browser>("other");
   const tlRef    = useReveal(0.04);
   const outRef   = useReveal(0.04);
   const featRef  = useReveal(0.04);
   const ctaRef   = useReveal(0.08);
-
-  useEffect(() => { setBrowser(detectBrowser()); }, []);
 
   return (
     <main style={{ background: C.bg, color: C.text, fontFamily: "Inter, -apple-system, sans-serif" }}>
@@ -114,7 +102,7 @@ export default function Home() {
             <a href="#how"     style={{ color: C.muted, textDecoration: "none" }} className="nav-link">How it works</a>
             <a href="#outputs" style={{ color: C.muted, textDecoration: "none" }} className="nav-link">Outputs</a>
             <a href={GITHUB}   target="_blank" rel="noopener noreferrer" style={{ color: C.muted, textDecoration: "none" }} className="nav-link">GitHub</a>
-            <a href={CHROME}   target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ padding: "6px 14px", fontSize: "0.79rem" }}>Add to Chrome</a>
+            <a href={EARLY_ACCESS} className="btn btn-primary" style={{ padding: "6px 14px", fontSize: "0.79rem" }}>Get early access</a>
           </div>
         </div>
       </nav>
@@ -134,30 +122,29 @@ export default function Home() {
           </div>
 
           <h1 className="fu" style={{ animationDelay: "0.08s", fontSize: "clamp(2.8rem, 6.5vw, 5rem)", fontWeight: 800, margin: "0 0 22px", letterSpacing: "-3px", lineHeight: 1.02 }}>
-            Build the thing
+            Record the meeting.
             <br />
             <span style={{ background: `linear-gradient(130deg, ${C.accent} 0%, ${C.teal} 60%, ${C.accentBright} 100%)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
-              before you hang up.
+              Send no bot.
             </span>
           </h1>
 
           <p className="fu" style={{ animationDelay: "0.14s", fontSize: "1.1rem", color: C.muted, maxWidth: 520, margin: "0 auto 40px", lineHeight: 1.8 }}>
-            Record your meeting. Decker researches every topic in the background while you talk,
-            then generates a working prototype, deck, or product brief before the call ends.
+            Decker captures the Meet tab from your own browser. No extra participant joins,
+            nothing for IT to block. While you talk, it builds the deck, brief, or prototype,
+            ready to share before the call ends.
           </p>
 
           <div className="fu" style={{ animationDelay: "0.2s" }}>
             <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginBottom: 12 }}>
-              {browser === "firefox"
-                ? <span className="btn btn-primary" style={{ opacity: 0.4, cursor: "not-allowed" }}>Add to Chrome</span>
-                : <a href={CHROME} target="_blank" rel="noopener noreferrer" className="btn btn-primary">Add to Chrome, Free</a>}
+              <a href={EARLY_ACCESS} className="btn btn-primary">Get early access</a>
               <a href={GITHUB} target="_blank" rel="noopener noreferrer" className="btn btn-secondary">Open Source on GitHub</a>
             </div>
-            <p style={{ fontSize: "0.72rem", color: C.muted, margin: 0 }}>Firefox coming soon</p>
+            <p style={{ fontSize: "0.72rem", color: C.muted, margin: 0 }}>Not on the Chrome Web Store yet. Email for the build, or load it from source in two minutes.</p>
           </div>
 
           <p className="fu" style={{ animationDelay: "0.26s", marginTop: 20, fontSize: "0.7rem", color: C.dim }}>
-            MIT licensed, BYOK, no backend, your data never leaves your browser
+            Open source (MIT). Works with your own API keys. No account, no server.
           </p>
         </div>
       </section>
@@ -165,11 +152,11 @@ export default function Home() {
       {/* WHAT IT IS */}
       <section style={{ maxWidth: 780, margin: "0 auto", padding: "0 24px 96px" }}>
         <div style={{ padding: "40px 48px", background: C.surface, border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.accent}`, borderRadius: 16 }}>
-          <p style={{ fontSize: "0.8rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: C.accent, margin: "0 0 14px" }}>Not a note-taker</p>
+          <p style={{ fontSize: "0.8rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: C.accent, margin: "0 0 14px" }}>What you get</p>
           <p style={{ fontSize: "clamp(1rem, 2vw, 1.2rem)", color: C.text, lineHeight: 1.85, margin: 0, fontWeight: 400 }}>
-            Decker turns your conversation into an artifact you can ship, show, or share.
-            A working prototype of the feature you just spec&apos;d. A deck for the decision you just made.
-            Generated from your meeting, live, on the call.
+            Decker turns the conversation into something you can send: a working prototype of
+            the feature you just spec&apos;d, or a deck for the decision you just made,
+            finished while you&apos;re still on the call.
           </p>
         </div>
       </section>
@@ -276,10 +263,10 @@ export default function Home() {
       {/* BYOK */}
       <section style={{ maxWidth: 780, margin: "0 auto", padding: "72px 24px 0" }}>
         <div style={{ padding: "36px 44px", background: C.surface, border: `1px solid ${C.accentBorder}`, borderRadius: 16 }}>
-          <p style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: C.accent, margin: "0 0 10px" }}>Bring Your Own Keys</p>
-          <p style={{ fontSize: "1rem", fontWeight: 700, color: C.text, margin: "0 0 10px" }}>Your keys. Your data. Always.</p>
+          <p style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: C.accent, margin: "0 0 10px" }}>Your own API keys</p>
+          <p style={{ fontSize: "1rem", fontWeight: 700, color: C.text, margin: "0 0 10px" }}>Your keys stay in your browser.</p>
           <p style={{ color: C.muted, margin: "0 0 20px", lineHeight: 1.75, fontSize: "0.9rem" }}>
-            Decker uses your own API keys, stored locally in Chrome. Nothing is sent to our servers. A full 60-minute meeting costs a few cents.
+            Calls go straight to OpenAI and Anthropic. We never see your audio, transcript, or keys. There is no server to send them to. A full 60-minute meeting costs a few cents.
           </p>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {TECH.map((t) => (
@@ -310,20 +297,20 @@ export default function Home() {
           <img src="/logo.png" alt="Decker" width={56} height={56} style={{ objectFit: "contain" }} />
         </div>
         <h2 style={{ fontSize: "clamp(1.9rem, 4.5vw, 3rem)", fontWeight: 800, margin: "0 0 16px", color: C.text, letterSpacing: "-1.5px", lineHeight: 1.1 }}>
-          Turn your next meeting
+          Build the thing
           <br />
           <span style={{ background: `linear-gradient(130deg, ${C.accent} 0%, ${C.teal} 60%, ${C.accentBright} 100%)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
-            into something you can ship.
+            before you hang up.
           </span>
         </h2>
         <p style={{ color: C.muted, fontSize: "1rem", maxWidth: 360, margin: "0 auto 40px", lineHeight: 1.75 }}>
-          Free to download. Open source. No subscription.
+          Free and open source. Bring your own API keys; a full meeting costs a few cents.
         </p>
         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginBottom: 12 }}>
-          <a href={CHROME} target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ padding: "12px 26px", fontSize: "0.92rem" }}>Add to Chrome, Free</a>
+          <a href={EARLY_ACCESS} className="btn btn-primary" style={{ padding: "12px 26px", fontSize: "0.92rem" }}>Get early access</a>
           <a href={GITHUB} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: "12px 26px", fontSize: "0.92rem" }}>View on GitHub</a>
         </div>
-        <p style={{ fontSize: "0.71rem", color: C.muted, margin: 0 }}>Firefox coming soon</p>
+        <p style={{ fontSize: "0.71rem", color: C.muted, margin: 0 }}>No subscription. Firefox support is in progress.</p>
       </section>
 
       {/* FOOTER */}
