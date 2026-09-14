@@ -138,9 +138,9 @@ export default function Home() {
             <span style={{ fontWeight: 800, fontSize: "1rem", color: C.accent, letterSpacing: "-0.4px" }}>Decker</span>
           </a>
           <div style={{ display: "flex", gap: 24, alignItems: "center", fontSize: "0.83rem" }}>
-            <a href="#closing" style={{ color: C.muted, textDecoration: "none" }} className="nav-link">Closing deck</a>
-            <a href="#how" style={{ color: C.muted, textDecoration: "none" }} className="nav-link">How it works</a>
-            <a href={SUPPORT_ROUTE} style={{ color: C.muted, textDecoration: "none" }} className="nav-link">Support</a>
+            <a href="#closing" style={{ color: C.muted, textDecoration: "none" }} className="nav-link nav-secondary">Closing deck</a>
+            <a href="#how" style={{ color: C.muted, textDecoration: "none" }} className="nav-link nav-secondary">How it works</a>
+            <a href={SUPPORT_ROUTE} style={{ color: C.muted, textDecoration: "none" }} className="nav-link nav-secondary">Support</a>
             <a href={EARLY_ACCESS_MAIL} className="btn btn-primary" style={{ padding: "6px 14px", fontSize: "0.79rem" }}>Request assisted pilot</a>
           </div>
         </div>
@@ -152,7 +152,7 @@ export default function Home() {
         display: "flex",
         alignItems: "center",
       }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", width: "100%", display: "grid", gridTemplateColumns: "1.15fr 0.85fr", gap: 38, alignItems: "center" }}>
+        <div className="hero-grid" style={{ maxWidth: 1100, margin: "0 auto", width: "100%", display: "grid", gridTemplateColumns: "1.15fr 0.85fr", gap: 38, alignItems: "center" }}>
           <div>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(34,211,168,0.14)", border: `1px solid rgba(34,211,168,0.22)`, borderRadius: 99, padding: "5px 14px", marginBottom: 24, fontSize: "0.73rem", color: "#86efac", fontWeight: 600, letterSpacing: "0.05em" }}>
               <span style={{ width: 5, height: 5, borderRadius: "50%", background: C.green, display: "inline-block", boxShadow: `0 0 5px ${C.green}` }} />
@@ -416,10 +416,14 @@ export default function Home() {
         @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-7px)} }
 
         @media (max-width: 1040px) {
-          section > div[style*='grid-template-columns: "1.15fr 0.85fr"'] { grid-template-columns: 1fr !important; }
+          .hero-grid { grid-template-columns: 1fr !important; max-width: 720px !important; }
         }
 
         @media (max-width: 680px) {
+          nav .nav-secondary { display: none; }
+          nav .btn { padding: 7px 11px !important; font-size: 0.73rem !important; }
+          .hero-grid { gap: 28px !important; }
+          main > section:first-of-type { padding: 112px 20px 72px !important; }
           .tl-spine { display: none; }
           .tl-row { grid-template-columns: 1fr !important; }
           .tl-row > div:first-child { display: none; }
