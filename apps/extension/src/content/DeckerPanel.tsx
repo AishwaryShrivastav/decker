@@ -200,7 +200,7 @@ export function DeckerPanel({ initialStatus }: Props) {
           <button className="decker-btn decker-btn-save" onClick={handleSaveKey}>
             {keySaved ? "Saved ✓" : "Save"}
           </button>
-          <p className="decker-hint">OpenAI API key (sk-…)</p>
+          <p className="decker-hint">Your OpenAI key is stored locally and sent to OpenAI. Audio and transcript content go directly to OpenAI using this key. API charges apply. The developer receives no automatic telemetry.</p>
 
           <div className="decker-section" style={{ marginTop: 16 }}>
             <button
@@ -208,7 +208,7 @@ export function DeckerPanel({ initialStatus }: Props) {
               onClick={handleShowDebugLog}
               style={{ background: "none", border: "none", padding: 0, cursor: "pointer", width: "100%", textAlign: "left", color: "inherit" }}
             >
-              <span className="decker-label">Recent logs</span>
+              <span className="decker-label">Recent logs (may contain topic text and API errors)</span>
               <span>{showDebugLog ? " ▲" : " ▼"}</span>
             </button>
             {showDebugLog && (

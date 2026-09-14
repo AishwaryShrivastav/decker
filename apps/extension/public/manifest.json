@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Decker: Google Meet Notes, Decks & AI",
   "version": "0.1.0",
-  "description": "Record Google Meet without a bot. Get a slide deck, prototype, or meeting brief before the call ends. Your own OpenAI key.",
+  "description": "Record Google Meet and create notes or decks. Audio and text go directly to OpenAI using your key. API charges apply.",
   "permissions": [
     "tabCapture",
     "tabs",

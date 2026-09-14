@@ -13,53 +13,15 @@ Email **aish@techforgood.studio** with:
 
 You'll receive a response within 48 hours. Once the issue is confirmed and fixed, a public disclosure will be made with credit to the reporter (if desired).
 
-## Security Model
+## Security model
 
-Decker is a Chrome Extension + optional landing page. Here's what you need to know:
+The Chrome extension calls OpenAI directly with the user's key. Audio batches are sent during recording and after stopping; transcript content, topics, instructions, and research context are sent for text processing. The extension has no developer telemetry endpoint. Separate web API routes exist in this repository and receive submitted data on their host if called; the extension does not call them.
 
-### API Key Storage
+The key and up to 15 debug events are stored in `chrome.storage.local`, without application-level encryption or Chrome sync. Logs can contain topic text and API error responses. People with access to the browser profile may be able to read these values. Session content is held in memory; generated HTML files persist in Downloads until deleted. Clearing a key field and saving removes the saved value. Uninstalling clears extension storage, but does not remove downloads or OpenAI-side data.
 
-Your OpenAI API key is stored in `chrome.storage.local` — a per-extension sandboxed storage area inside your browser. It is:
+Generated HTML can contain external fonts, scripts, and other model-generated resources. Opening an output can make network requests or execute generated code. Review outputs before opening or sharing them.
 
-- **Never sent to any Decker server** — calls go directly from your browser to `api.openai.com`
-- **Not accessible to web pages** — `chrome.storage.local` is only accessible to the extension itself
-- **Not synced across devices** — it stays on the machine you entered it on
-
-**Limitation:** If someone gains physical access to your Chrome profile, they could potentially read your stored key. Treat it like any other browser-stored credential.
-
-### What Decker Sends Over the Network
-
-| Data | Destination | When |
-|------|-------------|------|
-| Audio file (WebM) | `api.openai.com/v1/audio/transcriptions` | When you stop recording |
-| Transcript text | `api.openai.com/v1/chat/completions` | To extract discussion points |
-| Transcript + selected points | `api.openai.com/v1/chat/completions` | When you generate a deck |
-
-No data is sent to any Decker-operated server.
-
-### What Decker Does NOT Do
-
-- Store recordings, transcripts, or presentations
-- Track usage or analytics
-- Phone home to any Decker server
-- Access tabs other than the active Google Meet tab
-
-### Extension Permissions
-
-| Permission | Why it's needed |
-|------------|-----------------|
-| `tabCapture` | Records the audio from the Google Meet tab |
-| `tabs` | Detects when you're on a Google Meet URL |
-| `storage` | Saves your API key and debug logs locally |
-| `activeTab` | Opens the microphone permission page |
-| `offscreen` | Keeps the MediaRecorder alive while the service worker sleeps |
-| `downloads` | Saves the generated HTML file to your Downloads folder |
-
-None of these permissions are used beyond their stated purpose.
-
-### Open Source Transparency
-
-The entire codebase is MIT licensed and publicly auditable. There is no obfuscated code, no telemetry, and no backend that handles user data.
+See [the data-flow and permission audit](store-assets/privacy.md) for the exact declared permissions, their current use, and permission-minimization issues requiring review before submission. Do not include API keys or unredacted meeting content in support reports.
 
 ## Supported Versions
 

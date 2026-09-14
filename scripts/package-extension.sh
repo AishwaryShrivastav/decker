@@ -13,7 +13,7 @@ if [[ "$TARGET" == "firefox" ]]; then
   BUILD_CMD="pnpm --filter extension build:firefox"
 else
   SRC_DIR="$EXT_DIR/dist"
-  OUT_FILE="$REPO_ROOT/decker-chrome.zip"
+  OUT_FILE="$REPO_ROOT/store-assets/decker-chrome.zip"
   BUILD_CMD="pnpm --filter extension build"
 fi
 

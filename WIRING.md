@@ -1,4 +1,6 @@
-# Decker Chunked Transcription Wiring
+# Decker chunked transcription wiring
+
+Historical wiring notes below include an in-page panel that is no longer loaded. The current content-script entry is empty; the popup is the active UI. See [the current data-flow audit](store-assets/privacy.md).
 
 ## Message Flow
 
@@ -37,7 +39,7 @@
                             ▼                                  ▼
 [Background] AUDIO_CHUNK handler                        [Background] processChunkQueue()
     │                                                       │
-    ├─► chunkQueue.push({ base64, mimeType })               ├─► transcribeChunk() → fetch /api/transcribe
+    ├─► chunkQueue.push({ base64, mimeType })               ├─► transcribeChunk() → direct OpenAI /v1/audio/transcriptions
     └─► processChunkQueue()                                 ├─► accumulatedTranscript += text
                                                             └─► broadcastStatus("recording", { transcript })
                                                                     │
@@ -69,7 +71,7 @@
     ├─► Wait for chunkQueue to drain
     ├─► Transcribe final blob (if size >= 1KB)
     ├─► transcript = accumulatedTranscript + finalSegment
-    ├─► POST /api/extract-points
+    ├─► direct OpenAI /v1/chat/completions
     └─► broadcastStatus("reviewing", { transcript, points })
             │
             └─► [Popup/DeckerPanel] Review UI, select points, Generate Deck

@@ -22,14 +22,14 @@ const C = {
 const OUTPUTS = [
   {
     tag: "Prototype",
-    headline: "A working product, not a mockup.",
+    headline: "An interactive prototype to review.",
     desc: "Clickable, interactive HTML built from what you described on the call.",
     who: "Product owners, founders",
   },
   {
     tag: "Presentation",
     headline: "A deck without the slide software.",
-    desc: "Self-contained HTML, keyboard navigable, share as a single file.",
+    desc: "An HTML slide deck to review and share. External resources may need internet access.",
     who: "Engineering leads, PMs",
   },
   {
@@ -47,21 +47,21 @@ const OUTPUTS = [
 ];
 
 const TIMELINE = [
-  { time: "0:00",     label: "Hit Record",                    sub: "One click in Chrome while you're live on Meet.",                        side: "left" },
-  { time: "0:16",     label: "Topics appear",                 sub: "GPT-4o mini extracts discussion points from the live transcript.",       side: "right" },
-  { time: "0:32",     label: "Select a topic, research runs", sub: "Research starts in the background the moment you check it.",             side: "left" },
-  { time: "ongoing",  label: "Meeting continues",             sub: "Topics refresh. Research completes. Nothing interrupts the call.",       side: "right" },
-  { time: "end",      label: "Hit Generate",                  sub: "GPT-4o builds the artifact. The research is already done.",              side: "left" },
-  { time: "+90s",     label: "Share before you hang up",      sub: "Drop the file in Slack while everyone is still on the call.",           side: "right" },
+  { time: "record", label: "Start in Google Meet", sub: "Tell participants about recording and OpenAI processing before you start.", side: "left" },
+  { time: "audio", label: "Audio goes to OpenAI", sub: "The browser sends audio batches for transcription using your key.", side: "right" },
+  { time: "topics", label: "Review discussion topics", sub: "Topics update after multiple audio batches have been transcribed.", side: "left" },
+  { time: "select", label: "Choose topics for context", sub: "Selected topics and transcript content go to OpenAI for AI summaries.", side: "right" },
+  { time: "stop", label: "Review and generate", sub: "After final processing, edit the transcript and choose an output format.", side: "left" },
+  { time: "save", label: "Download the HTML", sub: "Generation takes time. Review the file before sharing it.", side: "right" },
 ];
 
 const FEATURES = [
-  { title: "Live transcription",        desc: "Whisper processes audio every 16 seconds. The transcript builds as you talk." },
-  { title: "Parallel research",         desc: "Select a topic and GPT-4o mini researches it immediately, while the meeting runs." },
-  { title: "Four artifact formats",     desc: "Prototype, deck, SPA, or brief. One self-contained HTML file, every time." },
-  { title: "Tab and mic capture",       desc: "Captures the Meet tab audio and your mic. Mixed and transcribed together." },
-  { title: "State persists",            desc: "Close and reopen the popup anytime. Topics and research are still there." },
-  { title: "Runs entirely in Chrome",   desc: "No backend, no servers. Keys stored locally. Nothing leaves your browser." },
+  { title: "Live transcription", desc: "Audio is sent to OpenAI in roughly 16-second batches. Results depend on network and API response times." },
+  { title: "Topic context", desc: "Select a topic to request an AI summary from OpenAI using the transcript. This does not run a web search." },
+  { title: "Four output formats", desc: "Generate a prototype, deck, discussion site, or brief as an HTML file. External resources may require internet access." },
+  { title: "Tab and mic capture", desc: "Captures Meet tab audio and mixes in your microphone when permission and access are available." },
+  { title: "Session state", desc: "Reopening the popup restores the current background state while it remains in memory. It is not a saved meeting archive." },
+  { title: "Direct OpenAI requests", desc: "Audio and transcript content go from your browser to OpenAI using your key. The extension does not send them to the developer." },
 ];
 
 const TECH = ["OpenAI Whisper", "GPT-4o mini", "GPT-4o"];
@@ -130,9 +130,9 @@ export default function Home() {
           </h1>
 
           <p className="fu" style={{ animationDelay: "0.14s", fontSize: "1.1rem", color: C.muted, maxWidth: 520, margin: "0 auto 40px", lineHeight: 1.8 }}>
-            Decker captures the Meet tab from your own browser. No extra participant joins,
-            nothing for IT to block. While you talk, it builds the deck, brief, or prototype,
-            ready to share before the call ends.
+            Decker records Google Meet without adding a bot participant. Audio and transcript
+            content go directly from your browser to OpenAI using your own key.
+            Review the transcript, then generate a deck, brief, or prototype.
           </p>
 
           <div className="fu" style={{ animationDelay: "0.2s" }}>
@@ -140,11 +140,11 @@ export default function Home() {
               <a href={EARLY_ACCESS} className="btn btn-primary">Get early access</a>
               <a href={GITHUB} target="_blank" rel="noopener noreferrer" className="btn btn-secondary">Open Source on GitHub</a>
             </div>
-            <p style={{ fontSize: "0.72rem", color: C.muted, margin: 0 }}>Not on the Chrome Web Store yet. Email for the build, or load it from source in two minutes.</p>
+            <p style={{ fontSize: "0.72rem", color: C.muted, margin: 0 }}>Not on the Chrome Web Store yet. Email for the build, or build and load it from source.</p>
           </div>
 
           <p className="fu" style={{ animationDelay: "0.26s", marginTop: 20, fontSize: "0.7rem", color: C.dim }}>
-            Open source (MIT). Works with your own API keys. No account, no server.
+            Open source (MIT). Your OpenAI key is required. OpenAI API charges apply.
           </p>
         </div>
       </section>
@@ -154,9 +154,9 @@ export default function Home() {
         <div style={{ padding: "40px 48px", background: C.surface, border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.accent}`, borderRadius: 16 }}>
           <p style={{ fontSize: "0.8rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: C.accent, margin: "0 0 14px" }}>What you get</p>
           <p style={{ fontSize: "clamp(1rem, 2vw, 1.2rem)", color: C.text, lineHeight: 1.85, margin: 0, fontWeight: 400 }}>
-            Decker turns the conversation into something you can send: a working prototype of
-            the feature you just spec&apos;d, or a deck for the decision you just made,
-            finished while you&apos;re still on the call.
+            Decker turns a transcript into an HTML deliverable: a prototype of the feature
+            you discussed, a slide deck, a discussion site, or a meeting brief.
+            Check the generated content before sharing it.
           </p>
         </div>
       </section>
@@ -166,10 +166,10 @@ export default function Home() {
         <div style={{ textAlign: "center", marginBottom: 60 }}>
           <p style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: C.accent, margin: "0 0 12px" }}>How it works</p>
           <h2 style={{ fontSize: "clamp(1.8rem, 3vw, 2.5rem)", fontWeight: 800, color: C.text, letterSpacing: "-1px", margin: "0 0 12px" }}>
-            The artifact builds while you talk.
+            Record, review, then generate.
           </h2>
           <p style={{ color: C.muted, fontSize: "0.95rem", maxWidth: 420, margin: "0 auto", lineHeight: 1.7 }}>
-            By the time you hit Generate, the research is done.
+            Transcription runs during recording. Final processing and generation take additional time.
           </p>
         </div>
 
@@ -205,7 +205,7 @@ export default function Home() {
               One meeting. Four kinds of artifact.
             </h2>
             <p style={{ color: C.muted, fontSize: "0.95rem", maxWidth: 420, margin: "0 auto" }}>
-              Every output is a self-contained HTML file. Open it, share it, drop it in Slack.
+              Every output is an HTML file. Fonts, scripts, or other external resources may load when you open it.
             </p>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 14 }}>
@@ -226,10 +226,10 @@ export default function Home() {
         <div style={{ textAlign: "center", marginBottom: 52 }}>
           <p style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: C.accent, margin: "0 0 12px" }}>Under the hood</p>
           <h2 style={{ fontSize: "clamp(1.8rem, 3vw, 2.5rem)", fontWeight: 800, color: C.text, letterSpacing: "-1px", margin: "0 0 12px" }}>
-            Ready the moment you generate.
+            Processing starts during the meeting.
           </h2>
           <p style={{ color: C.muted, fontSize: "0.95rem", lineHeight: 1.7 }}>
-            Every part of the pipeline runs in parallel so there is no wait at the end.
+            Audio batches are transcribed in sequence. Final transcription, topic summaries, and generation can add a wait.
           </p>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 12 }}>
@@ -264,9 +264,13 @@ export default function Home() {
       <section style={{ maxWidth: 780, margin: "0 auto", padding: "72px 24px 0" }}>
         <div style={{ padding: "36px 44px", background: C.surface, border: `1px solid ${C.accentBorder}`, borderRadius: 16 }}>
           <p style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: C.accent, margin: "0 0 10px" }}>Your own API key</p>
-          <p style={{ fontSize: "1rem", fontWeight: 700, color: C.text, margin: "0 0 10px" }}>One OpenAI key. It stays in your browser.</p>
+          <p style={{ fontSize: "1rem", fontWeight: 700, color: C.text, margin: "0 0 10px" }}>One OpenAI key, saved locally and sent to OpenAI.</p>
           <p style={{ color: C.muted, margin: "0 0 20px", lineHeight: 1.75, fontSize: "0.9rem" }}>
-            Calls go straight to OpenAI. We never see your audio, transcript, or key. There is no server to send them to. A full 60-minute meeting costs a few cents.
+            The extension sends audio, transcript content, selected topics, and your instructions directly to OpenAI. The developer receives none of those requests. Your key and recent debug logs, which can contain topic text and API errors, are stored locally. Downloads remain until you delete them. OpenAI bills your account; cost depends on recording length, text volume, selected topics, and output.
+          </p>
+          <p style={{ color: C.muted, fontSize: "0.85rem", lineHeight: 1.7 }}>
+            Browser and organization policies may restrict installation, recording, or OpenAI access. Obtain any required participant consent.
+            {" "}<a href="/privacy" style={{ color: C.accent }}>Read the privacy policy</a>.
           </p>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {TECH.map((t) => (
@@ -300,11 +304,11 @@ export default function Home() {
           Build the thing
           <br />
           <span style={{ background: `linear-gradient(130deg, ${C.accent} 0%, ${C.teal} 60%, ${C.accentBright} 100%)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
-            before you hang up.
+            from your meeting notes.
           </span>
         </h2>
         <p style={{ color: C.muted, fontSize: "1rem", maxWidth: 360, margin: "0 auto 40px", lineHeight: 1.75 }}>
-          Free and open source. Bring your own API keys; a full meeting costs a few cents.
+          The extension is free and open source. Bring your own OpenAI key; API usage is billed separately.
         </p>
         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginBottom: 12 }}>
           <a href={EARLY_ACCESS} className="btn btn-primary" style={{ padding: "12px 26px", fontSize: "0.92rem" }}>Get early access</a>

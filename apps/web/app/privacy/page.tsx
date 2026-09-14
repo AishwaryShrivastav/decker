@@ -1,6 +1,6 @@
 export const metadata = {
   title: "Privacy Policy — Decker",
-  description: "Decker privacy policy. No data collection, no servers, BYOK.",
+  description: "How Decker sends meeting content to OpenAI, stores data locally, and handles website and support requests.",
 };
 
 const C = {
@@ -18,33 +18,41 @@ const C = {
 export default function PrivacyPolicy() {
   const sections = [
     {
-      title: "No data collection",
-      body: "Decker does not collect, store, transmit, or have access to any of your data. We have no servers, no database, and no analytics. There is nothing to collect.",
+      title: "Recording and OpenAI processing",
+      body: "When you click Start Recording, Decker captures the active Google Meet tab audio and, if microphone access is available, mixes in your voice. Audio chunks are sent directly from your browser to OpenAI for transcription while recording, with a final segment after you stop. Transcript content, selected topics, your instructions, and generated research context are sent to OpenAI for topic summaries and document generation. Requests use HTTPS and your own OpenAI API key. OpenAI receives this content and your key; API usage is billed to your OpenAI account."
     },
     {
-      title: "API key",
-      body: "Decker requires you to provide your own OpenAI API key. The key is stored exclusively in Chrome's local extension storage (chrome.storage.local) on your device. It is never transmitted to Decker or any server operated by us.",
+      title: "What stays on your device",
+      body: "Your API key and a rolling log of up to 15 debug events are saved in Chrome's local extension storage, without Chrome sync. Decker does not add its own encryption to that storage. Logs can include selected topic text and API error responses as well as timestamps and processing status. Audio buffers, transcripts, topics, research results, and the latest generated HTML are held in extension memory. Closing the popup does not clear the background state; it can be lost when the extension reloads or its service worker stops. The extension does not save a recording or a full transcript archive to local storage."
     },
     {
-      title: "Audio and transcripts",
-      body: "Audio recorded during a meeting is processed entirely on your device and sent directly from your browser to OpenAI's Whisper API using your own API key. Transcripts and generated HTML artifacts are kept in memory during your session and never leave your browser except to the AI APIs you have chosen to use.",
+      title: "Downloads and deletion",
+      body: "Generated HTML files are saved to your Downloads folder and remain until you delete them. The Copy HTML action writes the output to your clipboard. To remove a saved key, clear the key field and click Save key. Uninstalling the extension removes its local storage, including debug logs; it does not delete downloaded files, clipboard history, or data already sent to OpenAI. Revoke a key through your OpenAI account if you need to stop its use."
     },
     {
-      title: "Third-party APIs",
-      body: "When you use Decker, your audio is sent to OpenAI's Whisper API and your transcript is sent to OpenAI's chat completions API for processing. These transmissions use your own API key and are governed by OpenAI's privacy policy. Decker has no visibility into these requests.",
+      title: "What the developer receives",
+      body: "The extension's recording and generation pipeline sends no audio, transcripts, prompts, API keys, or automatic telemetry to the Decker developer. There is no Decker account requirement. If you email us for early access or support, we receive your email address and whatever you send. Public GitHub issues are visible to others. Review logs and remove sensitive content before sharing them; never send an API key."
     },
     {
-      title: "Permissions",
-      body: "Decker requests the following Chrome permissions: tabCapture (to record the active Meet tab), tabs (to identify the active tab URL), storage (to save your API key locally), activeTab (to interact with the active tab), offscreen (to run the audio recorder), and downloads (to save the generated HTML file). Host permissions for meet.google.com and api.openai.com are required to record Meet and call the OpenAI APIs directly from the extension.",
+      title: "Website and separate web APIs",
+      body: "Visiting this website sends ordinary request information, such as your IP address and browser details, to the website host. Pages load Google Fonts, which sends font requests to Google. The checked-in website code has no analytics integration; hosting logs and their retention depend on the operator's configuration. The repository also contains separate web API routes for audio and text processing. The Chrome extension does not call them. If you call those routes on a deployment, its operator receives the submitted content and any API key in the request, and forwards processing requests to OpenAI or Anthropic depending on the route. This differs from the extension's direct-to-OpenAI flow."
     },
     {
-      title: "Open source",
-      body: "Decker is fully open source under the MIT license. You can inspect every line of code at github.com/AishwaryShrivastav/decker. If you have any questions about what the extension does, reading the source is the most authoritative answer.",
+      title: "External resources in outputs",
+      body: "Downloaded or opened HTML can request external fonts, scripts, styles, or other resources. The meeting document template uses Google Fonts. Model-generated presentations, prototypes, and discussion sites can include external resources or executable code. Opening or sharing a file can therefore cause additional network requests; an HTML file is not a guarantee of offline operation. Review generated content before opening or sharing it."
+    },
+    {
+      title: "Permissions and recording choices",
+      body: "Decker requests tabCapture for tab audio, offscreen for the recorder, storage for the key and debug log, and downloads for HTML exports. It also declares tabs and activeTab for active-tab access, plus host access to meet.google.com and api.openai.com. The popup reads the active tab URL to check for Google Meet. Microphone permission is requested separately. Browser or organization policies can block recording, installation, or OpenAI access. Tell participants about recording and OpenAI processing and obtain any required consent before starting."
+    },
+    {
+      title: "OpenAI data controls",
+      body: "OpenAI's processing and retention depend on the API endpoint, applicable terms, and your account's data controls. Decker does not control OpenAI retention or delete content already transmitted to OpenAI. Consult OpenAI's API data controls documentation before recording sensitive content."
     },
     {
       title: "Contact",
-      body: "Questions or concerns about this policy can be raised as a GitHub issue at github.com/AishwaryShrivastav/decker/issues.",
-    },
+      body: "For privacy questions, email aish@techforgood.studio. For public bug reports, use github.com/AishwaryShrivastav/decker/issues. Only include information you intend to share."
+    }
   ];
 
   return (
@@ -64,15 +72,18 @@ export default function PrivacyPolicy() {
           Privacy Policy
         </h1>
         <p style={{ color: C.muted, fontSize: "0.9rem", margin: "0 0 56px" }}>
-          Last updated: {new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+          Last updated: September 14, 2026
         </p>
 
         <div style={{ padding: "24px 28px", background: C.surface, border: `1px solid ${C.accentBorder}`, borderLeft: `3px solid ${C.accent}`, borderRadius: 12, marginBottom: 48 }}>
           <p style={{ color: C.text, fontSize: "1rem", lineHeight: 1.8, margin: 0, fontWeight: 500 }}>
-            Decker does not collect any personal data. It runs entirely in your browser using your own API key. Nothing is sent to our servers because we have no servers.
+            Decker sends recorded audio and transcript content directly from your browser to OpenAI using your own API key. The extension stores your key and debug logs locally. Its recording and generation pipeline does not send this content to the developer.
           </p>
         </div>
 
+        <p style={{ marginBottom: 36 }}>
+          <a href="https://developers.openai.com/api/docs/guides/your-data" style={{ color: C.accent }}>OpenAI API data controls</a>
+        </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
           {sections.map((s) => (
             <div key={s.title} style={{ borderBottom: `1px solid ${C.border}`, paddingBottom: 36 }}>
