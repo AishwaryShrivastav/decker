@@ -45,17 +45,20 @@ See [OpenAI API data controls](https://developers.openai.com/api/docs/guides/you
   to 15 recent debug events, including timestamps, status messages, selected
   topic text, and API errors. Errors may include provider response details.
   Decker adds no encryption at rest and does not use `storage.sync`.
-- Extension memory: audio buffers/queue, transcripts, extracted topics, research
-  results, and latest generated HTML. The popup has additional editing state.
-  Closing it does not clear service-worker state. State can be lost when the
-  worker stops or the extension reloads; it is not a durable meeting archive.
+- Local IndexedDB: one recovery session containing pending audio segments,
+  transcript text, selected topics, instructions, edits, warnings, research
+  results, and generated HTML. Pending audio is removed after transcription
+  succeeds or exhausts three attempts. Starting over or starting another
+  recording replaces the record. Recovery is not a complete recording archive;
+  audio that never reaches IndexedDB can still be lost.
 - Downloads: generated HTML remains on disk until the user deletes it. Copy HTML
   writes the output to the clipboard; clipboard history is outside Decker's control.
 
 Clear the key field and save to remove the saved key value. Uninstalling clears
 local extension storage, including logs. Delete downloaded files separately.
 Neither action deletes data already sent to OpenAI. Revoke keys in the OpenAI
-account when needed. Resetting a session does not erase stored debug logs.
+account when needed. Resetting a session replaces the IndexedDB recovery record
+but does not erase stored debug logs.
 
 ## Output, website, and support requests
 

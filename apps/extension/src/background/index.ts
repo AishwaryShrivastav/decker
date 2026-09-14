@@ -5,7 +5,6 @@ import {
   StatusPayload,
   OffscreenStartPayload,
   RecordingStoppedPayload,
-  AudioChunkPayload,
   ApiSettings,
   GenerateDeckPayload,
   OutputFormat,
@@ -30,25 +29,22 @@ import {
   discussionSpaUser,
 } from "../shared/prompts";
 
+import { freshSession, recoverSession, processPendingChunks, transcriptForGeneration, reconcileTopics, addWarning, addCaptureNotice } from "../shared/capture";
+import type { TranscriptEdit } from "../shared/capture";
+import { loadSession, saveSession } from "../shared/sessionStore";
+
 const OPENAI_API_BASE = "https://api.openai.com/v1";
 const GPT_MINI = "gpt-4o-mini"; // fast + cheap — topic extraction, research
 const GPT_FULL = "gpt-4o";      // final doc/deck generation
 
-// --- State ---
-let recordingTabId: number | null = null;
-let currentStatus: RecordingStatus = "idle";
-let currentTranscript: string | null = null;
-let accumulatedTranscript = "";
-let chunkQueue: { base64: string; mimeType: string }[] = [];
-let chunkProcessing = false;
-let chunkTranscribedCount = 0;
+// The durable session is the source of truth. Runtime locks are reconstructed.
+let session = freshSession();
+let chunkProcessing: Promise<void> | null = null;
+let finalizing: Promise<void> | null = null;
 let isExtractingTopics = false;
-let openaiKey = "";   // OpenAI key — Whisper transcription + text generation
-let lastGeneratedHtml: string | null = null;
-let currentMessage: string | undefined;
+let openaiKey = "";
 
 // Live topic + research state
-let liveTopics: string[] = [];
 const topicResearchMap = new Map<string, TopicResearch>();
 const researchInProgress = new Set<string>();
 
@@ -65,9 +61,35 @@ async function debugLog(msg: string): Promise<void> {
   });
 }
 
-chrome.storage.local.get(["openaiKey"], (result) => {
-  if (result.openaiKey) openaiKey = result.openaiKey as string;
-});
+async function persist(): Promise<void> {
+  session.research = Array.from(topicResearchMap.values());
+  await saveSession(session);
+}
+
+const ready = (async () => {
+  const [settings, saved] = await Promise.all([
+    chrome.storage.local.get(["openaiKey"]), loadSession(),
+  ]);
+  openaiKey = typeof settings.openaiKey === 'string' ? settings.openaiKey.trim() : '';
+  if (saved) session = recoverSession(saved);
+  session.research.forEach(r => topicResearchMap.set(r.topic, r));
+})();
+
+async function resumeSession(): Promise<void> {
+  await ready;
+  if (['recording', 'processing', 'finalizing', 'transcribing', 'extracting'].includes(session.status)) {
+    let capture: { sessionId?: string; active?: boolean; finishing?: boolean } | undefined;
+    try { capture = await chrome.runtime.sendMessage({ type: MessageType.OFFSCREEN_STATUS }); } catch { /* recorder is gone */ }
+    if (!session.finalReceived && (capture?.sessionId !== session.id || (!capture.active && !capture.finishing))) {
+      addWarning(session, 'Capture was interrupted. Audio after the last saved segment may be missing.');
+      session.finalReceived = true;
+      session.status = 'processing';
+      await persist();
+    }
+    if (session.finalReceived) void finishSession();
+    else void processChunkQueue().catch(reportQueueFailure);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Whisper (OpenAI) — audio transcription
@@ -96,6 +118,7 @@ async function openaiTranscribe(audioBlob: Blob): Promise<string> {
     method: "POST",
     headers: { Authorization: `Bearer ${openaiKey}` },
     body: formData,
+    signal: AbortSignal.timeout(20_000),
   });
 
   if (!res.ok) {
@@ -125,6 +148,7 @@ async function llmComplete(
 
   const res = await fetch(`${OPENAI_API_BASE}/chat/completions`, {
     method: "POST",
+    signal: AbortSignal.timeout(60_000),
     headers: {
       Authorization: `Bearer ${openaiKey}`,
       "content-type": "application/json",
@@ -163,6 +187,7 @@ async function llmStream(
 
   const res = await fetch(`${OPENAI_API_BASE}/chat/completions`, {
     method: "POST",
+    signal: AbortSignal.timeout(60_000),
     headers: {
       Authorization: `Bearer ${openaiKey}`,
       "content-type": "application/json",
@@ -259,16 +284,24 @@ function broadcastStatus(
     topicResearch?: TopicResearch[];
   }
 ): void {
-  currentStatus = status;
-  if (message !== undefined) currentMessage = message;
-  const payload: StatusPayload = { status, message, ...extra };
+  session.status = status;
+  session.message = message;
+  const payload: StatusPayload = { status, message, ...extra, sessionId: session.id,
+    transcriptRevision: session.transcriptRevision, warnings: session.warnings,
+    selectedPoints: session.selectedPoints };
+  void persist().catch(() => {
+    const warning = 'Session recovery could not be saved. Keep Decker open and copy the transcript before leaving.';
+    addWarning(session, warning);
+    chrome.runtime.sendMessage({ type: MessageType.STATUS_UPDATE,
+      payload: { ...payload, warnings: session.warnings } }).catch(() => {});
+  });
   chrome.runtime
     .sendMessage<Message<StatusPayload>>({ type: MessageType.STATUS_UPDATE, payload })
     .catch(() => {});
 
-  if (recordingTabId !== null) {
+  if (session.tabId !== null) {
     chrome.tabs
-      .sendMessage<Message<StatusPayload>>(recordingTabId, {
+      .sendMessage<Message<StatusPayload>>(session.tabId, {
         type: MessageType.STATUS_UPDATE,
         payload,
       })
@@ -280,7 +313,7 @@ function broadcastStatus(
 // Broadcast helper: push current research map to popup
 // ---------------------------------------------------------------------------
 function broadcastResearchUpdate(): void {
-  broadcastStatus(currentStatus, undefined, {
+  broadcastStatus(session.status, session.message, {
     topicResearch: Array.from(topicResearchMap.values()),
   });
 }
@@ -289,22 +322,23 @@ function broadcastResearchUpdate(): void {
 // Live topic extraction (called every 3 transcribed chunks)
 // ---------------------------------------------------------------------------
 async function updateLiveTopics(): Promise<void> {
-  if (isExtractingTopics || accumulatedTranscript.length < 100) return;
+  if (isExtractingTopics || session.transcript.length < 100) return;
   isExtractingTopics = true;
+  const id = session.id;
   try {
-    const raw = await llmComplete(EXTRACT_POINTS_SYSTEM, extractPointsUser(accumulatedTranscript));
+    const raw = await llmComplete(EXTRACT_POINTS_SYSTEM, extractPointsUser(session.transcript));
     const cleaned = raw.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
     const parsed = JSON.parse(cleaned) as { points?: unknown };
     const newPoints = Array.isArray(parsed.points)
       ? (parsed.points as unknown[]).filter((p): p is string => typeof p === "string").slice(0, 12)
       : [];
 
-    if (newPoints.length > 0) {
-      liveTopics = newPoints;
+    if (id === session.id && session.status === "recording" && newPoints.length > 0) {
+      reconcileTopics(session, newPoints);
       debugLog(`Live topics updated: ${newPoints.length} topics`);
       broadcastStatus("recording", undefined, {
-        transcript: accumulatedTranscript,
-        points: liveTopics,
+        transcript: session.transcript,
+        points: session.points,
         topicResearch: Array.from(topicResearchMap.values()),
       });
     }
@@ -321,12 +355,13 @@ async function updateLiveTopics(): Promise<void> {
 async function startTopicResearch(topic: string): Promise<void> {
   if (researchInProgress.has(topic)) return;
   researchInProgress.add(topic);
+  const id = session.id;
 
   // Mark as in-progress
   topicResearchMap.set(topic, { topic, status: "researching" });
   broadcastResearchUpdate();
 
-  const transcript = accumulatedTranscript || currentTranscript || "";
+  const transcript = session.transcript;
 
   try {
     const raw = await llmComplete(RESEARCH_SYSTEM, researchUser(topic, transcript));
@@ -337,6 +372,7 @@ async function startTopicResearch(topic: string): Promise<void> {
       subtopics?: string[];
     };
 
+    if (id !== session.id) return;
     topicResearchMap.set(topic, {
       topic,
       status: "done",
@@ -349,13 +385,14 @@ async function startTopicResearch(topic: string): Promise<void> {
 
     debugLog(`Research done for: "${topic}"`);
   } catch (err) {
+    if (id !== session.id) return;
     debugLog(`Research failed for "${topic}": ${err instanceof Error ? err.message : String(err)}`);
     topicResearchMap.set(topic, { topic, status: "error" });
   } finally {
-    researchInProgress.delete(topic);
+    if (id === session.id) researchInProgress.delete(topic);
   }
 
-  broadcastResearchUpdate();
+  if (id === session.id) broadcastResearchUpdate();
 }
 
 // ---------------------------------------------------------------------------
@@ -386,158 +423,96 @@ async function transcribeChunk(base64: string, mimeType: string): Promise<string
   return openaiTranscribe(base64ToBlob(base64, mimeType));
 }
 
-async function processChunkQueue(): Promise<void> {
-  if (chunkProcessing || chunkQueue.length === 0) return;
-  chunkProcessing = true;
-
-  const chunk = chunkQueue.shift()!;
-  try {
-    const text = await transcribeChunk(chunk.base64, chunk.mimeType);
-    if (text) {
-      accumulatedTranscript = accumulatedTranscript ? `${accumulatedTranscript} ${text}` : text;
-      chunkTranscribedCount++;
-      debugLog(`Chunk ${chunkTranscribedCount} transcribed (${text.length} chars), total: ${accumulatedTranscript.length}`);
-
-      // Extract topics every 3 chunks
-      if (chunkTranscribedCount % 3 === 0) {
-        updateLiveTopics().catch(console.error);
-      }
-
-      broadcastStatus("recording", undefined, {
-        transcript: accumulatedTranscript,
-        points: liveTopics.length > 0 ? liveTopics : undefined,
-        topicResearch: Array.from(topicResearchMap.values()),
-      });
-    }
-  } catch (err) {
-    debugLog(`Chunk transcribe FAILED: ${err instanceof Error ? err.message : String(err)}`);
-  } finally {
-    chunkProcessing = false;
-    if (chunkQueue.length > 0) processChunkQueue().catch(console.error);
-  }
+function reportQueueFailure(): void {
+  addWarning(session, 'Pending audio could not be saved. Keep the session open and copy the transcript before leaving.');
+  broadcastStatus(session.status, session.message, { transcript: session.transcript });
 }
 
-// ---------------------------------------------------------------------------
-// Recording pipeline
-// ---------------------------------------------------------------------------
+function processChunkQueue(): Promise<void> {
+  if (chunkProcessing) return chunkProcessing;
+  chunkProcessing = processPendingChunks(session,
+    chunk => transcribeChunk(chunk.base64, chunk.mimeType), persist, undefined, () => {
+      broadcastStatus(session.status, session.message, { transcript: session.transcript });
+      if (session.status === 'recording' && session.transcriptRevision % 3 === 0) void updateLiveTopics();
+    }).finally(() => { chunkProcessing = null; });
+  return chunkProcessing;
+}
+
+function checkKey(): void {
+  if (!openaiKey.trim()) throw new Error('Add and save an OpenAI key in Settings before recording.');
+}
+
 async function startRecordingWithStream(tabId: number, streamId: string): Promise<void> {
-  recordingTabId = tabId;
-  currentTranscript = null;
-  accumulatedTranscript = "";
-  chunkQueue = [];
-  chunkTranscribedCount = 0;
-  liveTopics = [];
+  checkKey();
+  if (!['idle', 'done', 'error', 'reviewing'].includes(session.status) || chunkProcessing || finalizing) {
+    throw new Error('A capture or generation is already in progress.');
+  }
+  const tab = await chrome.tabs.get(tabId);
+  if (!tab.url || new URL(tab.url).hostname !== 'meet.google.com') throw new Error('Open a Google Meet tab first.');
+  session = freshSession();
+  session.tabId = tabId;
+  session.status = 'processing';
   topicResearchMap.clear();
   researchInProgress.clear();
-  broadcastStatus("recording");
-
+  await persist();
   try {
     await ensureOffscreenDocument();
-    await chrome.runtime.sendMessage<Message<OffscreenStartPayload>>({
-      type: MessageType.OFFSCREEN_START,
-      payload: { streamId },
-    });
-  } catch (err) {
-    console.error("[Decker background] startRecordingWithStream failed:", err);
-    broadcastStatus("error", String(err));
+    const response = await chrome.runtime.sendMessage<Message<OffscreenStartPayload>>({
+      type: MessageType.OFFSCREEN_START, payload: { streamId, sessionId: session.id },
+    }) as { ok?: boolean; error?: string; warnings?: string[] };
+    if (!response?.ok) throw new Error(response?.error ?? 'Audio capture did not start.');
+    response.warnings?.forEach(w => addWarning(session, w));
+    broadcastStatus('recording');
+  } catch (error) {
+    broadcastStatus('error', error instanceof Error ? error.message : String(error));
     await closeOffscreenDocument();
+    throw error;
   }
 }
 
 async function stopRecording(): Promise<void> {
-  const hasOffscreen =
-    (
-      await chrome.runtime.getContexts({
-        contextTypes: [chrome.runtime.ContextType.OFFSCREEN_DOCUMENT],
-      })
-    ).length > 0;
-
-  if (!hasOffscreen) {
-    debugLog("Stop requested but no offscreen doc");
-    currentStatus = "idle";
-    broadcastStatus("idle");
-    await closeOffscreenDocument();
-    return;
-  }
-
-  debugLog("STOP_RECORDING → sending OFFSCREEN_STOP");
-  broadcastStatus("processing");
+  if (session.status !== 'recording') return;
+  broadcastStatus('processing', 'Finishing audio capture...');
   try {
-    await chrome.runtime.sendMessage<Message>({ type: MessageType.OFFSCREEN_STOP });
-    debugLog("OFFSCREEN_STOP sent, waiting for RECORDING_STOPPED…");
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("Receiving end does not exist") || msg.includes("Extension context invalidated")) {
-      debugLog("Offscreen doc gone — resetting to idle");
-      recordingTabId = null;
-      currentStatus = "idle";
-      broadcastStatus("idle");
-      await closeOffscreenDocument();
-    } else {
-      broadcastStatus("error", msg);
-    }
+    const response = await chrome.runtime.sendMessage({ type: MessageType.OFFSCREEN_STOP });
+    if (!response?.ok) throw new Error('Recorder is unavailable');
+  } catch {
+    addWarning(session, 'Capture ended unexpectedly. Audio after the last saved segment may be missing.');
+    session.finalReceived = true;
+    await persist();
+    void finishSession();
   }
 }
 
-// ---------------------------------------------------------------------------
-// Phase 1: transcribe final audio → extract topics → reviewing
-// ---------------------------------------------------------------------------
-async function runPhase1(base64Audio: string, mimeType: string): Promise<void> {
+function finishSession(): Promise<void> {
+  if (finalizing) return finalizing;
+  finalizing = runPhase1().finally(() => { finalizing = null; });
+  return finalizing;
+}
+
+async function runPhase1(): Promise<void> {
   try {
-    // Wait for chunk queue to drain
-    debugLog("runPhase1: draining chunk queue…");
-    while (chunkQueue.length > 0 || chunkProcessing) {
-      await new Promise((r) => setTimeout(r, 300));
-    }
-    debugLog(`runPhase1: drained, accumulated: ${accumulatedTranscript.length} chars`);
-
-    let transcript = accumulatedTranscript;
-
-    // Transcribe final audio segment
-    if (base64Audio && base64Audio.length >= 100) {
-      const blob = base64ToBlob(base64Audio, mimeType);
-      if (blob.size >= 1000) {
-        broadcastStatus("transcribing", "Transcribing final audio…");
-        const seg = await openaiTranscribe(blob);
-        if (seg) transcript = transcript ? `${transcript} ${seg}` : seg;
+    broadcastStatus('transcribing', 'Finishing transcription...');
+    await processChunkQueue();
+    // Publish the complete transcript before topic extraction, which can fail.
+    broadcastStatus('extracting', 'Extracting discussion topics...', { transcript: session.transcript });
+    try {
+      if (session.transcript.trim()) {
+        const raw = await llmComplete(EXTRACT_POINTS_SYSTEM, extractPointsUser(session.transcript));
+        const parsed = parseJsonResponse(raw);
+        const points = Array.isArray(parsed.points) ? parsed.points.filter((p): p is string => typeof p === 'string').slice(0, 12) : [];
+        if (points.length) reconcileTopics(session, points);
       }
+    } catch {
+      addWarning(session, 'Topic extraction failed. The transcript is available for review; you can still generate a document.');
     }
-
-    if (!transcript || transcript.trim().length === 0) {
-      throw new Error("Transcription returned empty text. Was audio captured correctly?");
-    }
-    currentTranscript = transcript;
-
-    // Final topic extraction (using accumulated live topics or re-extract)
-    broadcastStatus("extracting", "Extracting discussion topics…");
-    const raw = await llmComplete(EXTRACT_POINTS_SYSTEM, extractPointsUser(transcript));
-    const cleaned = raw.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
-    const parsed = JSON.parse(cleaned) as { points?: unknown };
-    const points = Array.isArray(parsed.points)
-      ? (parsed.points as unknown[]).filter((p): p is string => typeof p === "string").slice(0, 12)
-      : liveTopics; // fallback to live topics
-
-    liveTopics = points.length > 0 ? points : liveTopics;
-    debugLog(`Phase 1 complete: ${liveTopics.length} topics, transcript ${transcript.length} chars`);
-
-    // Kick off background research for any previously selected topics
-    for (const [topic] of topicResearchMap) {
-      if (topicResearchMap.get(topic)?.status === "pending") {
-        startTopicResearch(topic).catch(console.error);
-      }
-    }
-
-    broadcastStatus("reviewing", undefined, {
-      transcript,
-      points: liveTopics,
-      topicResearch: Array.from(topicResearchMap.values()),
-    });
+    if (!session.transcript.trim()) addWarning(session, 'No speech was transcribed. Check tab audio and microphone access, or paste a transcript.');
+    broadcastStatus('reviewing', undefined, { transcript: session.transcript, points: session.points,
+      topicResearch: Array.from(topicResearchMap.values()) });
+    await persist();
     await closeOffscreenDocument();
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    debugLog(`runPhase1 FAILED: ${msg}`);
-    broadcastStatus("error", msg);
-    await closeOffscreenDocument();
+  } catch {
+    broadcastStatus('reviewing', 'Recovery storage failed. Copy your transcript before leaving.', { transcript: session.transcript });
   }
 }
 
@@ -555,10 +530,10 @@ function parseJsonResponse(raw: string): Record<string, unknown> {
 async function runPhase2(
   selectedPoints: string[],
   customPrompt: string,
-  transcriptOverride?: string,
+  transcriptEdit?: TranscriptEdit,
   outputFormat?: OutputFormat
 ): Promise<void> {
-  const transcript = transcriptOverride?.trim() || currentTranscript?.trim();
+  const transcript = transcriptForGeneration(session, transcriptEdit).trim();
   if (!transcript) {
     broadcastStatus("error", "No transcript available — please record again");
     return;
@@ -692,7 +667,9 @@ async function runPhase2(
       assertValidHtml(html, "presentation");
     }
 
-    lastGeneratedHtml = html;
+    html = addCaptureNotice(html, session.warnings);
+    session.html = html;
+    await persist();
 
     const prefix =
       format === "prototype" ? "decker-prototype"
@@ -708,160 +685,136 @@ async function runPhase2(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     debugLog(`runPhase2 FAILED: ${msg}`);
-    broadcastStatus("error", msg);
+    broadcastStatus("reviewing", msg, { transcript: session.transcript, points: session.points });
   }
 }
 
 // ---------------------------------------------------------------------------
 // Message listener
 // ---------------------------------------------------------------------------
-chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) => {
-  const msg = message as Message;
-
+async function handleMessage(msg: Message, sender: chrome.runtime.MessageSender): Promise<unknown> {
+  await ready;
   switch (msg.type) {
-    case MessageType.GET_TAB_ID: {
-      sendResponse({ tabId: sender.tab?.id ?? null });
-      return false;
-    }
-
-    case MessageType.GET_STATUS: {
-      sendResponse({ status: currentStatus });
-      return false;
-    }
-
-    // Full state restore — used when popup is reopened mid-session
+    case MessageType.GET_TAB_ID: return { tabId: sender.tab?.id ?? null };
+    case MessageType.GET_STATUS: return { status: session.status };
     case MessageType.GET_FULL_STATE: {
+      void resumeSession().catch(reportQueueFailure);
       const fullState: FullStateResponse = {
-        status: currentStatus,
-        message: currentMessage,
-        transcript: currentTranscript ?? (accumulatedTranscript || undefined),
-        points: liveTopics.length > 0 ? liveTopics : undefined,
-        topicResearch:
-          topicResearchMap.size > 0 ? Array.from(topicResearchMap.values()) : undefined,
-        hasHtml: lastGeneratedHtml !== null,
-        openaiKey,
+        sessionId: session.id, status: session.status, message: session.message,
+        transcript: session.transcript, transcriptRevision: session.transcriptRevision,
+        points: session.points, selectedPoints: session.selectedPoints, warnings: session.warnings,
+        customPrompt: session.customPrompt, outputFormat: session.outputFormat, edit: session.edit,
+        topicResearch: Array.from(topicResearchMap.values()), hasHtml: session.html !== null, openaiKey,
       };
-      sendResponse(fullState);
-      return false;
+      return fullState;
     }
-
-    case MessageType.GET_API_SETTINGS: {
-      sendResponse({ openaiKey });
-      return false;
-    }
-
+    case MessageType.GET_API_SETTINGS: return { openaiKey };
     case MessageType.GET_DEBUG_LOG: {
-      chrome.storage.local.get(DEBUG_LOG_KEY, (r) => {
-        try {
-          sendResponse({ log: (r[DEBUG_LOG_KEY] as string[]) ?? [] });
-        } catch {}
-      });
-      return true;
+      const r = await chrome.storage.local.get(DEBUG_LOG_KEY);
+      return { log: r[DEBUG_LOG_KEY] ?? [] };
     }
-
     case MessageType.SET_API_SETTINGS: {
-      const settings = msg.payload as ApiSettings;
-      openaiKey = settings.openaiKey ?? "";
-      chrome.storage.local.set({ openaiKey });
-      sendResponse({ ok: true });
-      return false;
+      openaiKey = (msg.payload as ApiSettings).openaiKey?.trim() ?? '';
+      await chrome.storage.local.set({ openaiKey });
+      return { ok: true };
     }
-
+    case MessageType.PREFLIGHT: checkKey(); return { ok: true };
     case MessageType.START_RECORDING_WITH_STREAM: {
       const payload = msg.payload as StartRecordingStreamPayload;
-      debugLog("START_RECORDING received");
-      startRecordingWithStream(payload.tabId, payload.streamId).catch(console.error);
-      sendResponse({ ok: true });
-      return false;
+      await startRecordingWithStream(payload.tabId, payload.streamId);
+      return { ok: true };
     }
-
-    case MessageType.START_RECORDING: {
-      sendResponse({ error: "Use START_RECORDING_WITH_STREAM from popup" });
-      return false;
-    }
-
-    case MessageType.STOP_RECORDING: {
-      stopRecording().catch(console.error);
-      sendResponse({ ok: true });
-      return false;
-    }
-
+    case MessageType.START_RECORDING: return { error: 'Use Start Recording from the popup.' };
+    case MessageType.STOP_RECORDING: await stopRecording(); return { ok: true };
     case MessageType.TOPIC_SELECTED: {
       const { topic } = msg.payload as TopicSelectedPayload;
-      if (topic) {
-        debugLog(`Topic selected: "${topic}" — starting background research`);
-        startTopicResearch(topic).catch(console.error);
+      if (topic && session.points.includes(topic)) {
+        if (!session.selectedPoints.includes(topic)) session.selectedPoints.push(topic);
+        await persist();
+        void startTopicResearch(topic);
       }
-      sendResponse({ ok: true });
-      return false;
+      return { ok: true };
     }
-
     case MessageType.TOPIC_DESELECTED: {
-      // Research already in progress — just let it finish; result will be cached
-      sendResponse({ ok: true });
-      return false;
+      const { topic } = msg.payload as TopicSelectedPayload;
+      session.selectedPoints = session.selectedPoints.filter(p => p !== topic);
+      await persist(); return { ok: true };
     }
-
-    case MessageType.AUDIO_CHUNK: {
-      const payload = msg.payload as AudioChunkPayload;
-      if (payload?.base64 && payload?.mimeType) {
-        chunkQueue.push({ base64: payload.base64, mimeType: payload.mimeType });
-        debugLog(`AUDIO_CHUNK received, queue: ${chunkQueue.length}`);
-        processChunkQueue().catch(console.error);
-      }
-      return false;
+    case MessageType.SAVE_REVIEW: {
+      const payload = msg.payload as { sessionId: string; selectedPoints?: string[]; customPrompt?: string; outputFormat?: OutputFormat; edit?: TranscriptEdit };
+      if (payload.sessionId !== session.id) return { error: 'This session has changed. Reopen Decker.' };
+      if (payload.selectedPoints) session.selectedPoints = payload.selectedPoints.filter(p => session.points.includes(p));
+      if (payload.customPrompt !== undefined) session.customPrompt = payload.customPrompt;
+      if (payload.outputFormat) session.outputFormat = payload.outputFormat;
+      if (payload.edit) session.edit = payload.edit;
+      await persist(); return { ok: true };
     }
-
+    case MessageType.AUDIO_CHUNK:
     case MessageType.RECORDING_STOPPED: {
       const payload = msg.payload as RecordingStoppedPayload;
-      debugLog(`RECORDING_STOPPED received, audio ${payload.base64?.length ?? 0} chars`);
-      runPhase1(payload.base64, payload.mimeType).catch(console.error);
-      return false;
+      if (payload.sessionId !== session.id) return { error: 'Expired capture session' };
+      if (!Number.isInteger(payload.sequence) || payload.sequence < 0) return { error: 'Invalid audio sequence' };
+      if (payload.sequence > session.lastSequence && !session.finalReceived) {
+        for (let i = session.lastSequence + 1; i < payload.sequence; i++) {
+          addWarning(session, `Missing audio segment ${i + 1}: audio delivery failed.`);
+        }
+        if (payload.base64) session.queue.push({ ...payload, attempts: 0 });
+        session.lastSequence = payload.sequence;
+      }
+      if (msg.type === MessageType.RECORDING_STOPPED) {
+        payload.missingSequences?.forEach(i => addWarning(session, `Missing audio segment ${i + 1}: audio delivery failed.`));
+        session.finalReceived = true;
+      }
+      // Acknowledgement means the audio/final marker is durable, not transcribed.
+      await persist();
+      if (session.finalReceived && !['reviewing', 'done', 'generating', 'researching'].includes(session.status)) void finishSession();
+      else if (!session.finalReceived) void processChunkQueue().catch(reportQueueFailure);
+      return { ok: true };
     }
-
+    case MessageType.CAPTURE_WARNING: {
+      const payload = msg.payload as { sessionId: string; warning: string };
+      if (payload.sessionId === session.id) {
+        addWarning(session, payload.warning);
+        broadcastStatus(session.status, session.message);
+        await persist();
+      }
+      return { ok: true };
+    }
     case MessageType.GENERATE_DECK: {
       const payload = msg.payload as GenerateDeckPayload;
-      runPhase2(
-        payload.selectedPoints,
-        payload.customPrompt,
-        payload.transcript,
-        payload.outputFormat
-      ).catch(console.error);
-      sendResponse({ ok: true });
-      return false;
+      if (payload.sessionId !== session.id || session.status !== 'reviewing') return { error: 'Wait for the complete transcript before generating.' };
+      checkKey();
+      session.selectedPoints = payload.selectedPoints;
+      session.customPrompt = payload.customPrompt;
+      session.outputFormat = payload.outputFormat ?? 'doc';
+      const edit = payload.transcriptEdited && payload.transcript !== undefined
+        ? { text: payload.transcript, baseRevision: payload.transcriptRevision ?? -1 } : undefined;
+      if (edit && edit.baseRevision !== session.transcriptRevision) {
+        return { error: 'The transcript changed after this edit. Review the latest transcript before generating.' };
+      }
+      session.edit = edit;
+      session.status = 'generating';
+      await persist();
+      void runPhase2(payload.selectedPoints, payload.customPrompt, edit, payload.outputFormat);
+      return { ok: true };
     }
-
     case MessageType.RESET_STATE: {
-      currentStatus = "idle";
-      currentMessage = undefined;
-      currentTranscript = null;
-      accumulatedTranscript = "";
-      liveTopics = [];
-      topicResearchMap.clear();
-      researchInProgress.clear();
-      lastGeneratedHtml = null;
-      chunkQueue = [];
-      chunkTranscribedCount = 0;
-      recordingTabId = null;
-      sendResponse({ ok: true });
-      return false;
+      if (chunkProcessing || finalizing || !['idle', 'reviewing', 'done', 'error'].includes(session.status)) return { error: 'Stop capture and wait for processing before resetting.' };
+      session = freshSession(); topicResearchMap.clear(); researchInProgress.clear();
+      await persist(); return { ok: true };
     }
-
-    case MessageType.GET_LAST_HTML: {
-      sendResponse({ html: lastGeneratedHtml });
-      return false;
-    }
-
-    case MessageType.STATUS_UPDATE: {
-      const payload = msg.payload as StatusPayload;
-      if (payload?.status === "error") debugLog(`Error from offscreen: ${payload.message ?? "unknown"}`);
-      broadcastStatus(payload.status, payload.message);
-      return false;
-    }
-
-    default:
-      return false;
+    case MessageType.GET_LAST_HTML: return { html: session.html };
+    default: return undefined;
   }
+}
+
+chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) => {
+  // Do not claim messages intended for offscreen or our own UI broadcasts.
+  if ([MessageType.OFFSCREEN_START, MessageType.OFFSCREEN_STOP, MessageType.OFFSCREEN_STATUS, MessageType.STATUS_UPDATE].includes(message.type)) return false;
+  handleMessage(message, sender).then(sendResponse, error => sendResponse({ error: error instanceof Error ? error.message : String(error) }));
+  return true;
 });
 
-console.log("[Decker background] Service worker started (OpenAI-powered)");
+void resumeSession().catch(() => {
+  broadcastStatus('error', 'Could not recover the saved session. Reload Decker and try again.');
+});

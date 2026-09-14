@@ -139,7 +139,7 @@ After generation:
 
 The OpenAI key is sent as a `Bearer` token directly to `https://api.openai.com/v1/*`. The extension does not route these requests through a developer-operated server. Audio chunks are sent while recording; transcripts, selected topics, instructions, and research context are sent for text processing. OpenAI API charges apply.
 
-The key and up to 15 debug events persist in local extension storage. Logs can contain topic text and API errors. Session content is held in memory, and generated HTML is saved to Downloads. Uninstalling removes local extension storage, but downloaded files and data already sent to OpenAI remain. The developer receives information you choose to email or post in support requests.
+The key and up to 15 debug events persist in local extension storage. Logs can contain topic text and API errors. One recovery session is saved in local IndexedDB and can contain pending audio segments, transcript text, selected topics, instructions, edits, warnings, research results, and generated HTML. Pending audio is removed after transcription succeeds or exhausts three attempts. Generated HTML is also saved to Downloads when you download it. Uninstalling removes local extension storage, but downloaded files and data already sent to OpenAI remain. The developer receives information you choose to email or post in support requests.
 
 The separate web API routes in this repository receive submitted content and request keys on their host if called; the Chrome extension does not use them. See [privacy disclosures and permission audit](store-assets/privacy.md).
 

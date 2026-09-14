@@ -1,214 +1,164 @@
-import {
-  Message,
-  MessageType,
-  OffscreenStartPayload,
-  RecordingStoppedPayload,
-  AudioChunkPayload,
-} from "../shared/types";
+import { Message, MessageType, OffscreenStartPayload } from '../shared/types';
+import { AudioDelivery } from './delivery';
 
-/** Batch size for live transcription: 8 chunks × 2s = ~16 seconds of audio (Whisper works best with 10–30s) */
-const CHUNK_BATCH_SIZE = 8;
-const MIN_CHUNK_BYTES = 20_000; // ~5s of opus - avoid sending near-empty audio
-
+const SEGMENT_MS = 16_000;
 let mediaRecorder: MediaRecorder | null = null;
-let audioChunks: Blob[] = [];
-let headerChunk: Blob | null = null; // first chunk contains the WebM EBML header
-let mimeType = "audio/webm;codecs=opus";
 let audioContext: AudioContext | null = null;
 let tabStream: MediaStream | null = null;
 let micStream: MediaStream | null = null;
+let segmentTimer: ReturnType<typeof setTimeout> | undefined;
+let silenceTimer: ReturnType<typeof setTimeout> | undefined;
+let sessionId = '';
+let stopping = false;
+let finishing = false;
+let delivery: AudioDelivery | null = null;
 
-async function startRecording(streamId: string): Promise<void> {
+function warn(warning: string): void {
+  chrome.runtime.sendMessage({ type: MessageType.CAPTURE_WARNING, payload: { sessionId, warning } }).catch(() => {});
+}
+
+async function releaseSources(): Promise<void> {
+  clearTimeout(segmentTimer);
+  clearTimeout(silenceTimer);
+  tabStream?.getTracks().forEach(t => t.stop());
+  micStream?.getTracks().forEach(t => t.stop());
+  tabStream = null;
+  micStream = null;
+  const context = audioContext;
+  audioContext = null;
+  if (context && context.state !== 'closed') await context.close();
+}
+
+async function startRecording(payload: OffscreenStartPayload): Promise<string[]> {
+  if (mediaRecorder?.state === 'recording' || finishing) throw new Error('Audio capture is already active.');
+  sessionId = payload.sessionId;
+  stopping = false;
+  const warnings: string[] = [];
   try {
-    // 1. Tab audio = remote participants (what you hear from others)
     tabStream = await navigator.mediaDevices.getUserMedia({
       audio: {
-        // @ts-expect-error: Chrome-specific constraint
-        mandatory: {
-          chromeMediaSource: "tab",
-          chromeMediaSourceId: streamId,
-        },
-      },
-      video: false,
+        // @ts-expect-error Chrome tab-capture constraints
+        mandatory: { chromeMediaSource: 'tab', chromeMediaSourceId: payload.streamId },
+      }, video: false,
     });
-
-    // 2. Microphone = local user (you speaking). Offscreen may lack user gesture — fallback to tab-only.
+    if (!tabStream.getAudioTracks().some(t => t.readyState === 'live')) {
+      throw new Error('No tab audio track was captured. Reopen the Meet tab and try again.');
+    }
     try {
       micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (micErr) {
-      console.warn("[Decker offscreen] Mic access failed, recording tab only:", micErr);
+      if (!micStream.getAudioTracks().some(t => t.readyState === 'live')) throw new Error('No live microphone');
+    } catch {
+      micStream?.getTracks().forEach(t => t.stop());
       micStream = null;
+      warnings.push('Microphone unavailable. Only tab audio is being captured; your voice may be missing. Allow microphone access in Settings.');
     }
+    if (tabStream.getAudioTracks().some(t => t.muted)) warnings.push('The tab audio track is muted. Check that meeting audio is playing.');
 
-    // 3. Build stream: tab + mic (if available)
     audioContext = new AudioContext();
     const tabSource = audioContext.createMediaStreamSource(tabStream);
     const destination = audioContext.createMediaStreamDestination();
     tabSource.connect(destination);
-
-    if (micStream) {
-      const micSource = audioContext.createMediaStreamSource(micStream);
-      micSource.connect(destination);
-    }
-
-    // Route tab to speakers so user still hears the meeting
     tabSource.connect(audioContext.destination);
+    if (micStream) audioContext.createMediaStreamSource(micStream).connect(destination);
+    if (audioContext.state === 'suspended') await audioContext.resume();
+    if (audioContext.state !== 'running') throw new Error('Audio processing did not start. Try starting capture again.');
 
-    if (audioContext.state === "suspended") {
-      await audioContext.resume();
-    }
+    for (const track of tabStream.getAudioTracks()) track.onended = () => {
+      warn('Tab audio ended. Capture stopped; the end of the meeting may be missing.');
+      stopRecording();
+    };
+    for (const track of micStream?.getAudioTracks() ?? []) track.onended = () => {
+      if (!stopping) warn('The microphone disconnected during capture. Your voice may be missing after disconnection.');
+    };
 
+    // A live track does not guarantee a signal. Check once without blocking start.
+    const analyser = audioContext.createAnalyser();
+    audioContext.createMediaStreamSource(destination.stream).connect(analyser);
+    const samples = new Uint8Array(analyser.fftSize);
+    let heardAudio = false;
+    let checks = 0;
+    const checkSignal = () => {
+      if (stopping) return;
+      analyser.getByteTimeDomainData(samples);
+      heardAudio ||= samples.some(value => Math.abs(value - 128) > 2);
+      if (++checks < 20) silenceTimer = setTimeout(checkSignal, 500);
+      else if (!heardAudio) warn('No audio signal was detected during the first 10 seconds. Check meeting sound and microphone access; the transcript may be incomplete.');
+    };
+    silenceTimer = setTimeout(checkSignal, 500);
+
+    const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus']
+      .find(type => MediaRecorder.isTypeSupported(type));
+    if (!mimeType) throw new Error('This browser has no supported audio recording format.');
+    delivery = new AudioDelivery(sessionId, (type, data) => chrome.runtime.sendMessage({ type, payload: data }));
     const mixedStream = destination.stream;
-
-    const candidates = [
-      "audio/webm;codecs=opus",
-      "audio/webm",
-      "audio/ogg;codecs=opus",
-    ];
-    mimeType = candidates.find((t) => MediaRecorder.isTypeSupported(t)) ?? "audio/webm";
-
-    audioChunks = [];
-    headerChunk = null;
-    mediaRecorder = new MediaRecorder(mixedStream, {
-      mimeType,
-      audioBitsPerSecond: 128_000,
-    });
-
-    mediaRecorder.ondataavailable = async (event) => {
-      if (event.data.size > 0) {
-        audioChunks.push(event.data);
-        // Save the first chunk — it contains the WebM EBML header needed by Whisper
-        if (!headerChunk) headerChunk = event.data;
-        // Live transcription: when we have enough chunks, send a batch for transcription
-        while (audioChunks.length >= CHUNK_BATCH_SIZE) {
-          const batch = audioChunks.splice(0, CHUNK_BATCH_SIZE);
-          // Prepend the header chunk to batches that don't start with it
-          const parts = batch[0] === headerChunk ? batch : [headerChunk!, ...batch];
-          const blob = new Blob(parts, { type: mimeType });
-          if (blob.size >= MIN_CHUNK_BYTES) {
-            const base64 = await blobToBase64(blob);
-            if (base64) {
-              chrome.runtime
-                .sendMessage<Message<AudioChunkPayload>>({
-                  type: MessageType.AUDIO_CHUNK,
-                  payload: { base64, mimeType },
-                })
-                .catch((err) => console.warn("[Decker offscreen] AUDIO_CHUNK send failed:", err));
-            } else {
-              console.warn("[Decker offscreen] blobToBase64 returned empty");
-            }
-          }
+    const recordSegment = () => {
+      const parts: Blob[] = [];
+      const recorder = new MediaRecorder(mixedStream, { mimeType, audioBitsPerSecond: 128_000 });
+      mediaRecorder = recorder;
+      recorder.ondataavailable = event => { if (event.data.size > 0) parts.push(event.data); };
+      recorder.onerror = () => {
+        warn('The audio recorder failed. Some audio may be missing.');
+        stopRecording();
+      };
+      recorder.onstop = () => {
+        clearTimeout(segmentTimer);
+        const blob = new Blob(parts, { type: mimeType });
+        // Each recorder produces its own container header. Reusing the first
+        // chunk would replay its speech and produce malformed later segments.
+        if (!stopping) {
+          delivery!.enqueue(() => blobToBase64(blob), mimeType);
+          recordSegment();
+        } else {
+          finishing = true;
+          void releaseSources();
+          void delivery!.finish(() => blob.size ? blobToBase64(blob) : Promise.resolve(''), mimeType)
+            .then(() => { finishing = false; })
+            .catch(() => warn('Final audio delivery was interrupted. Reopen Decker to recover the final segment.'));
         }
-      }
+      };
+      recorder.start();
+      segmentTimer = setTimeout(() => { if (recorder.state !== 'inactive') recorder.stop(); }, SEGMENT_MS);
     };
-
-    mediaRecorder.onstop = async () => {
-      // Remaining chunks may lack the WebM header (it was in the first batch, already spliced out)
-      const parts = headerChunk && audioChunks[0] !== headerChunk
-        ? [headerChunk, ...audioChunks]
-        : audioChunks;
-      const blob = new Blob(parts, { type: mimeType });
-      console.log("[Decker offscreen] Recording stopped, blob size:", blob.size, "chunks:", audioChunks.length);
-
-      if (audioContext) {
-        await audioContext.close();
-        audioContext = null;
-      }
-      tabStream?.getTracks().forEach((t) => t.stop());
-      micStream?.getTracks().forEach((t) => t.stop());
-      tabStream = null;
-      micStream = null;
-
-      if (blob.size < 1000) {
-        console.error("[Decker offscreen] Recording too short or empty — need at least ~1KB of audio");
-        chrome.runtime.sendMessage({
-          type: MessageType.STATUS_UPDATE,
-          payload: { status: "error", message: "Recording too short. Record at least 3–5 seconds of audio." },
-        });
-        return;
-      }
-
-      chrome.runtime.sendMessage({
-        type: MessageType.STATUS_UPDATE,
-        payload: { status: "finalizing", message: "Preparing audio…" },
-      });
-
-      console.log("[Decker offscreen] Converting blob to base64…");
-      const base64 = await blobToBase64(blob);
-      console.log("[Decker offscreen] Base64 ready, sending RECORDING_STOPPED to background…");
-
-      chrome.runtime.sendMessage<Message<RecordingStoppedPayload>>({
-        type: MessageType.RECORDING_STOPPED,
-        payload: { base64, mimeType },
-      });
-    };
-
-    mediaRecorder.start(2_000);
-    console.log(
-      "[Decker offscreen] MediaRecorder started",
-      micStream ? "(tab + mic)" : "(tab only)",
-      "mimeType:",
-      mimeType
-    );
-  } catch (err) {
-    console.error("[Decker offscreen] startRecording failed:", err);
-    tabStream?.getTracks().forEach((t) => t.stop());
-    micStream?.getTracks().forEach((t) => t.stop());
-    tabStream = null;
-    micStream = null;
-    const name = err instanceof Error ? (err as DOMException).name ?? "" : "";
-    const msg = err instanceof Error ? err.message : String(err);
-    chrome.runtime.sendMessage({
-      type: MessageType.STATUS_UPDATE,
-      payload: {
-        status: "error",
-        message:
-          name === "NotAllowedError"
-            ? "Permission denied. Allow microphone and reload the Meet tab, then try again."
-            : msg.includes("not found") || name === "NotFoundError"
-              ? "Microphone not found. Check your device."
-              : `Capture failed: ${msg}`,
-      },
-    });
+    recordSegment();
+    return warnings;
+  } catch (error) {
+    stopping = true;
+    await releaseSources();
+    throw error;
   }
 }
 
 function stopRecording(): void {
-  if (mediaRecorder && mediaRecorder.state !== "inactive") {
-    mediaRecorder.stop();
-  } else {
-    console.warn("[Decker offscreen] stopRecording called but recorder not active");
-  }
+  stopping = true;
+  clearTimeout(segmentTimer);
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+  // If a rotation already queued onstop, its handler observes stopping and
+  // sends that segment as the tail instead of creating another recorder.
 }
 
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
-      const base64 = result?.split(",")[1] ?? "";
-      resolve(base64);
-    };
-    reader.onerror = reject;
+    reader.onload = () => resolve((reader.result as string).split(',')[1] ?? '');
+    reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(blob);
   });
 }
 
-// Message listener
-chrome.runtime.onMessage.addListener((message: Message) => {
+chrome.runtime.onMessage.addListener((message: Message, _sender, sendResponse) => {
   switch (message.type) {
-    case MessageType.OFFSCREEN_START: {
-      const payload = message.payload as OffscreenStartPayload;
-      startRecording(payload.streamId).catch(console.error);
-      break;
-    }
-
-    case MessageType.OFFSCREEN_STOP: {
-      console.log("[Decker offscreen] OFFSCREEN_STOP received, stopping MediaRecorder…");
-      stopRecording();
-      break;
-    }
+    case MessageType.OFFSCREEN_START:
+      startRecording(message.payload as OffscreenStartPayload).then(
+        warnings => sendResponse({ ok: true, warnings }),
+        error => sendResponse({ error: error instanceof Error ? error.message : String(error) }),
+      );
+      return true;
+    case MessageType.OFFSCREEN_STOP:
+      stopRecording(); sendResponse({ ok: true }); return false;
+    case MessageType.OFFSCREEN_STATUS:
+      sendResponse({ sessionId, active: !stopping && mediaRecorder?.state === 'recording', finishing });
+      if (finishing) void delivery?.resendFinal().then(sent => { if (sent) finishing = false; }).catch(() => {});
+      return false;
+    default: return false;
   }
 });
-
-console.log("[Decker offscreen] Document ready");

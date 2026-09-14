@@ -1,107 +1,45 @@
-# Decker chunked transcription wiring
+# Decker capture and recovery
 
-Historical wiring notes below include an in-page panel that is no longer loaded. The current content-script entry is empty; the popup is the active UI. See [the current data-flow audit](store-assets/privacy.md).
+This document describes extension behavior. See [the data-flow and permission audit](store-assets/privacy.md) for network transmission, local storage, output, and Chrome Web Store disclosures.
 
-## Message Flow
+The popup requests a tab stream after checking that a saved OpenAI key exists. The worker waits for settings and the local session to load before handling requests. Key preflight checks presence; account validity, quota, and model access are checked by actual API calls.
 
-```
-[Popup] Start Recording (user gesture)
-    │
-    ├─► chrome.tabCapture.getMediaStreamId(tabId)
-    │
-    └─► START_RECORDING_WITH_STREAM { tabId, streamId }
-            │
-            ▼
-[Background] startRecordingWithStream()
-    │
-    ├─► ensureOffscreenDocument()
-    ├─► OFFSCREEN_START { streamId }
-    └─► broadcastStatus("recording")
-            │
-            ├─► chrome.runtime.sendMessage(STATUS_UPDATE)  → Popup, Content
-            └─► chrome.tabs.sendMessage(tabId, STATUS_UPDATE)  → Content script in Meet tab
-            │
-            ▼
-[Offscreen] startRecording()
-    │
-    ├─► getUserMedia(tab + mic)
-    ├─► MediaRecorder.start(2000)  ← chunks every 2s
-    │
-    └─► ondataavailable (every 2s)
-            │
-            ├─► Push chunk to audioChunks[]
-            └─► When audioChunks.length >= 8:
-                    │
-                    ├─► splice(0, 8) → Blob
-                    ├─► blobToBase64()
-                    └─► AUDIO_CHUNK { base64, mimeType }  ─────┐
-                            │                                  │
-                            ▼                                  ▼
-[Background] AUDIO_CHUNK handler                        [Background] processChunkQueue()
-    │                                                       │
-    ├─► chunkQueue.push({ base64, mimeType })               ├─► transcribeChunk() → direct OpenAI /v1/audio/transcriptions
-    └─► processChunkQueue()                                 ├─► accumulatedTranscript += text
-                                                            └─► broadcastStatus("recording", { transcript })
-                                                                    │
-                                                                    └─► STATUS_UPDATE → Popup, Content
-                                                                            │
-                                                                            ▼
-                                                                    [Popup/DeckerPanel] Show "Live meeting notes"
+The offscreen document checks for a live tab audio track, attempts microphone capture, and starts a mixed audio recorder. Missing microphone access, disconnected sources, and an initial lack of audio signal produce persistent warnings. Tab audio is still routed to the speakers.
 
-[User] Stop
-    │
-    ▼
-[Background] STOP_RECORDING
-    │
-    ├─► broadcastStatus("processing")
-    └─► OFFSCREEN_STOP
-            │
-            ▼
-[Offscreen] mediaRecorder.stop()
-    │
-    └─► onstop
-            │
-            ├─► Blob(remaining audioChunks)  ← tail (0–14 sec not yet sent)
-            ├─► STATUS_UPDATE { status: "finalizing" }
-            └─► RECORDING_STOPPED { base64, mimeType }
-                    │
-                    ▼
-[Background] runPhase1()
-    │
-    ├─► Wait for chunkQueue to drain
-    ├─► Transcribe final blob (if size >= 1KB)
-    ├─► transcript = accumulatedTranscript + finalSegment
-    ├─► direct OpenAI /v1/chat/completions
-    └─► broadcastStatus("reviewing", { transcript, points })
-            │
-            └─► [Popup/DeckerPanel] Review UI, select points, Generate Deck
-```
+## Ordered audio and stop
 
-## Verified Connections
+Each 16-second segment uses a separate MediaRecorder container. This avoids prepending the first segment's audio as a header to every later segment. Recorder rotation needs real-call testing for boundary gaps.
 
-| From | To | Message | Payload | Verified |
-|------|----|---------|---------|----------|
-| Popup | Background | START_RECORDING_WITH_STREAM | { tabId, streamId } | ✓ |
-| Background | Offscreen | OFFSCREEN_START | { streamId } | ✓ |
-| Offscreen | Background | AUDIO_CHUNK | { base64, mimeType } | ✓ |
-| Offscreen | Background | RECORDING_STOPPED | { base64, mimeType } | ✓ |
-| Offscreen | Background | STATUS_UPDATE | { status, message? } | ✓ |
-| Background | Popup/Content | STATUS_UPDATE | { status, message?, transcript?, points? } | ✓ |
-| Popup | Background | STOP_RECORDING | — | ✓ |
-| Content | Background | STOP_RECORDING | — | ✓ |
+The recorder's final `dataavailable` event precedes `stop` ([MDN](https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder/stop_event)). Decker includes that data without a minimum-size cutoff. An empty tail still sends a final marker.
 
-## Debug Logs (Recent logs in Settings)
+`AudioDelivery` serializes conversion and delivery. Each message carries a session ID and sequence number. The worker acknowledges only after the session and pending audio are saved in IndexedDB. Duplicate delivery cannot append the same segment twice. Failed sends get three attempts and their segment numbers travel with the final marker. The offscreen document retains the final payload for another delivery attempt when a worker restart or reopened popup probes it.
 
-- `AUDIO_CHUNK received, queue size: N`
-- `Chunk transcribed (X chars), total: Y`
-- `Chunk transcribe FAILED: <error>`
-- `runPhase1: waiting for chunk queue to drain…`
-- `runPhase1: queue drained, accumulated: N chars`
+Live and final audio share one ordered transcription queue. Each request has a 20-second timeout, at most three attempts, and 1- and 2-second retry delays. Attempt counts survive worker restarts. Exhaustion inserts a missing-segment marker in the transcript and a persistent warning. Empty transcription responses also exhaust into a warning because silence cannot be distinguished reliably from a failed speech result.
 
-## Fixes Applied
+Review begins after the final marker and queue drain. The complete transcript is published before topic extraction. Extraction failure returns to review with the transcript intact. Live extraction results arriving after stop cannot return the status to recording.
 
-1. **Chrome manifest** – Added `content_scripts` so DeckerPanel loads on meet.google.com
-2. **RecordingStatus** – Added `"finalizing"` for offscreen “Preparing audio…” state
-3. **blobToBase64** – Safe fallback when `split(",")[1]` is undefined
-4. **AUDIO_CHUNK send** – Catch and log send failures from offscreen
-5. **Debug logging** – Chunk queue, transcription success/fail, runPhase1 drain
+## Review and closing artifact
+
+The worker owns the canonical transcript and its revision. Popup text is an edit only after the user changes it; an edit includes its base revision. A stale edit cannot override later segments. Generation rejects stale explicit edits, while unedited requests use the worker's complete transcript.
+
+Selections are stored by topic text, so reordering and popup closure preserve deliberate deselections. Custom instructions, output format, explicit edits, warnings, research results, and the last generated HTML are also saved. Generation failures return to review. Users can copy the transcript independently of generation. Generated HTML includes an escaped capture-warning notice whenever warnings exist.
+
+## Recovery limits
+
+One local IndexedDB record holds the current session without API credentials. Pending audio is removed after transcription finishes or fails after three attempts. A new recording or Start over replaces the record.
+
+Worker restart resumes pending transcription and finalization. Interrupted generation returns to review without automatically starting another paid generation request. If the recorder is gone, saved text and queued audio remain recoverable and Decker warns that unsaved audio may be missing. Audio still in the recorder or an undelivered offscreen message cannot survive termination of that document or the browser. Storage write failures are visible and audio delivery is not acknowledged as saved.
+
+## Verification and real-Meet checks
+
+Automated tests use synthetic audio, API responses, and Chrome lifecycle events. Run `pnpm --filter extension test`, `pnpm --filter extension exec tsc --noEmit`, `pnpm --filter extension build`, and `pnpm --filter extension build:firefox`. Firefox build success does not provide Firefox recording support; that capture implementation remains absent.
+
+Before release, load the Chrome build and check these in a real Meet call:
+
+- Record remote speech and local microphone speech, then verify both in the transcript and document.
+- Speak a distinct final decision, stop immediately, and confirm it reaches review and the generated artifact. Repeat just before, during, and after the 16-second segment boundary; listen for boundary gaps or duplicated words.
+- Close/reopen the popup during recording and review. Confirm deselections, instructions, output format, and edits survive.
+- Terminate the service worker during capture, transcription, and finalization. Reopen the popup and confirm pending audio resumes without duplicate segments. Repeat after generation starts; expect recovered review inputs and an explicit interruption message.
+- Deny microphone access, disconnect a source, and begin with silent tab audio. Confirm the warnings describe the actual source problem and remain in the exported HTML.
+- Simulate transcription timeout/429/5xx failures. Confirm three attempts per segment, visible exhaustion warnings, later segments retained, and review reached after stop.
+- Close the Meet tab or terminate the browser mid-capture. Confirm saved text is recovered and possible unsaved audio loss is disclosed.
