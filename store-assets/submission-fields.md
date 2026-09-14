@@ -1,6 +1,6 @@
 # Chrome Web Store submission fields
 
-Prepared for the Decker 0.1.1 draft on September 14, 2026. Recheck the
+Prepared for the Decker 0.1.2 draft on September 14, 2026. Recheck the
 permission justifications if the package changes before submission.
 
 ## Listing
@@ -25,12 +25,6 @@ Decker lets a user record the audio from an active Google Meet after an explicit
 
 ```
 Used only after the user clicks Start Recording to capture audio from the active Google Meet tab. Decker does not capture video.
-```
-
-### tabs
-
-```
-Used when the popup opens and when recording starts to find the active tab, verify that its URL is meet.google.com, and obtain the tab ID used for capture.
 ```
 
 ### storage
@@ -60,7 +54,7 @@ Saves the generated meeting brief, slide deck, prototype, or discussion page as 
 ### Host permissions
 
 ```
-https://api.openai.com/* is required for direct transcription and chat-completion requests authenticated with the user's key. https://meet.google.com/* limits the packaged content-script match to Google Meet; the current content script does not read or modify page content.
+https://api.openai.com/* is required for direct transcription and chat-completion requests authenticated with the user's key. Decker requests no persistent access to Google Meet or other websites.
 ```
 
 ## Remote code
