@@ -2,6 +2,10 @@
 
 When debugging "stuck on Processing" or other issues, open these consoles to see what's happening.
 
+Logs can contain selected topic text and API errors. Review and redact them before sharing; never include API keys. Up to 15 recent events persist in local extension storage even after resetting a session.
+
+The console examples below are historical. The current Chrome extension calls OpenAI directly, and its content-script entry is empty: there is no injected Meet panel or web API request in the current extension flow. See [the current audit](../../store-assets/privacy.md).
+
 ## 1. Background Service Worker (main logs)
 
 **Where:** `chrome://extensions` → Find Decker → click **"Inspect views: service worker"**

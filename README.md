@@ -1,8 +1,8 @@
 # Decker
 
-**Record a Google Meet with no bot, and download a finished deck or meeting brief before the call ends.**
+**Record Google Meet without a bot and generate a deck or meeting brief from the transcript.**
 
-Decker captures the Meet tab from your own browser, so no extra participant joins the call. It transcribes live and generates a working prototype, slide deck, discussion site, or meeting brief while the meeting runs.
+Decker captures the Meet tab from your own browser, so no extra participant joins the call. It sends audio to OpenAI for transcription while recording. After stopping and reviewing the transcript, generate an HTML prototype, slide deck, discussion site, or meeting brief.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
@@ -10,7 +10,7 @@ Decker captures the Meet tab from your own browser, so no extra participant join
 
 **Website:** [decker.techforgood.studio](https://decker.techforgood.studio)
 
-No server required. AI calls go directly from the extension to OpenAI using your own key.
+No Decker server is required for the extension. Audio and transcript content go directly from the browser to OpenAI using your own key.
 
 > **Free and open source.** Decker is not on the Chrome Web Store yet. Build from source (five minutes, steps below) or email [aishwaryshrivastava@gmail.com](mailto:aishwaryshrivastava@gmail.com?subject=Decker%20early%20access) for early access.
 
@@ -24,8 +24,8 @@ No server required. AI calls go directly from the extension to OpenAI using your
 - **Live transcription** — Whisper processes audio roughly every 16 seconds as you record
 - **Live topic extraction and research** — GPT-4o mini pulls discussion points from the transcript and researches the ones you select, while the meeting runs
 - **Custom instructions** — steer the AI with your own plain-text prompt
-- **Bring your own key** — one OpenAI key, stored locally in the browser, never sent to any third party
-- **Four output formats** — working prototype, presentation deck, discussion SPA, or meeting brief, each a single self-contained HTML file
+- **Bring your own key** — one OpenAI key, stored locally in the browser and sent directly to OpenAI for authentication
+- **Four output formats** — working prototype, presentation deck, discussion SPA, or meeting brief, each an HTML file that may load external resources
 - **Charts and diagrams** — Chart.js and Mermaid generated automatically where relevant
 
 ## Browser support
@@ -78,7 +78,7 @@ The Decker icon will appear in your Chrome toolbar. Pin it for easy access.
 
 ### 4. Add your API key
 
-> The key is stored in `chrome.storage.local` — it stays in your browser and is only ever sent directly to `api.openai.com`.
+> The key is stored in `chrome.storage.local` — it is saved on your device and sent directly to `api.openai.com`.
 
 1. Click the **Decker icon** in the Chrome toolbar
 2. Click the **⚙ gear icon** in the top-right of the popup
@@ -137,7 +137,11 @@ After generation:
 | Extension popup (⚙ settings) | Where you enter/update the key |
 | Background service worker | Loaded on startup, used for all API calls |
 
-The OpenAI key is sent as a `Bearer` token directly to `https://api.openai.com/v1/*`. No intermediate server receives it.
+The OpenAI key is sent as a `Bearer` token directly to `https://api.openai.com/v1/*`. The extension does not route these requests through a developer-operated server. Audio chunks are sent while recording; transcripts, selected topics, instructions, and research context are sent for text processing. OpenAI API charges apply.
+
+The key and up to 15 debug events persist in local extension storage. Logs can contain topic text and API errors. Session content is held in memory, and generated HTML is saved to Downloads. Uninstalling removes local extension storage, but downloaded files and data already sent to OpenAI remain. The developer receives information you choose to email or post in support requests.
+
+The separate web API routes in this repository receive submitted content and request keys on their host if called; the Chrome extension does not use them. See [privacy disclosures and permission audit](store-assets/privacy.md).
 
 ---
 

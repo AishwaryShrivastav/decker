@@ -349,6 +349,11 @@ export function Popup() {
             <button onClick={() => setShowOpenaiKey((s) => !s)} style={{ ...btn(false), width: 36, padding: 0 }}>{showOpenaiKey ? "🙈" : "👁"}</button>
           </div>
 
+          <p style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
+            Your key is saved in local extension storage and sent to OpenAI to authenticate requests.
+            Local debug logs can contain topic text and API errors. The developer receives no automatic telemetry.
+            Clear the field and save to remove the key. Uninstall to remove local logs; downloaded files remain.
+          </p>
           <button onClick={handleSaveKey} style={{ ...btn(true), padding: "7px 12px" }}>{keySaved ? "Saved ✓" : "Save key"}</button>
         </div>
       )}
@@ -391,12 +396,27 @@ export function Popup() {
                   🎤 Allow microphone
                 </button>
               )}
+              <p style={{ margin: 0, fontSize: 12, color: C.text, lineHeight: 1.5 }}>
+                Start Recording sends Meet audio and your microphone, when available, directly to OpenAI
+                for transcription using your key. Transcript content, selected topics, and instructions
+                also go to OpenAI for summaries and generation. API charges apply.
+                The developer does not receive these requests. Obtain any required participant consent.
+                {" "}<a href="https://decker.techforgood.studio/privacy" target="_blank" rel="noopener noreferrer" style={{ color: C.blue }}>Privacy policy</a>
+              </p>
               <button onClick={handleStart} disabled={starting} style={btn(true)}>
                 {starting ? "Starting…" : "▶  Start Recording"}
               </button>
             </>
           )}
         </div>
+      )}
+
+      {/* HTML may include resources or code supplied by the model. */}
+      {(isReviewing || status === "done") && (
+        <p style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
+          Generated HTML is saved to Downloads and can load external resources or run code when opened.
+          Review it before opening or sharing. Copy HTML writes the output to your clipboard.
+        </p>
       )}
 
       {/* ── RECORDING ── */}
@@ -565,7 +585,7 @@ export function Popup() {
             </select>
             {outputFormat === "prototype" && (
               <p style={{ fontSize: 10, color: C.muted, marginTop: 5, lineHeight: 1.5 }}>
-                Decker builds an interactive prototype of the product you discussed. Show it live before the call ends.
+                Decker generates an HTML prototype from the discussion. Review it before opening or sharing.
               </p>
             )}
             {outputFormat === "presentation" && (
