@@ -9,7 +9,6 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        // content script is built separately via vite.content.config.ts (IIFE)
         background: resolve(__dirname, "src/background/index.ts"),
         offscreen: resolve(__dirname, "src/offscreen/index.ts"),
         popup: resolve(__dirname, "src/popup/index.ts"),

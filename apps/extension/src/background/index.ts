@@ -299,14 +299,6 @@ function broadcastStatus(
     .sendMessage<Message<StatusPayload>>({ type: MessageType.STATUS_UPDATE, payload })
     .catch(() => {});
 
-  if (session.tabId !== null) {
-    chrome.tabs
-      .sendMessage<Message<StatusPayload>>(session.tabId, {
-        type: MessageType.STATUS_UPDATE,
-        payload,
-      })
-      .catch(() => {});
-  }
 }
 
 // ---------------------------------------------------------------------------

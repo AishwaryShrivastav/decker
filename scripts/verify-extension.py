@@ -35,8 +35,10 @@ with zipfile.ZipFile(ZIP) as archive:
     assert len(manifest["description"]) <= 132
     listing = (ROOT / "store-assets/listing.md").read_text()
     assert manifest["name"] in listing and manifest["description"] in listing
-    assert set(manifest["permissions"]) == {"tabCapture", "tabs", "storage", "activeTab", "offscreen", "downloads"}
-    assert set(manifest["host_permissions"]) == {"https://meet.google.com/*", "https://api.openai.com/*"}
+    assert set(manifest["permissions"]) == {"tabCapture", "storage", "activeTab", "offscreen", "downloads"}
+    assert set(manifest["host_permissions"]) == {"https://api.openai.com/*"}
+    assert "content_scripts" not in manifest, "Chrome package must not inject a Meet content script"
+    assert "src/content/index.js" not in entries, "Chrome package contains the retired content script"
     required = [manifest["background"]["service_worker"], manifest["action"]["default_popup"],
                 "src/offscreen/index.html", "permission.html", "permission.js"]
     for content in manifest.get("content_scripts", []):
@@ -59,6 +61,7 @@ with zipfile.ZipFile(ZIP) as archive:
     background = archive.read(manifest["background"]["service_worker"]).decode()
     assert "https://api.openai.com/v1" in background
     assert '/api/transcribe' not in background and '/api/generate-deck' not in background
+    assert ".tabs.sendMessage" not in background, "Background still targets the retired content script"
     popup = archive.read("src/popup/index.js").decode()
     assert "directly to OpenAI" in popup and "API charges apply" in popup
 

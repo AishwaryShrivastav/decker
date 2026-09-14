@@ -91,15 +91,13 @@ claim that the entire Decker project has no backend or never receives data.
 | `offscreen` | Runs MediaRecorder outside the popup so closing the popup does not stop capture. |
 | `storage` | Saves the OpenAI key and recent debug log locally. |
 | `downloads` | Saves generated HTML to Downloads. |
-| `activeTab` | Temporary active-tab access after toolbar invocation; used alongside tabCapture. It is not required merely to open the microphone permission page. |
-| `tabs` | Popup queries the active tab and reads its URL. This grants broader tab metadata access than the current use. Check whether `activeTab` plus Meet host access is sufficient and remove redundancy before submission. |
+| `activeTab` | Grants temporary access to the tab after the user clicks Decker. The popup uses that access to confirm the active tab is Google Meet and to pass its ID to `tabCapture`. |
 | `https://api.openai.com/*` | Authenticated HTTPS transcription and chat-completion requests. |
-| `https://meet.google.com/*` | Declared Meet access and content-script match. Current `src/content/index.ts` is empty. Do not claim it reads meeting DOM or renders an in-page panel. Review whether this host access and the empty content script should be removed. |
 
 Microphone consent uses the browser's media permission prompt, separate from the
 manifest list. No permission guarantees that an organization will allow the
-extension, microphone capture, or OpenAI traffic. The manifest was left unchanged
-apart from its description in this copy-and-assets revision.
+extension, microphone capture, or OpenAI traffic. Decker does not request broad
+tab metadata access, persistent Meet access, or inject a Meet content script.
 
 ## Store declarations needing owner sign-off
 

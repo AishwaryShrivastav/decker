@@ -1,9 +1,9 @@
 {
   "name": "extension",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "scripts": {
-    "build": "vite build && vite build --config vite.content.config.ts",
+    "build": "vite build",
     "build:watch": "vite build --watch",
     "build:firefox": "vite build --config vite.firefox.config.ts",
     "test": "node --require ./tests/register.cjs --test tests/*.test.cjs"

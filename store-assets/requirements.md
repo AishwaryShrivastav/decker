@@ -19,9 +19,9 @@ the product is approved or that all store requirements have been met.
 - [ ] Verify website hosting logs, retention, any injected analytics, and support
   email retention. Update the policy with operational details as needed. The
   separate web APIs must not be described as direct browser-to-OpenAI processing.
-- [ ] Resolve the permission audit: justify or remove `tabs` redundancy and the
-  unused Meet content-script/host access. Test capture after any removal, rebuild,
-  and rerun package verification. Do not invent permission justifications.
+- [x] Removed `tabs`, persistent Meet host access, and the unused Meet content
+  script from the Chrome package. `activeTab` remains because targeted tab capture
+  needs the temporary access granted by the toolbar click.
 - [ ] Review key and log protection against Chrome's secure-handling requirements.
   Current storage has no application-level encryption; logs can contain topic
   text and API response details. Copy changes do not remediate storage security.

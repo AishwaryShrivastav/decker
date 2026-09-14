@@ -9,11 +9,14 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.2] — unreleased
+
 ### Changed
 
 - **One API key instead of two.** All text generation (topic extraction, research, docs, decks, prototypes, discussion sites) now runs on OpenAI chat completions — `gpt-4o-mini` for extraction and research, `gpt-4o` for generation. The Anthropic key field is gone; a single OpenAI key covers Whisper transcription and everything else.
 - Removed the `api.anthropic.com` host permission from the Chrome manifest.
 - Renamed the store-facing extension name to "Decker: Google Meet Notes, Decks & AI" and rewrote the manifest description for Chrome Web Store search.
+- Removed the broad `tabs` permission, persistent Google Meet host access, and the unused Meet content script from the Chrome package. User-initiated capture continues through `activeTab` and `tabCapture`.
 
 ---
 
