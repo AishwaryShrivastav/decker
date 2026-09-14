@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Decker: Google Meet Notes, Decks & AI",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Record Google Meet and create notes or decks. Audio and text go directly to OpenAI using your key. API charges apply.",
   "permissions": [
     "tabCapture",
