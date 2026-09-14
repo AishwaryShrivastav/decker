@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Message,
   MessageType,
@@ -9,9 +9,10 @@ import {
   GenerateDeckPayload,
   OutputFormat,
   TopicResearch,
-  TopicSelectedPayload,
   FullStateResponse,
 } from "../shared/types";
+
+import type { TranscriptEdit } from "../shared/capture";
 
 const C = {
   blue: "#818cf8",     // indigo-400
@@ -83,10 +84,15 @@ export function Popup() {
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
   const [keySaved, setKeySaved] = useState(false);
   const [transcript, setTranscript] = useState<string | null>(null);
-  const [editedTranscript, setEditedTranscript] = useState("");
+  const [edit, setEdit] = useState<TranscriptEdit | undefined>();
+  const [transcriptRevision, setTranscriptRevision] = useState(0);
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [hydrated, setHydrated] = useState(false);
+  const sessionIdRef = useRef('');
+  const revisionRef = useRef(0);
   const [showTranscriptEdit, setShowTranscriptEdit] = useState(false);
   const [points, setPoints] = useState<string[]>([]);
-  const [selectedPoints, setSelectedPoints] = useState<Set<number>>(new Set());
+  const [selectedPoints, setSelectedPoints] = useState<Set<string>>(new Set());
   const [topicResearch, setTopicResearch] = useState<Map<string, TopicResearch>>(new Map());
   const [customPrompt, setCustomPrompt] = useState("");
   const [outputFormat, setOutputFormat] = useState<OutputFormat>("doc");
@@ -96,59 +102,51 @@ export function Popup() {
   const [micGranted, setMicGranted] = useState<boolean | null>(null);
   const liveTranscriptEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    // Restore full session state when popup is opened/re-opened
-    chrome.runtime.sendMessage<Message>({ type: MessageType.GET_FULL_STATE })
-      .then((res) => {
-        const r = res as FullStateResponse;
-        if (!r) return;
-        if (r.status) setStatus(r.status);
-        if (r.openaiKey) setOpenaiKeyInput(r.openaiKey);
-        if (r.transcript) {
-          setTranscript(r.transcript);
-          setEditedTranscript((prev) => (prev === "" ? r.transcript! : prev));
-        }
-        if (r.points && r.points.length > 0) {
-          setPoints(r.points);
-          setSelectedPoints(new Set(r.points.map((_, i) => i)));
-        }
-        if (r.topicResearch && r.topicResearch.length > 0) {
-          const map = new Map<string, TopicResearch>();
-          r.topicResearch.forEach((tr) => map.set(tr.topic, tr));
-          setTopicResearch(map);
-        }
-      })
-      .catch(() => {});
+  const saveReview = (patch: { selectedPoints?: string[]; customPrompt?: string; outputFormat?: OutputFormat; edit?: TranscriptEdit }) => {
+    chrome.runtime.sendMessage({ type: MessageType.SAVE_REVIEW,
+      payload: { sessionId: sessionIdRef.current, ...patch } })
+      .then(res => { if (res?.error) setError(res.error); })
+      .catch(() => setError('Could not save review changes. Keep this popup open and copy your text.'));
+  };
 
-    const handler = (message: Message) => {
-      if (message.type !== MessageType.STATUS_UPDATE) return;
-      const p = message.payload as StatusPayload;
+  useEffect(() => {
+    const apply = (p: StatusPayload) => {
+      if (p.sessionId && p.sessionId !== sessionIdRef.current) {
+        sessionIdRef.current = p.sessionId;
+        revisionRef.current = 0;
+        setEdit(undefined);
+        setTranscript(null);
+        setTranscriptRevision(0);
+        setPoints([]);
+        setSelectedPoints(new Set());
+      }
+      if ((p.transcriptRevision ?? 0) < revisionRef.current) return;
       setStatus(p.status);
       setStatusMsg(p.message);
-      if (p.transcript) {
-        setTranscript(p.transcript);
-        setEditedTranscript((prev) =>
-          p.status === "recording" ? p.transcript! : prev === "" ? p.transcript! : prev
-        );
+      if (p.warnings) setWarnings(p.warnings);
+      if (p.transcript !== undefined) setTranscript(p.transcript);
+      if (p.transcriptRevision !== undefined) {
+        revisionRef.current = p.transcriptRevision;
+        setTranscriptRevision(p.transcriptRevision);
       }
-      if (p.points) {
-        setPoints(p.points);
-        // Auto-select all newly discovered points
-        setSelectedPoints((prev) => {
-          const next = new Set(prev);
-          p.points!.forEach((_, i) => next.add(i));
-          return next;
-        });
-      }
-      if (p.topicResearch) {
-        setTopicResearch((prev) => {
-          const next = new Map(prev);
-          p.topicResearch!.forEach((r) => next.set(r.topic, r));
-          return next;
-        });
-      }
+      if (p.points) setPoints(p.points);
+      if (p.selectedPoints) setSelectedPoints(new Set(p.selectedPoints));
+      if (p.topicResearch) setTopicResearch(new Map(p.topicResearch.map(r => [r.topic, r])));
+    };
+    const handler = (message: Message) => {
+      if (message.type === MessageType.STATUS_UPDATE) apply(message.payload as StatusPayload);
     };
     chrome.runtime.onMessage.addListener(handler);
+    chrome.runtime.sendMessage<Message>({ type: MessageType.GET_FULL_STATE }).then((res: FullStateResponse & { error?: string }) => {
+      if (res?.error) throw new Error(res.error);
+      if (!res) throw new Error('Could not recover the session. Reopen Decker.');
+      apply(res);
+      setOpenaiKeyInput(res.openaiKey);
+      setCustomPrompt(res.customPrompt);
+      setOutputFormat(res.outputFormat);
+      setEdit(res.edit);
+      setHydrated(true);
+    }).catch(err => setError(err instanceof Error ? err.message : String(err)));
     return () => chrome.runtime.onMessage.removeListener(handler);
   }, []);
 
@@ -174,34 +172,22 @@ export function Popup() {
     liveTranscriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [transcript]);
 
-  // When user selects a topic, trigger background research immediately
-  const togglePoint = useCallback(
-    (idx: number) => {
-      const topic = points[idx];
-      setSelectedPoints((prev) => {
-        const next = new Set(prev);
-        if (next.has(idx)) {
-          next.delete(idx);
-        } else {
-          next.add(idx);
-          // Trigger background research for newly selected topic
-          if (topic) {
-            chrome.runtime.sendMessage<Message<TopicSelectedPayload>>({
-              type: MessageType.TOPIC_SELECTED,
-              payload: { topic },
-            }).catch(() => {});
-          }
-        }
-        return next;
-      });
-    },
-    [points]
-  );
+  const togglePoint = (idx: number) => {
+    const topic = points[idx];
+    const next = new Set(selectedPoints);
+    const selecting = !next.has(topic);
+    if (selecting) next.add(topic); else next.delete(topic);
+    setSelectedPoints(next);
+    saveReview({ selectedPoints: [...next] });
+    if (selecting) chrome.runtime.sendMessage({ type: MessageType.TOPIC_SELECTED, payload: { topic } }).catch(() => {});
+  };
 
   const handleStart = async () => {
     setError(null);
     setStarting(true);
     try {
+      const preflight = await chrome.runtime.sendMessage({ type: MessageType.PREFLIGHT });
+      if (!preflight?.ok) throw new Error(preflight?.error ?? 'Save an OpenAI key before recording.');
       setMicDenied(false);
       try {
         const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -221,10 +207,11 @@ export function Popup() {
         });
       });
 
-      await chrome.runtime.sendMessage<Message<StartRecordingStreamPayload>>({
+      const started = await chrome.runtime.sendMessage<Message<StartRecordingStreamPayload>>({
         type: MessageType.START_RECORDING_WITH_STREAM,
         payload: { tabId: tab.id, streamId },
       });
+      if (!started?.ok) throw new Error(started?.error ?? "Audio capture did not start.");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -246,31 +233,42 @@ export function Popup() {
     setTimeout(() => setKeySaved(false), 2000);
   };
 
-  const handleSelectAll = useCallback(() => {
-    setSelectedPoints(new Set(points.map((_, i) => i)));
-    points.forEach((topic) => {
-      chrome.runtime.sendMessage<Message<TopicSelectedPayload>>({
-        type: MessageType.TOPIC_SELECTED,
-        payload: { topic },
-      }).catch(() => {});
+  const handleSelectAll = () => {
+    setSelectedPoints(new Set(points));
+    saveReview({ selectedPoints: points });
+    points.forEach(topic => {
+      chrome.runtime.sendMessage({ type: MessageType.TOPIC_SELECTED, payload: { topic } }).catch(() => {});
     });
-  }, [points]);
+  };
 
-  const handleDeselectAll = useCallback(() => setSelectedPoints(new Set()), []);
+  const handleDeselectAll = () => {
+    setSelectedPoints(new Set());
+    saveReview({ selectedPoints: [] });
+  };
 
-  const handleGenerateDeck = () => {
-    const selected = points.filter((_, i) => selectedPoints.has(i));
-    const transcriptToUse = editedTranscript.trim() || transcript?.trim() || "";
-    chrome.runtime.sendMessage<Message<GenerateDeckPayload>>({
-      type: MessageType.GENERATE_DECK,
-      payload: {
-        selectedPoints: selected,
-        customPrompt: customPrompt.trim(),
-        transcript: transcriptToUse,
-        outputFormat,
-      },
-    });
-    setStatus(outputFormat === "prototype" ? "generating" : "researching");
+  const editIsCurrent = edit?.baseRevision === transcriptRevision;
+  const editedTranscript = editIsCurrent ? edit!.text : transcript ?? '';
+  const handleGenerateDeck = async () => {
+    setError(null);
+    try {
+      const response = await chrome.runtime.sendMessage<Message<GenerateDeckPayload>>({
+        type: MessageType.GENERATE_DECK,
+        payload: {
+          sessionId: sessionIdRef.current, selectedPoints: points.filter(p => selectedPoints.has(p)),
+          customPrompt: customPrompt.trim(), transcript: editedTranscript,
+          transcriptRevision, transcriptEdited: editIsCurrent, outputFormat,
+        },
+      });
+      if (!response?.ok) throw new Error(response?.error ?? 'Generation did not start.');
+    } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
+  };
+
+  const handleReset = async () => {
+    try {
+      const response = await chrome.runtime.sendMessage<Message>({ type: MessageType.RESET_STATE });
+      if (!response?.ok) throw new Error(response?.error ?? 'Could not reset the session.');
+      window.location.reload();
+    } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
   };
 
   const handleOpenHtml = () => {
@@ -292,14 +290,14 @@ export function Popup() {
     });
   };
 
-  const transcriptToUse = editedTranscript.trim() || transcript?.trim() || "";
+  const transcriptToUse = editedTranscript.trim();
   const canGenerate = transcriptToUse.length >= 50;
   const allSelected = points.length > 0 && selectedPoints.size === points.length;
 
   const isIdle = status === "idle";
   const isRecording = status === "recording";
   const isBusy = ["processing", "finalizing", "transcribing", "extracting"].includes(status);
-  const isReviewing = status === "reviewing";
+  const isReviewing = hydrated && status === "reviewing";
   const isGeneratingOrResearching = ["generating", "researching"].includes(status);
   const isDone = status === "done" || status === "error";
   const showTopics = points.length > 0 && (isRecording || isReviewing);
@@ -374,6 +372,14 @@ export function Popup() {
 
       {error && <div style={{ fontSize: 11, color: C.red, marginBottom: 10, padding: 8, background: "rgba(239,68,68,0.1)", borderRadius: 6 }}>{error}</div>}
 
+      {warnings.length > 0 && (
+        <div role="alert" style={{ fontSize: 11, color: C.amber, marginBottom: 10, padding: 8, background: C.surface, borderRadius: 6 }}>
+          <strong>Capture warnings</strong>
+          <ul style={{ margin: '6px 0 0', paddingLeft: 16 }}>{warnings.map(w => <li key={w}>{w}</li>)}</ul>
+        </div>
+      )}
+      {edit && !editIsCurrent && <p role="alert" style={{ color: C.amber, fontSize: 11 }}>New transcript segments arrived after your edit. The complete transcript is shown below; review it before generating.</p>}
+
       {/* ── IDLE ── */}
       {isIdle && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -401,9 +407,10 @@ export function Popup() {
                 for transcription using your key. Transcript content, selected topics, and instructions
                 also go to OpenAI for summaries and generation. API charges apply.
                 The developer does not receive these requests. Obtain any required participant consent.
+                One recovery session, including pending audio and transcript content, is stored locally in IndexedDB.
                 {" "}<a href="https://decker.techforgood.studio/privacy" target="_blank" rel="noopener noreferrer" style={{ color: C.blue }}>Privacy policy</a>
               </p>
-              <button onClick={handleStart} disabled={starting} style={btn(true)}>
+              <button onClick={handleStart} disabled={starting || !hydrated} style={btn(true)}>
                 {starting ? "Starting…" : "▶  Start Recording"}
               </button>
             </>
@@ -435,8 +442,8 @@ export function Popup() {
                 {points.map((p, i) => {
                   const research = topicResearch.get(p);
                   return (
-                    <label key={p} style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "7px 10px", background: selectedPoints.has(i) ? C.accentDim : C.surface2, border: `1px solid ${selectedPoints.has(i) ? C.accentBorder : C.border}`, borderRadius: 6, cursor: "pointer" }}>
-                      <input type="checkbox" checked={selectedPoints.has(i)} onChange={() => togglePoint(i)} style={{ marginTop: 2, flexShrink: 0, accentColor: C.blue }} />
+                    <label key={p} style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "7px 10px", background: selectedPoints.has(p) ? C.accentDim : C.surface2, border: `1px solid ${selectedPoints.has(p) ? C.accentBorder : C.border}`, borderRadius: 6, cursor: "pointer" }}>
+                      <input type="checkbox" checked={selectedPoints.has(p)} onChange={() => togglePoint(i)} style={{ marginTop: 2, flexShrink: 0, accentColor: C.blue }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12, color: C.text, lineHeight: 1.4 }}>{p}</div>
                         <ResearchPill research={research} />
@@ -497,7 +504,7 @@ export function Popup() {
           <div style={{ fontSize: 11, color: C.dimText, marginBottom: 6 }}>{statusMsg ?? "Working…"}</div>
           {points.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-              {points.filter((_, i) => selectedPoints.has(i)).map((p) => {
+              {points.filter(p => selectedPoints.has(p)).map((p) => {
                 const r = topicResearch.get(p);
                 const isDone = r?.status === "done";
                 const isWorking = r?.status === "researching";
@@ -522,6 +529,7 @@ export function Popup() {
       {/* ── REVIEWING ── */}
       {isReviewing && (
         <div style={{ marginTop: 4 }}>
+          {statusMsg && <p role="alert" style={{ color: C.amber, fontSize: 11 }}>{statusMsg}</p>}
           {(transcript?.trim()?.length ?? 0) < 50 && points.length === 0 && (
             <div style={{ fontSize: 11, color: C.amber, marginBottom: 10, padding: 8, background: C.surface, borderRadius: 6 }}>
               Transcript too short. Paste or type your meeting transcript below.
@@ -541,8 +549,8 @@ export function Popup() {
                 {points.map((p, i) => {
                   const research = topicResearch.get(p);
                   return (
-                    <label key={p} style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "8px 10px", background: selectedPoints.has(i) ? C.accentDim : C.surface2, border: `1px solid ${selectedPoints.has(i) ? C.accentBorder : C.border}`, borderRadius: 7, cursor: "pointer" }}>
-                      <input type="checkbox" checked={selectedPoints.has(i)} onChange={() => togglePoint(i)} style={{ marginTop: 2, flexShrink: 0, accentColor: C.blue }} />
+                    <label key={p} style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "8px 10px", background: selectedPoints.has(p) ? C.accentDim : C.surface2, border: `1px solid ${selectedPoints.has(p) ? C.accentBorder : C.border}`, borderRadius: 7, cursor: "pointer" }}>
+                      <input type="checkbox" checked={selectedPoints.has(p)} onChange={() => togglePoint(i)} style={{ marginTop: 2, flexShrink: 0, accentColor: C.blue }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12, color: C.text, lineHeight: 1.4, fontWeight: 500 }}>{p}</div>
                         <ResearchPill research={research} />
@@ -562,7 +570,11 @@ export function Popup() {
             {showTranscriptEdit && (
               <textarea
                 value={editedTranscript}
-                onChange={(e) => setEditedTranscript(e.target.value)}
+                onChange={(e) => {
+                  const next = { text: e.target.value, baseRevision: transcriptRevision };
+                  setEdit(next);
+                  saveReview({ edit: next });
+                }}
                 placeholder={transcript || "Paste or type your meeting transcript…"}
                 rows={6}
                 style={{ width: "100%", padding: 8, borderRadius: 6, border: `1px solid ${C.border}`, background: C.surface, color: C.text, fontSize: 11, resize: "vertical" }}
@@ -575,7 +587,11 @@ export function Popup() {
             <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 4 }}>Output</label>
             <select
               value={outputFormat}
-              onChange={(e) => setOutputFormat(e.target.value as OutputFormat)}
+              onChange={(e) => {
+                const next = e.target.value as OutputFormat;
+                setOutputFormat(next);
+                saveReview({ outputFormat: next });
+              }}
               style={{ width: "100%", padding: 7, borderRadius: 6, border: `1px solid ${C.border}`, background: C.surface, color: C.text, fontSize: 11 }}
             >
               <option value="prototype">Static Prototype — AI builds the app</option>
@@ -608,7 +624,10 @@ export function Popup() {
           {/* Custom prompt — hint changes for prototype */}
           <textarea
             value={customPrompt}
-            onChange={(e) => setCustomPrompt(e.target.value)}
+            onChange={(e) => {
+              setCustomPrompt(e.target.value);
+              saveReview({ customPrompt: e.target.value });
+            }}
             placeholder={
               outputFormat === "prototype"
                 ? "Anything specific to build? (optional — the model decides if blank)"
@@ -631,6 +650,15 @@ export function Popup() {
         </div>
       )}
 
+      {transcript && !isRecording && !isBusy && (
+        <button onClick={() => navigator.clipboard.writeText([editedTranscript, ...warnings].join('\n\n')).catch(() => setError('Could not copy transcript. Select and copy it from the transcript field.'))}
+          style={{ ...btn(false), marginTop: 8, fontSize: 11 }}>Copy transcript</button>
+      )}
+
+      {isReviewing && (
+        <button onClick={handleReset} style={{ ...btn(false), marginTop: 8, fontSize: 11 }}>Discard session & start over</button>
+      )}
+
       {/* ── DONE / ERROR ── */}
       {isDone && (
         <div style={{ marginTop: 8 }}>
@@ -646,16 +674,7 @@ export function Popup() {
             </div>
           )}
           <button
-            onClick={() => {
-              chrome.runtime.sendMessage<Message>({ type: MessageType.RESET_STATE }).catch(() => {});
-              setStatus("idle");
-              setStatusMsg(undefined);
-              setTranscript(null);
-              setEditedTranscript("");
-              setPoints([]);
-              setSelectedPoints(new Set());
-              setTopicResearch(new Map());
-            }}
+            onClick={handleReset}
             style={{ ...btn(false), marginTop: 8, padding: "7px 12px", fontSize: 11 }}
           >
             Start over

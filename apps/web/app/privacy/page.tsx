@@ -23,7 +23,7 @@ export default function PrivacyPolicy() {
     },
     {
       title: "What stays on your device",
-      body: "Your API key and a rolling log of up to 15 debug events are saved in Chrome's local extension storage, without Chrome sync. Decker does not add its own encryption to that storage. Logs can include selected topic text and API error responses as well as timestamps and processing status. Audio buffers, transcripts, topics, research results, and the latest generated HTML are held in extension memory. Closing the popup does not clear the background state; it can be lost when the extension reloads or its service worker stops. The extension does not save a recording or a full transcript archive to local storage."
+      body: "Your API key and a rolling log of up to 15 debug events are saved in Chrome's local extension storage, without Chrome sync. Decker does not add its own encryption to that storage. Logs can include selected topic text and API error responses as well as timestamps and processing status. Decker also stores one recovery session in local IndexedDB. It can include pending audio segments, transcript text, selected topics, instructions, edits, warnings, research results, and generated HTML. Pending audio is removed after transcription succeeds or exhausts three attempts. Starting over or starting another recording replaces the saved session. This recovery record is not a complete recording archive."
     },
     {
       title: "Downloads and deletion",

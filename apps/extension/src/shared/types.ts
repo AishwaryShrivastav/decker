@@ -1,4 +1,8 @@
 export enum MessageType {
+  SAVE_REVIEW = "SAVE_REVIEW",
+  PREFLIGHT = "PREFLIGHT",
+  OFFSCREEN_STATUS = "OFFSCREEN_STATUS",
+  CAPTURE_WARNING = "CAPTURE_WARNING",
   GET_LAST_HTML = "GET_LAST_HTML",
   // Content → Background
   GET_TAB_ID = "GET_TAB_ID",
@@ -49,6 +53,10 @@ export interface TopicResearch {
 }
 
 export interface StatusPayload {
+  sessionId?: string;
+  transcriptRevision?: number;
+  warnings?: string[];
+  selectedPoints?: string[];
   status: RecordingStatus;
   message?: string;
   transcript?: string;
@@ -62,17 +70,19 @@ export interface Message<T = unknown> {
 }
 
 export interface OffscreenStartPayload {
+  sessionId: string;
   streamId: string;
 }
 
 export interface AudioChunkPayload {
+  sessionId: string;
+  sequence: number;
   base64: string;
   mimeType: string;
 }
 
-export interface RecordingStoppedPayload {
-  base64: string;
-  mimeType: string;
+export interface RecordingStoppedPayload extends AudioChunkPayload {
+  missingSequences?: number[];
 }
 
 export interface ApiSettings {
@@ -85,6 +95,13 @@ export interface StartRecordingStreamPayload {
 }
 
 export interface FullStateResponse {
+  sessionId: string;
+  transcriptRevision: number;
+  warnings: string[];
+  selectedPoints: string[];
+  customPrompt: string;
+  outputFormat: OutputFormat;
+  edit?: { text: string; baseRevision: number };
   status: RecordingStatus;
   message?: string;
   transcript?: string;
@@ -101,6 +118,9 @@ export interface TopicSelectedPayload {
 export type OutputFormat = "doc" | "prototype" | "presentation" | "notes";
 
 export interface GenerateDeckPayload {
+  sessionId?: string;
+  transcriptRevision?: number;
+  transcriptEdited?: boolean;
   selectedPoints: string[];
   customPrompt: string;
   transcript?: string;
