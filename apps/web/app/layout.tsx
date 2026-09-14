@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Decker: Google Meet notes, decks and prototypes",
-  description: "Record Google Meet and generate HTML deliverables. Audio and transcript content go directly to OpenAI using your key. API charges apply.",
+  title: "Decker: Convert Google Meet calls into actionable closing decks",
+  description: "Decker captures a Google Meet call, helps you review transcript details, and generates a closing deck with actions and owners for the final review.",
   icons: { icon: "/favicon.png", apple: "/favicon.png" },
   openGraph: {
-    title: "Decker: Google Meet notes, decks and prototypes",
-    description: "Record Google Meet and generate HTML deliverables. Audio and transcript content go directly to OpenAI using your key. API charges apply.",
+    title: "Decker: Convert Google Meet calls into actionable closing decks",
+    description: "Capture a Google Meet conversation and turn it into a closing deck with decisions, scope, and owners.",
     images: [{ url: "/logo.png", width: 512, height: 512 }],
   },
 };
