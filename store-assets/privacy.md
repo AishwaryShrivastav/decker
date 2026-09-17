@@ -1,6 +1,7 @@
 # Decker extension data-flow and permission audit
 
-Reviewed September 14, 2026 against the Chrome extension source. No secrets,
+Reviewed September 17, 2026 against the Chrome extension source and packaged
+version 0.1.3. No secrets,
 real recordings, browser storage, or provider account data were read. This is a
 source audit; it does not verify deployed hosting configuration or a live call.
 
@@ -102,14 +103,13 @@ manifest list. No permission guarantees that an organization will allow the
 extension, microphone capture, or OpenAI traffic. Decker does not request broad
 tab metadata access, persistent Meet access, or inject a Meet content script.
 
-## Store declarations needing owner sign-off
+## Store declarations
 
-Use [requirements.md](requirements.md) for the submission checklist. Declare
-user data handling, including local handling and direct third-party processing;
-do not select a blanket "no user data collected" answer just because the
-developer receives no extension pipeline requests. The owner must resolve
-permission minimization, credential/log storage security, generated code and
-external-resource review, and the final dashboard categories/certifications.
+Use [submission-fields.md](submission-fields.md) for the exact dashboard values
+and [requirements.md](requirements.md) for the upload order. Declare local user
+activity as well as direct third-party processing. The four activation timestamps
+are user activity even though they stay on the device unless a user chooses to
+put their labels in a feedback email.
 
 Sources: [Chrome user-data FAQ](https://developer.chrome.com/docs/webstore/program-policies/user-data-faq)
 and [privacy fields](https://developer.chrome.com/docs/webstore/cws-dashboard-privacy).

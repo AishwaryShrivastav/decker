@@ -65,7 +65,20 @@ with zipfile.ZipFile(ZIP) as archive:
     popup = archive.read("src/popup/index.js").decode()
     assert "directly to OpenAI" in popup and "API charges apply" in popup
 
-width, height, depth, color = png_info((ROOT / "store-assets/promo-440x280.png").read_bytes())
-assert (width, height, depth, color) == (440, 280, 8, 2), "Tile must be opaque 8-bit RGB PNG, 440x280"
-print(f"Verified {len(entries)} ZIP files against build; MV3 {manifest['version']}; manifest, scripts, disclosures, icons, and RGB tile.")
+for relative, expected in {
+    "promo-440x280.png": (440, 280),
+    "marquee-1400x560.png": (1400, 560),
+}.items():
+    width, height, depth, color = png_info((ROOT / "store-assets" / relative).read_bytes())
+    assert (width, height) == expected, f"Wrong dimensions: {relative}"
+    assert (depth, color) == (8, 2), f"{relative} must be an opaque 8-bit RGB PNG"
+
+screenshots = sorted((ROOT / "store-assets/screenshots").glob("*.png"))
+assert 1 <= len(screenshots) <= 5, "Chrome requires 1 to 5 screenshots"
+for screenshot in screenshots:
+    width, height, depth, color = png_info(screenshot.read_bytes())
+    assert (width, height) in {(1280, 800), (640, 400)}, f"Wrong screenshot dimensions: {screenshot.name}"
+    assert depth == 8 and color in {2, 6}, f"Unexpected screenshot format: {screenshot.name}"
+
+print(f"Verified {len(entries)} ZIP files against build; MV3 {manifest['version']}; manifest, scripts, disclosures, icons, promotional assets, and {len(screenshots)} screenshots.")
 print("Source/build checks do not certify live recording, generated output safety, or store approval.")

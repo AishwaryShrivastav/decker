@@ -43,7 +43,7 @@ export default function PrivacyPolicy() {
     },
     {
       title: "Permissions and recording choices",
-      body: "Decker requests tabCapture for tab audio, offscreen for the recorder, storage for the key and debug log, and downloads for HTML exports. It also declares tabs and activeTab for active-tab access, plus host access to meet.google.com and api.openai.com. The popup reads the active tab URL to check for Google Meet. Microphone permission is requested separately. Browser or organization policies can block recording, installation, or OpenAI access. Tell participants about recording and OpenAI processing and obtain any required consent before starting."
+      body: "Decker requests tabCapture for tab audio, offscreen for the recorder, storage for the key and local support data, activeTab to check and capture the Meet tab after you invoke the extension, and downloads for HTML exports. Its only persistent host access is api.openai.com for transcription and generation. Decker does not request broad tab access or persistent access to Google Meet. Microphone permission is requested separately. Browser or organization policies can block recording, installation, or OpenAI access. Tell participants about recording and OpenAI processing and obtain any required consent before starting."
     },
     {
       title: "OpenAI data controls",

@@ -1,7 +1,7 @@
-# Chrome Web Store listing copy
+# Chrome Web Store listing copy for Decker 0.1.3
 
-Title and summary match `apps/extension/public/manifest.json`. Paste the full
-description into the dashboard after completing [requirements.md](requirements.md).
+Use these values for the existing listing. The title and short description match
+`apps/extension/public/manifest.json`.
 
 ## Title
 
@@ -9,39 +9,62 @@ description into the dashboard after completing [requirements.md](requirements.m
 Decker: Google Meet Notes, Decks & AI
 ```
 
-## Short description (132 characters maximum)
+## Short description
+
+120 of 132 characters:
 
 ```
-Record Google Meet and create notes or decks. Audio and text go directly to OpenAI using your key. API charges apply.
+Turn Google Meet recordings into notes, decks and prototypes. Runs in Chrome with your OpenAI key. Free and open source.
 ```
 
-## Full description
+## Detailed description
 
 ```
-Decker records Google Meet from your browser without adding a bot participant. Use a meeting transcript to generate a slide deck, an interactive HTML prototype, a discussion site, or a structured meeting brief.
+Turn a Google Meet into a polished follow-up while the conversation is still fresh.
 
-Click Start Recording in the extension popup. Decker captures the Meet tab audio and includes your microphone when permission and access are available. Audio is sent directly from your browser to OpenAI for transcription while you record. Transcript content is sent to OpenAI to extract topics. Selecting a topic sends it and transcript context to OpenAI for an AI summary; this is not a web search.
+Decker records the active Meet tab from Chrome, keeping the participant list unchanged. Review the transcript, choose the decisions that matter, and create the artifact the room needs next:
 
-After stopping, wait for final processing, review or edit the transcript, choose topics and an output format, and generate. Your transcript, selections, instructions, and available topic context go to OpenAI for generation. Processing time varies with the recording, network, and API responses. Outputs are saved as HTML files in Downloads. Files can load external fonts, scripts, or other resources and may contain generated code. Review them before opening or sharing.
+* Meeting brief with decisions and action items
+* HTML slide deck for the follow-up
+* Discussion page for a product or project
+* Static HTML prototype based on the conversation
 
-You need Chrome and your own OpenAI API key. The key is stored in local extension storage and sent directly to OpenAI to authenticate requests. OpenAI processes your audio and text and bills your account. API costs vary with usage. The extension is free and open source, with no Decker account or subscription required.
+The workflow stays in one extension. Click Start Recording, stop when the meeting ends, review or edit the transcript, select the topics to include, then choose an output. Decker saves the result as an HTML file in Downloads.
 
-The extension's recording and generation requests do not pass through a developer-operated server. There is no automatic telemetry to the developer. Your key and recent debug logs remain in local extension storage; logs can include selected topic text and API errors. One recovery session is stored locally in IndexedDB and can include pending audio, transcript text, selected topics, instructions, edits, warnings, research results, and generated HTML. Pending audio is removed after transcription succeeds or exhausts three attempts. Starting over or starting another recording replaces the recovery session. Downloaded files remain until you delete them. Uninstalling removes local extension storage, but does not delete downloads or content already sent to OpenAI. If you contact the developer, they receive what you choose to share.
+Decker is free and open source. It requires your own OpenAI API key, and OpenAI bills API use to your account. There is no Decker account or subscription.
 
-Tell participants about recording and OpenAI processing and obtain any required consent before starting. Browser and organization policies may restrict installation, recording, or OpenAI access.
+How data moves
+
+* Meet audio and your microphone, when allowed, go directly from the extension to OpenAI for transcription.
+* Transcript text, selected topics, and your instructions go directly to OpenAI for summaries and output generation.
+* Your OpenAI key, recent debug log, one recovery session, and four timestamp-only setup milestones stay in local browser storage.
+* Decker sends no automatic analytics, audio, transcript, prompt, or API key to the developer.
+* If you choose Share first-meeting feedback, Decker opens an email draft. You decide whether to send it and what to include.
+
+Generated HTML can contain external resources or code supplied by the model. Review an output before opening or sharing it. Downloaded files remain until you delete them. Content already sent to OpenAI is governed by OpenAI's API terms and your account settings.
+
+Tell meeting participants about recording and OpenAI processing, and obtain any consent required where you work.
 
 Privacy policy: https://decker.techforgood.studio/privacy
-Source code (MIT license): https://github.com/AishwaryShrivastav/decker
+Support: https://decker.techforgood.studio/support
+Source code: https://github.com/AishwaryShrivastav/decker
 ```
 
-## Dashboard fields
+## Product details
 
-- Suggested category: Productivity; choose the closest available workflow subcategory.
-- Language: English.
-- Homepage: https://decker.techforgood.studio
-- Privacy policy: https://decker.techforgood.studio/privacy (owner must publish the updated policy before submission).
-- Support: https://github.com/AishwaryShrivastav/decker/issues
-- Small promotional image: `store-assets/promo-440x280.png`.
-- Screenshots: existing files in `store-assets/screenshots/` are unverified legacy
-  assets. Capture the actual updated extension UI before uploading. No screenshots
-  were created or certified in this revision.
+- Category: Workflow & Planning
+- Language: English
+- Homepage URL: https://decker.techforgood.studio
+- Support URL: https://decker.techforgood.studio/support
+- Official URL: https://decker.techforgood.studio, after Search Console
+  verification makes it available in the dashboard
+- Mature content: Off
+- Pricing: Free of charge
+- Visibility: Public
+- Regions: All regions
+
+## Search intent covered without keyword stuffing
+
+The title and opening paragraphs contain the terms people are most likely to use:
+Google Meet, notes, deck, transcript, meeting brief, prototype, Chrome, and
+OpenAI. Do not append a keyword list to the description.

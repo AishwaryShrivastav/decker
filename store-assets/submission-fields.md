@@ -1,22 +1,17 @@
-# Chrome Web Store submission fields
+# Chrome Web Store fields for Decker 0.1.3
 
-Prepared for the Decker 0.1.2 draft on September 14, 2026. Recheck the
-permission justifications if the package changes before submission.
+Copy these values into the existing item. They were audited against the packaged
+manifest and source on September 17, 2026.
 
-## Listing
+## Store listing
 
-- Category: Workflow and planning
-- Language: English
-- Homepage: https://decker.techforgood.studio
-- Support: https://github.com/AishwaryShrivastav/decker/issues
-- Mature content: Off
-
-Use the full description in [listing.md](listing.md).
+Use [listing.md](listing.md) for the title, description, links, category, and
+distribution values.
 
 ## Single purpose
 
 ```
-Decker lets a user record the audio from an active Google Meet after an explicit click, transcribe that audio with the user's OpenAI API key, and turn the meeting transcript into notes, slide decks, interactive HTML prototypes, discussion pages, or structured briefs.
+Decker records audio from the active Google Meet after the user clicks Start Recording, transcribes it through OpenAI with the user's API key, and turns the reviewed transcript into a meeting brief, slide deck, discussion page, or static prototype.
 ```
 
 ## Permission justifications
@@ -30,73 +25,122 @@ Used only after the user clicks Start Recording to capture audio from the active
 ### storage
 
 ```
-Stores the user's OpenAI API key, up to 15 recent debug events, and four timestamp-only activation milestones in chrome.storage.local. The milestones contain no meeting content and are not sent automatically. It does not use Chrome Sync. The key authenticates direct browser-to-OpenAI requests.
+Stores the user's OpenAI API key, up to 15 recent debug events, and four timestamp-only activation milestones in chrome.storage.local. One recoverable working session is stored in local IndexedDB. Decker does not use Chrome Sync or send this local data automatically to the developer.
 ```
 
 ### activeTab
 
 ```
-Provides temporary access to the current Google Meet tab after the user invokes the extension so Decker can verify the page and begin the user-requested recording.
+Provides temporary access to the active tab after the user invokes Decker. The extension checks that the tab is a Google Meet and passes that tab's ID to tabCapture. It requests no persistent access to Google Meet.
 ```
 
 ### offscreen
 
 ```
-Runs MediaRecorder in an offscreen extension document so capture and transcription can continue when the popup closes. It also attempts microphone capture after browser permission is granted.
+Runs MediaRecorder in an offscreen extension document so audio capture and transcription can continue after the popup closes. The offscreen document also attempts microphone capture after the user grants browser permission.
 ```
 
 ### downloads
 
 ```
-Saves the generated meeting brief, slide deck, prototype, or discussion page as an HTML file in the user's Downloads folder after the user clicks Download.
+Saves the generated meeting brief, slide deck, discussion page, or static prototype as an HTML file after the user clicks Download.
 ```
 
-### Host permissions
+### Host permission: https://api.openai.com/*
 
 ```
-https://api.openai.com/* is required for direct transcription and chat-completion requests authenticated with the user's key. Decker requests no persistent access to Google Meet or other websites.
+Sends authenticated HTTPS requests directly from the extension to OpenAI for audio transcription, topic extraction, topic summaries, and output generation. Requests use the OpenAI API key supplied by the user. Decker has no other persistent host permission.
 ```
 
 ## Remote code
 
-Select **No, I am not using remote code**.
-
-The extension runtime executes only JavaScript bundled in its package. It does
-not import remote scripts, evaluate downloaded code, or execute remote WebAssembly.
-
-## Data usage
-
 Select:
+
+```
+No, I am not using remote code.
+```
+
+Use this explanation in reviewer notes if the dashboard offers a text field:
+
+```
+All extension runtime JavaScript is included in the uploaded package. The extension does not import remote scripts, call eval on downloaded code, or load remote WebAssembly. OpenAI returns user-requested HTML output. Decker saves that output to Downloads and can open it in a separate browser tab; the output is user content, not extension runtime code. The listing and in-product disclosure tell users that generated HTML can contain external resources or code and must be reviewed before opening or sharing.
+```
+
+## User data categories
+
+Select these five categories:
 
 - Personally identifiable information
 - Authentication information
 - Personal communications
 - Website content
+- User activity
 
-Leave health, financial and payment information, location, web history, and
-user activity unselected.
+Leave these categories unselected:
 
-Certify all three limited-use disclosures. Decker sends the user's key, audio,
-transcript, selections, instructions, and generated-content prompts directly to
-OpenAI for the product's stated purpose. It does not sell data, use it for an
-unrelated purpose, or use it for lending or creditworthiness.
+- Health information
+- Financial and payment information
+- Location
+- Web history
 
-Privacy policy URL:
+Reasoning:
+
+- Meeting audio, transcripts, instructions, and generated artifacts can contain
+  names or other identifying information, so personally identifiable information
+  is the conservative declaration.
+- The OpenAI API key is authentication information.
+- Meeting audio and transcripts are personal communications.
+- Audio from the active Meet tab and transcript content are conservatively
+  disclosed as website content.
+- Four local timestamps record when the user saves a key, starts a recording,
+  receives a transcript, and generates an output. That is user activity even
+  though it stays on the device unless the user puts it in a feedback email.
+- Decker does not extract dedicated health, financial, location, browsing
+  history, or continuous behavioral analytics fields. Content mentioned during
+  a meeting remains covered by the selected communication and content categories.
+
+## Data-use certifications
+
+Check all three dashboard certifications after comparing the wording shown in
+the dashboard with the current product:
+
+- Data is not sold to third parties outside approved use cases.
+- Data is not used or transferred for purposes unrelated to Decker's single
+  purpose.
+- Data is not used or transferred to determine creditworthiness or for lending.
+
+OpenAI is the disclosed processor for transcription and generation. The
+developer receives only voluntary support or pilot messages that the user sends.
+
+## Privacy policy URL
 
 ```
 https://decker.techforgood.studio/privacy
 ```
 
-## Reviewer instructions
-
-Leave username and password blank. Use:
+## Reviewer notes
 
 ```
-No Decker account is required. Use a Google Meet test call, microphone permission, and your own OpenAI API key. Open the popup, save the key, join Meet, click Start Recording, speak or play tab audio for at least 20 seconds, then stop. Review the transcript, select a topic and output format, and click Generate. The HTML output can be opened or downloaded. OpenAI bills API usage to the supplied key.
+This is an update from 0.1.2 to 0.1.3. No Decker account, username, or password is required. The extension requires a Google Meet tab, microphone permission if the review should include the reviewer's voice, and an OpenAI API key supplied by the reviewer. OpenAI bills API usage to that key.
+
+Test path:
+1. Pin Decker and open https://meet.new in Chrome.
+2. Join the meeting and click the Decker toolbar icon.
+3. Open Settings, paste an OpenAI API key, and click Save key.
+4. Click Allow microphone and grant access if microphone capture is desired.
+5. Return to the Meet tab, open Decker, and click Start Recording.
+6. Speak or play tab audio for at least 20 seconds, then click Stop & Transcribe.
+7. Review or edit the transcript, select one or more topics, choose an output, and click Generate.
+8. Open or download the generated HTML.
+
+Expected network traffic is limited to https://api.openai.com for transcription and generation. The extension sends no automatic telemetry to the developer. Version 0.1.3 adds first-meeting setup guidance, four timestamp-only local activation milestones, and a Share first-meeting feedback button that opens an unsent email draft. It does not send the draft automatically.
+
+Generated HTML is user-requested output. It can contain external resources or code supplied by the model. The extension discloses this before the user opens or shares an output.
 ```
 
 ## Distribution
 
-- Free of charge
-- Public
-- All regions
+- Status: Public
+- Pricing: Free of charge
+- Regions: All regions
+- Mature content: Off
