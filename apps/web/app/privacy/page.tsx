@@ -1,5 +1,5 @@
 export const metadata = {
-  title: "Privacy Policy — Decker",
+  title: "Privacy Policy | Decker",
   description: "How Decker sends meeting content to OpenAI, stores data locally, and handles website and support requests.",
 };
 
@@ -23,7 +23,7 @@ export default function PrivacyPolicy() {
     },
     {
       title: "What stays on your device",
-      body: "Your API key and a rolling log of up to 15 debug events are saved in Chrome's local extension storage, without Chrome sync. Decker does not add its own encryption to that storage. Logs can include selected topic text and API error responses as well as timestamps and processing status. Decker also stores one recovery session in local IndexedDB. It can include pending audio segments, transcript text, selected topics, instructions, edits, warnings, research results, and generated HTML. Pending audio is removed after transcription succeeds or exhausts three attempts. Starting over or starting another recording replaces the saved session. This recovery record is not a complete recording archive."
+      body: "Your API key, a rolling log of up to 15 debug events, and four activation timestamps are saved in Chrome's local extension storage, without Chrome sync. The timestamps record when a key was saved, recording started, a transcript became ready, and an output was generated. They contain no meeting content and stay on your device unless you choose to include their labels in a feedback email. Decker does not add its own encryption to local storage. Logs can include selected topic text and API error responses. Decker also stores one recovery session in local IndexedDB. It can include pending audio segments, transcript text, selected topics, instructions, edits, warnings, research results, and generated HTML. Pending audio is removed after transcription succeeds or exhausts three attempts. Starting over or starting another recording replaces the saved session. This recovery record is not a complete recording archive."
     },
     {
       title: "Downloads and deletion",
@@ -31,7 +31,7 @@ export default function PrivacyPolicy() {
     },
     {
       title: "What the developer receives",
-      body: "The extension's recording and generation pipeline sends no audio, transcripts, prompts, API keys, or automatic telemetry to the Decker developer. There is no Decker account requirement. If you email us for early access or support, we receive your email address and whatever you send. Public GitHub issues are visible to others. Review logs and remove sensitive content before sharing them; never send an API key."
+      body: "The extension's recording and generation pipeline sends no audio, transcripts, prompts, API keys, or automatic telemetry to the Decker developer. There is no Decker account requirement. If you email us for a pilot or support, we receive your email address and whatever you send. Public GitHub issues are visible to others. Review logs and remove sensitive content before sharing them; never send an API key."
     },
     {
       title: "Website and separate web APIs",
@@ -72,7 +72,7 @@ export default function PrivacyPolicy() {
           Privacy Policy
         </h1>
         <p style={{ color: C.muted, fontSize: "0.9rem", margin: "0 0 56px" }}>
-          Last updated: September 14, 2026
+          Last updated: September 17, 2026
         </p>
 
         <div style={{ padding: "24px 28px", background: C.surface, border: `1px solid ${C.accentBorder}`, borderLeft: `3px solid ${C.accent}`, borderRadius: 12, marginBottom: 48 }}>

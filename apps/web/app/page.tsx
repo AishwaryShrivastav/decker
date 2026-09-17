@@ -1,439 +1,174 @@
-'use client';
-
-import { useEffect, useState, useRef } from "react";
-
-const C = {
-  accent: "#1AADE4",
-  accentBright: "#4DC8F0",
-  accentDim: "rgba(26,173,228,0.12)",
-  accentBorder: "rgba(26,173,228,0.22)",
-  accentGlow: "rgba(26,173,228,0.16)",
-  teal: "#0DD4C4",
-  bg: "#05111e",
-  surface: "#071828",
-  card: "#091f30",
-  border: "rgba(255,255,255,0.06)",
-  text: "#e8f4fb",
-  muted: "#5a8099",
-  dim: "#1e3347",
-  green: "#22d3a8",
-};
-
-const CLOSING_SLIDES = [
-  {
-    title: "Objective",
-    desc: "What the conversation was meant to resolve.",
-  },
-  {
-    title: "Agreed decisions",
-    desc: "Only claims the room confirmed by the end of the call.",
-  },
-  {
-    title: "In scope",
-    desc: "What will be delivered now.",
-  },
-  {
-    title: "Out of scope",
-    desc: "What you explicitly did not agree to do yet.",
-  },
-  {
-    title: "Open items + owners",
-    desc: "What still needs confirmation, with owners and next steps.",
-  },
-];
-
-const TIMELINE = [
-  {
-    time: "1. PREP",
-    label: "Agree on scope in the room",
-    sub: "Tell the room that the final review will use a closing deck with decisions and owners.",
-  },
-  {
-    time: "2. RECORD",
-    label: "Decker captures Google Meet audio",
-    sub: "Tab audio and approved mic audio are sent to OpenAI for transcription.",
-  },
-  {
-    time: "3. REVIEW",
-    label: "Review transcript and select points",
-    sub: "Keep only statements you want in the artifact. Mark uncertainty instead of inventing details.",
-  },
-  {
-    time: "4. PRESENT",
-    label: "Generate the closing deck",
-    sub: "Choose Presentation and add any instructions the room needs for its final review.",
-  },
-  {
-    time: "5. SHARE",
-    label: "Hand off the artifact",
-    sub: "Open the generated HTML, read it once together, then share the file.",
-  },
-];
-
-const OUTPUTS = [
-  {
-    tag: "Other outputs",
-    headline: "Prototype, discussion page, or meeting brief",
-    desc: "Use these only after the close if the room needs a different artifact.",
-    who: "For follow-up work and stakeholder sharing.",
-  },
-];
-
-const TECH = ["OpenAI Whisper", "GPT-4o mini", "GPT-4o", "IndexedDB recovery"];
-
-const RECRUITER_STEPS = [
-  {
-    title: "Assisted pilot",
-    desc: "We help install, run a short rehearsal, and walk through one real meeting.",
-  },
-  {
-    title: "Clear data handling",
-    desc: "We explain what goes to OpenAI and what stays on your machine before the first call.",
-  },
-  {
-    title: "Handoff test",
-    desc: "You test presenting the final deck and sharing it with the room after the call.",
-  },
-];
-
-function useReveal(threshold = 0.06) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [on, setOn] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setOn(true);
-          obs.disconnect();
-        }
-      },
-      { threshold }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [threshold]);
-
-  return { ref, on };
-}
-
-const EARLY_ACCESS_MAIL =
-  "mailto:aishwaryshrivastava@gmail.com?subject=Decker%20assisted%20pilot&body=Hi%20there%2C%20I%20want%20to%20join%20the%20assisted%20pilot.%20%0A%0AUse%20case%3A%20%0AScheduled%20meeting%20URL%20or%20time%3A%20%0A%0AThank%20you.";
 const CHROME_STORE =
   "https://chromewebstore.google.com/detail/decker-google-meet-notes/khbafeikhdehdhpfcbdlfkpmmikbfihk";
-const SUPPORT_ROUTE = "/support";
 const GITHUB = "https://github.com/AishwaryShrivastav/decker";
+const PILOT_MAIL =
+  "mailto:aishwaryshrivastava@gmail.com?subject=Decker%20first%20meeting%20pilot&body=I%20have%20a%20Google%20Meet%20coming%20up.%0A%0AMeeting%20type%3A%0ADate%3A%0AWhat%20I%20need%20to%20leave%20with%3A%0A";
+
+const FIRST_MEETING = [
+  ["01", "Install and pin Decker", "Use Chrome, Brave, Arc, or Edge. The extension is free."],
+  ["02", "Save one OpenAI API key", "The key stays in local extension storage and OpenAI bills your account."],
+  ["03", "Run a two-minute rehearsal", "Open a Meet, allow the microphone, and confirm that words appear."],
+  ["04", "Record the decision portion", "Tell participants, obtain consent, and stop when the room reaches the close."],
+  ["05", "Review before you generate", "Correct the transcript, select the useful points, and choose the final format."],
+] as const;
+
+const OUTPUTS = [
+  ["Closing deck", "Present decisions, scope, and owners before the call ends."],
+  ["Meeting brief", "Keep a structured document with summaries and action items."],
+  ["Discussion page", "Share a single HTML page with the wider team."],
+  ["Prototype", "Turn a product discussion into a working HTML concept."],
+] as const;
 
 export default function Home() {
-  const tlRef = useReveal(0.04);
-  const outRef = useReveal(0.04);
-  const featRef = useReveal(0.04);
-  const ctaRef = useReveal(0.08);
-
   return (
-    <main style={{ background: C.bg, color: C.text, fontFamily: "Inter, -apple-system, sans-serif" }}>
-      <nav style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50, backdropFilter: "blur(20px)", background: "rgba(5,17,30,0.88)", borderBottom: `1px solid ${C.border}` }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <a href="#" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
-            <img src="/logo.png" alt="Decker" width={24} height={24} style={{ objectFit: "contain" }} />
-            <span style={{ fontWeight: 800, fontSize: "1rem", color: C.accent, letterSpacing: "-0.4px" }}>Decker</span>
-          </a>
-          <div style={{ display: "flex", gap: 24, alignItems: "center", fontSize: "0.83rem" }}>
-            <a href="#closing" style={{ color: C.muted, textDecoration: "none" }} className="nav-link nav-secondary">Closing deck</a>
-            <a href="#how" style={{ color: C.muted, textDecoration: "none" }} className="nav-link nav-secondary">How it works</a>
-            <a href={SUPPORT_ROUTE} style={{ color: C.muted, textDecoration: "none" }} className="nav-link nav-secondary">Support</a>
-            <a href={CHROME_STORE} className="btn btn-primary" style={{ padding: "6px 14px", fontSize: "0.79rem" }}>Add to Chrome</a>
-          </div>
+    <main>
+      <nav className="site-nav" aria-label="Primary navigation">
+        <a className="brand" href="#top" aria-label="Decker home">
+          <img src="/logo.png" width="28" height="28" alt="" />
+          <span>Decker</span>
+        </a>
+        <div className="nav-links">
+          <a href="#first-meeting">First meeting</a>
+          <a href="/demo">Sample</a>
+          <a href="/privacy">Privacy</a>
+          <a className="button button-small" href={CHROME_STORE}>Add to Chrome</a>
         </div>
       </nav>
 
-      <section style={{
-        padding: "148px 24px 104px",
-        minHeight: "90vh",
-        display: "flex",
-        alignItems: "center",
-      }}>
-        <div className="hero-grid" style={{ maxWidth: 1100, margin: "0 auto", width: "100%", display: "grid", gridTemplateColumns: "1.15fr 0.85fr", gap: 38, alignItems: "center" }}>
+      <section className="hero" id="top">
+        <div className="release-line">
+          <span className="live-dot" />
+          Public on the Chrome Web Store, version 0.1.2
+        </div>
+        <div className="hero-copy">
+          <h1>Close the call with the deck already made.</h1>
+          <div className="hero-action">
+            <p>
+              Decker records Google Meet from your browser, lets you check the transcript, and builds the artifact the room needs next.
+            </p>
+            <div className="button-row">
+              <a className="button" href={CHROME_STORE}>Add to Chrome</a>
+              <a className="text-link" href="#first-meeting">Prepare your first meeting</a>
+            </div>
+            <p className="microcopy">Free and open source. One OpenAI key. No meeting bot.</p>
+          </div>
+        </div>
+
+        <div className="close-room" aria-label="A Decker meeting moving from live statements to a closing deck">
+          <div className="room-bar">
+            <div><span className="record-dot" /> Client scope review</div>
+            <div className="room-time">52:14, closing review</div>
+          </div>
+          <div className="room-grid">
+            <div className="transcript-pane">
+              <p className="panel-label">Reviewed transcript</p>
+              <div className="speaker-line">
+                <span>AM</span>
+                <p>&quot;Phase one covers onboarding and billing. Reporting moves to the next release.&quot;</p>
+              </div>
+              <div className="speaker-line">
+                <span>RS</span>
+                <p>&quot;I own the API handoff. Friday is the review date.&quot;</p>
+              </div>
+              <div className="speaker-line muted-line">
+                <span>?</span>
+                <p>Launch approval still needs a named owner.</p>
+              </div>
+            </div>
+
+            <div className="decision-rail" aria-hidden="true"><span /><span /><span /></div>
+
+            <div className="artifact-pane">
+              <div className="artifact-head"><span>Closing deck</span><span>5 slides</span></div>
+              <div className="deck-paper">
+                <p className="deck-kicker">Scope review, final</p>
+                <h2>What the room agreed</h2>
+                <dl>
+                  <div><dt>In scope</dt><dd>Onboarding and billing</dd></div>
+                  <div><dt>Later</dt><dd>Reporting</dd></div>
+                  <div><dt>Owner</dt><dd>RS, API handoff</dd></div>
+                  <div><dt>Review</dt><dd>Friday</dd></div>
+                </dl>
+                <p className="open-item">Open item: assign launch approval</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="statement-band">
+        <p>Record in your browser</p><p>Review the words</p><p>Generate the artifact</p><p>Leave with agreement</p>
+      </section>
+
+      <section className="first-meeting section" id="first-meeting">
+        <div className="section-heading">
+          <p className="eyebrow">Your first useful output</p>
+          <h2>Plan ten minutes before the call.</h2>
+          <p>Decker works best when the host knows what the room needs to approve or use when the meeting ends.</p>
+        </div>
+        <ol className="setup-list">
+          {FIRST_MEETING.map(([number, title, detail]) => (
+            <li key={number}><span className="step-number">{number}</span><div><h3>{title}</h3><p>{detail}</p></div></li>
+          ))}
+        </ol>
+        <div className="setup-actions">
+          <a className="button" href={CHROME_STORE}>Install Decker</a>
+          <a className="button button-quiet" href={PILOT_MAIL}>Get help with one real call</a>
+        </div>
+      </section>
+
+      <section className="sample-section section" id="sample">
+        <div className="sample-copy">
+          <p className="eyebrow">Inspect the output</p>
+          <h2>A file the room can open without Decker.</h2>
+          <p>Every output is an HTML file saved to Downloads. Review it, present it, or send it with the follow-up. The sample uses included demo content.</p>
+          <a className="button button-paper" href="/demo">Open the sample deck</a>
+        </div>
+        <a className="sample-frame" href="/demo" aria-label="Open the full sample deck">
+          <img src="/images/closing-deck-sample.png" alt="A sample closing deck with decisions and action items" />
+          <span>Open full sample</span>
+        </a>
+      </section>
+
+      <section className="outputs section">
+        <div className="section-heading compact-heading"><p className="eyebrow">Choose the handoff</p><h2>Four outputs from one reviewed transcript.</h2></div>
+        <div className="output-list">
+          {OUTPUTS.map(([title, detail], index) => (
+            <article key={title}><span>{String(index + 1).padStart(2, "0")}</span><h3>{title}</h3><p>{detail}</p></article>
+          ))}
+        </div>
+      </section>
+
+      <section className="trust-section section">
+        <div className="trust-copy">
+          <p className="eyebrow">Data path</p>
+          <h2>Your browser talks to OpenAI using your key.</h2>
+          <p>Meeting audio, transcript text, selected topics, and generation instructions go directly to OpenAI. Decker keeps one recovery session locally and sends no automatic product analytics to the developer.</p>
+          <div className="trust-links"><a href="/privacy">Read the privacy policy</a><a href={GITHUB}>Inspect the source</a></div>
+        </div>
+        <div className="data-diagram" aria-label="Decker data path">
+          <div><span>1</span><strong>Google Meet</strong><small>Audio you choose to record</small></div><i />
+          <div><span>2</span><strong>Decker in Chrome</strong><small>Local key and recovery session</small></div><i />
+          <div><span>3</span><strong>OpenAI API</strong><small>Transcription and generation</small></div>
+        </div>
+      </section>
+
+      <section className="pilot-section section" id="pilot">
+        <p className="eyebrow">Ten assisted pilots</p>
+        <div className="pilot-grid">
+          <h2>Bring a real meeting. We will help you leave with the first artifact.</h2>
           <div>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(34,211,168,0.14)", border: `1px solid rgba(34,211,168,0.22)`, borderRadius: 99, padding: "5px 14px", marginBottom: 24, fontSize: "0.73rem", color: "#86efac", fontWeight: 600, letterSpacing: "0.05em" }}>
-              <span style={{ width: 5, height: 5, borderRadius: "50%", background: C.green, display: "inline-block", boxShadow: `0 0 5px ${C.green}` }} />
-              Available on the Chrome Web Store
-            </div>
-
-            <h1 style={{ fontSize: "clamp(2.6rem, 6vw, 4.8rem)", fontWeight: 800, margin: "0 0 18px", letterSpacing: "-3px", lineHeight: 1.02 }}>
-              Turn your Google Meet call into a deck everyone can act on.
-            </h1>
-            <p style={{ fontSize: "1.05rem", color: C.muted, maxWidth: 560, margin: "0 0 28px", lineHeight: 1.82 }}>
-              Decker captures the conversation, lets you review transcript details, and produces a closing deck with objective, agreements, scope boundaries, and owners.
-            </p>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
-              <a href={CHROME_STORE} className="btn btn-primary">Add to Chrome. It is free.</a>
-              <a href="#closing" className="btn btn-secondary">See what gets generated</a>
-            </div>
-            <p style={{ fontSize: "0.72rem", color: C.muted, margin: 0 }}>
-              Free and open source. Bring one OpenAI API key. No Decker bot joins your meeting.
-            </p>
-          </div>
-
-          <div style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: C.surface, padding: 20, boxShadow: `0 20px 80px ${C.accentGlow}` }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, marginBottom: 18 }}>
-              <span style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: C.accent }}>Closing deck sample</span>
-              <span style={{ fontSize: "0.7rem", color: C.muted }}>Browser recording. Your API key.</span>
-            </div>
-            <img src="/images/closing-deck-sample.png" alt="Sample meeting brief generated by Decker" style={{ width: "100%", borderRadius: 10, border: `1px solid ${C.border}` }} />
-            <p style={{ marginTop: 14, color: C.dim, fontSize: "0.76rem" }}>
-              Sample output generated from the included demo meeting. Open the full example below to inspect it.
-            </p>
+            <p>This cohort is for technical founders, consultants, and small agency leads with a Google Meet scheduled in the next ten days. Setup takes about fifteen minutes, followed by a short rehearsal and one feedback call.</p>
+            <a className="button" href={PILOT_MAIL}>Request a first-meeting pilot</a>
           </div>
         </div>
       </section>
 
-      <section id="closing" style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 106px" }}>
-        <div style={{ padding: "40px", background: C.surface, border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.accent}` }}>
-          <p style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: C.accent, margin: "0 0 12px" }}>Closing deck structure</p>
-          <p style={{ fontSize: "clamp(1rem, 2vw, 1.24rem)", color: C.text, lineHeight: 1.7, margin: 0, fontWeight: 400 }}>
-            We keep the artifact around the action. Before you stop recording, set a simple expectation: the meeting will end by confirming these five sections.
-          </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginTop: 24 }}>
-            {CLOSING_SLIDES.map((slide, i) => (
-              <div key={slide.title} className="card" style={{ padding: "16px 16px" }}>
-                <div style={{ fontSize: "0.64rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: C.accent, marginBottom: 10 }}>
-                  {`0${i + 1}. ${slide.title}`}
-                </div>
-                <p style={{ color: C.text, fontWeight: 600, margin: "0 0 8px", lineHeight: 1.4 }}>{slide.title}</p>
-                <p style={{ fontSize: "0.84rem", color: C.muted, margin: 0, lineHeight: 1.6 }}>{slide.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="how" ref={tlRef.ref} className={`rv ${tlRef.on ? "on" : ""}`} style={{ maxWidth: 960, margin: "0 auto", padding: "0 24px 102px" }}>
-        <div style={{ textAlign: "center", marginBottom: 60 }}>
-          <p style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: C.accent, margin: "0 0 12px" }}>How it works</p>
-          <h2 style={{ fontSize: "clamp(1.8rem, 3vw, 2.5rem)", fontWeight: 800, color: C.text, letterSpacing: "-1px", margin: "0 0 12px" }}>
-            Start the call. Capture. Review. Present.
-          </h2>
-          <p style={{ color: C.muted, fontSize: "0.95rem", maxWidth: 420, margin: "0 auto", lineHeight: 1.7 }}>
-            The host sets quality upfront, then review before sharing.
-          </p>
-        </div>
-
-        <div style={{ position: "relative" }}>
-          <div className="tl-spine" />
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {TIMELINE.map((item, i) => (
-              <div key={item.time} className="tl-row" style={{ display: "grid", gridTemplateColumns: "1fr 68px 1fr", alignItems: "center", transitionDelay: `${i * 0.07}s` }}>
-                <div style={{ textAlign: "right", padding: "12px 24px 12px 0", opacity: 1 }}>
-                  <div className="tl-card">
-                    <div style={{ fontWeight: 700, color: C.text, marginBottom: 3, fontSize: "0.88rem" }}>{item.label}</div>
-                    <div style={{ fontSize: "0.78rem", color: C.muted, lineHeight: 1.5 }}>{item.time}</div>
-                    <div style={{ fontSize: "0.78rem", color: C.muted, lineHeight: 1.5 }}>{item.sub}</div>
-                  </div>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: C.card, border: `2px solid ${C.accentBorder}`, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 0 10px ${C.accentGlow}`, zIndex: 1 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: C.accent }} />
-                  </div>
-                </div>
-                <div />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="outputs" ref={outRef.ref} className={`rv ${outRef.on ? "on" : ""}`} style={{ background: C.surface, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}` }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "96px 24px" }}>
-          <div style={{ textAlign: "center", marginBottom: 52 }}>
-            <p style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: C.accent, margin: "0 0 12px" }}>Output</p>
-            <h2 style={{ fontSize: "clamp(1.8rem, 3vw, 2.5rem)", fontWeight: 800, color: C.text, letterSpacing: "-1px", margin: "0 0 12px" }}>
-              Start with a closing deck
-            </h2>
-          </div>
-          <div style={{ display: "grid", gap: 14 }}>
-            <div className="card rv-card" style={{ borderColor: C.accentBorder, padding: "28px", background: `linear-gradient(160deg, ${C.card} 0%, #092238 100%)`, position: "relative", overflow: "hidden" }}>
-              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(130deg, rgba(26,173,228,0.12), transparent 45%)", pointerEvents: "none" }} />
-              <div style={{ position: "relative", zIndex: 1 }}>
-                <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                  <div style={{ fontSize: "0.62rem", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: C.accent, border: `1px solid ${C.accentBorder}`, background: C.accentDim, borderRadius: 5, padding: "3px 9px" }}>Primary</div>
-                  <div style={{ color: C.text, fontWeight: 700 }}>Closing deck</div>
-                </div>
-                <div style={{ fontWeight: 700, color: C.text, fontSize: "1.06rem", lineHeight: 1.4, marginBottom: 10 }}>Actionable decisions and owners from the meeting.</div>
-                <p style={{ fontSize: "0.89rem", color: C.muted, margin: 0, lineHeight: 1.65, maxWidth: 640 }}>
-                  Generate an HTML slide deck with explicit agreed statements, boundaries, and follow-ups. The room can review it before you leave and then act on the same artifact after the call.
-                </p>
-                <div style={{ marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <a href="/demo" className="btn btn-secondary" style={{ padding: "8px 12px", fontSize: "0.8rem" }}>View sample deck</a>
-                  <a href="#pilot" className="btn btn-secondary" style={{ padding: "8px 12px", fontSize: "0.8rem" }}>See assisted pilot</a>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 14 }}>
-              {OUTPUTS.map((o, i) => (
-                <div key={o.tag} className="card rv-card" style={{ transitionDelay: `${i * 0.07}s`, padding: "24px 22px", display: "flex", flexDirection: "column" }}>
-                  <div style={{ fontSize: "0.62rem", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: C.accent, border: `1px solid ${C.accentBorder}`, background: C.accentDim, borderRadius: 5, padding: "3px 9px", marginBottom: 14, alignSelf: "flex-start" }}>{o.tag}</div>
-                  <div style={{ fontWeight: 700, color: C.text, fontSize: "0.94rem", marginBottom: 8, lineHeight: 1.35 }}>{o.headline}</div>
-                  <p style={{ fontSize: "0.84rem", color: C.muted, margin: "0 0 14px", lineHeight: 1.65, flex: 1 }}>{o.desc}</p>
-                  <div style={{ fontSize: "0.69rem", color: C.accentBright, fontWeight: 500 }}>{o.who}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="pilot" ref={featRef.ref} className={`rv ${featRef.on ? "on" : ""}`} style={{ maxWidth: 1100, margin: "0 auto", padding: "96px 24px" }}>
-        <div style={{ textAlign: "center", marginBottom: 52 }}>
-          <p style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: C.accent, margin: "0 0 12px" }}>Assisted pilot</p>
-          <h2 style={{ fontSize: "clamp(1.8rem, 3vw, 2.5rem)", fontWeight: 800, color: C.text, letterSpacing: "-1px", margin: "0 0 12px" }}>
-            Try Decker on one real call with setup support.
-          </h2>
-          <p style={{ color: C.muted, fontSize: "0.95rem", maxWidth: 520, margin: "0 auto" }}>
-            If your review is blocked by store approval timing, we will set up and test one live meeting with you.
-          </p>
-        </div>
-
-        <div style={{ display: "grid", gap: 12 }}>
-          {RECRUITER_STEPS.map((step, i) => (
-            <div key={step.title} className="card rv-card" style={{ display: "flex", gap: 12, alignItems: "center", padding: "18px 20px", transitionDelay: `${i * 0.08}s` }}>
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: C.accentDim, border: `1px solid ${C.accentBorder}`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: C.accent }}>{i + 1}</div>
-              <div>
-                <div style={{ fontWeight: 700, color: C.text }}>{step.title}</div>
-                <div style={{ color: C.muted, fontSize: "0.85rem", lineHeight: 1.6 }}>{step.desc}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ marginTop: 22, fontSize: "0.86rem", color: C.muted }}>
-          <p style={{ marginBottom: 10 }}>
-            <strong style={{ color: C.text }}>What we expect:</strong> a meeting scheduled within 10 days and a 20-minute follow-up review.
-          </p>
-          <p style={{ margin: 0 }}>Need onboarding instead of email? We also offer assisted unpacked installation while store review is pending.</p>
-        </div>
-      </section>
-
-      <section style={{ maxWidth: 780, margin: "0 auto", padding: "0 24px 24px" }}>
-        <div style={{ padding: "36px 44px", background: C.surface, border: `1px solid ${C.accentBorder}`, borderRadius: 16 }}>
-          <p style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: C.accent, margin: "0 0 10px" }}>Your own API key</p>
-          <p style={{ fontSize: "1rem", fontWeight: 700, color: C.text, margin: "0 0 10px" }}>No subscription. OpenAI key required.</p>
-          <p style={{ color: C.muted, margin: "0 0 20px", lineHeight: 1.75, fontSize: "0.9rem" }}>
-            Audio, transcript, selected points, and instructions are sent from your browser to OpenAI using your key. Decker does not build a user profile or send meeting content to the developer.
-          </p>
-          <p style={{ color: C.muted, fontSize: "0.85rem", lineHeight: 1.7 }}>
-            Browser policy, OpenAI policy, and meeting rules can affect install, microphone access, or API calls. Obtain participant consent before recording.
-            {" "}
-            <a href="/privacy" style={{ color: C.accent }}>Read the privacy policy</a>.
-          </p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-            {TECH.map((t) => (
-              <div key={t} style={{ padding: "5px 12px", background: C.accentDim, border: `1px solid ${C.accentBorder}`, borderRadius: 6, fontSize: "0.76rem", color: C.accentBright, fontWeight: 600 }}>{t}</div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 88px", textAlign: "center" }}>
-        <p style={{ fontSize: "0.75rem", fontWeight: 600, color: C.muted, marginBottom: 18, letterSpacing: "0.04em" }}>Works in</p>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
-          {[{ name: "Chrome", live: true }, { name: "Brave", live: true }, { name: "Arc", live: true }, { name: "Edge", live: true }, { name: "Firefox", live: false }, { name: "Safari", live: false }].map((b) => (
-            <div key={b.name} style={{ background: C.card, border: `1px solid ${b.live ? C.border : "transparent"}`, borderRadius: 7, padding: "6px 14px", fontSize: "0.81rem", color: b.live ? C.text : C.dim, display: "flex", alignItems: "center", gap: 7, opacity: b.live ? 1 : 0.38 }}>
-              {b.name}
-              {b.live
-                ? <span style={{ width: 5, height: 5, borderRadius: "50%", background: C.green, boxShadow: `0 0 4px ${C.green}` }} />
-                : <span style={{ fontSize: "0.56rem", background: C.accentDim, color: C.accent, borderRadius: 4, padding: "2px 6px", fontWeight: 600 }}>soon</span>}
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section ref={ctaRef.ref} className={`rv ${ctaRef.on ? "on" : ""}`} style={{ padding: "96px 24px 128px", textAlign: "center", borderTop: `1px solid ${C.border}`, background: `radial-gradient(ellipse 65% 55% at 50% 50%, rgba(26,173,228,0.08) 0%, transparent 65%)` }}>
-        <div className="logo-float" style={{ marginBottom: 28 }}>
-          <img src="/logo.png" alt="Decker" width={56} height={56} style={{ objectFit: "contain" }} />
-        </div>
-        <h2 style={{ fontSize: "clamp(1.9rem, 4.5vw, 3rem)", fontWeight: 800, margin: "0 0 16px", color: C.text, letterSpacing: "-1.5px", lineHeight: 1.1 }}>
-          Build the close.
-          <br />
-          <span style={{ background: `linear-gradient(130deg, ${C.accent} 0%, ${C.teal} 60%, ${C.accentBright} 100%)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
-            Your conversation, your decisions.
-          </span>
-        </h2>
-        <p style={{ color: C.muted, fontSize: "1rem", maxWidth: 430, margin: "0 auto 32px", lineHeight: 1.75 }}>
-          Install Decker from the Chrome Web Store. If you want help on your first real meeting, book an assisted pilot.
-        </p>
-        <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginBottom: 12 }}>
-          <a href={CHROME_STORE} className="btn btn-primary" style={{ padding: "12px 26px", fontSize: "0.92rem" }}>Add to Chrome</a>
-          <a href={EARLY_ACCESS_MAIL} className="btn btn-secondary" style={{ padding: "12px 26px", fontSize: "0.92rem" }}>Get help with your first meeting</a>
-          <a href={SUPPORT_ROUTE} className="btn btn-secondary" style={{ padding: "12px 26px", fontSize: "0.92rem" }}>Need support?</a>
-        </div>
-        <p style={{ fontSize: "0.71rem", color: C.muted, margin: 0 }}>No subscription. No usage analytics in Decker.</p>
-      </section>
-
-      <footer style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, color: C.dim, fontSize: "0.78rem", borderTop: `1px solid ${C.border}` }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          <img src="/logo.png" alt="" width={15} height={15} style={{ objectFit: "contain", opacity: 0.3 }} />
-          <span>Decker, MIT License</span>
-        </div>
-        <div style={{ display: "flex", gap: 20 }}>
-          <a href={GITHUB} style={{ color: C.accent, textDecoration: "none" }} target="_blank" rel="noopener noreferrer">GitHub</a>
-          <a href={`${GITHUB}/issues`} style={{ color: C.muted, textDecoration: "none" }} target="_blank" rel="noopener noreferrer">Issues</a>
-          <a href="/privacy" style={{ color: C.muted, textDecoration: "none" }}>Privacy</a>
-          <a href={SUPPORT_ROUTE} style={{ color: C.muted, textDecoration: "none" }}>Support</a>
-          <a href="/demo" style={{ color: C.muted, textDecoration: "none" }}>Demo</a>
-        </div>
+      <footer>
+        <div className="footer-brand"><img src="/logo.png" width="24" height="24" alt="" /><span>Decker</span></div>
+        <p>Open source under the MIT License.</p>
+        <div><a href={GITHUB}>GitHub</a><a href="/support">Support</a><a href="/privacy">Privacy</a></div>
       </footer>
-
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300&display=swap');
-        *, *::before, *::after { box-sizing: border-box; }
-        body { margin: 0; }
-
-        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; border-radius: 8px; font-size: 0.86rem; font-weight: 700; text-decoration: none; transition: all 0.17s; cursor: pointer; border: none; font-family: inherit; }
-        .btn-primary { background: ${C.accent}; color: #05111e; }
-        .btn-primary:hover { background: ${C.accentBright}; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(26,173,228,0.28); }
-        .btn-secondary { background: transparent; color: ${C.text}; border: 1px solid ${C.border}; }
-        .btn-secondary:hover { border-color: ${C.accentBorder}; color: ${C.accent}; }
-
-        .card { background: ${C.card}; border: 1px solid ${C.border}; border-radius: 11px; padding: 22px; transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s; }
-        .card:hover { border-color: ${C.accentBorder}; transform: translateY(-2px); box-shadow: 0 10px 36px rgba(0,0,0,0.4); }
-
-        .nav-link:hover { color: ${C.text} !important; }
-
-        .fu { animation: fadeUp 0.6s ease both; }
-        @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
-
-        .rv { opacity: 0; transform: translateY(14px); transition: opacity 0.55s ease, transform 0.55s ease; }
-        .rv.on { opacity: 1; transform: translateY(0); }
-        .rv-card { opacity: 0; transform: translateY(10px); transition: opacity 0.45s ease, transform 0.45s ease, border-color 0.2s, box-shadow 0.2s; }
-        .rv.on .rv-card { opacity: 1; transform: translateY(0); }
-
-        .tl-spine { position: absolute; left: 50%; top: 16px; bottom: 16px; width: 1px; background: linear-gradient(180deg, transparent 0%, ${C.accentBorder} 8%, ${C.accentBorder} 92%, transparent 100%); transform: translateX(-50%); }
-        .tl-row { opacity: 0; transform: translateY(8px); transition: opacity 0.4s ease, transform 0.4s ease; }
-        .rv.on .tl-row { opacity: 1; transform: translateY(0); }
-        .tl-card { display: inline-block; padding: 12px 16px; background: ${C.card}; border: 1px solid ${C.border}; border-radius: 9px; }
-
-        .logo-float { animation: float 3.5s ease-in-out infinite; }
-        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-7px)} }
-
-        @media (max-width: 1040px) {
-          .hero-grid { grid-template-columns: 1fr !important; max-width: 720px !important; }
-        }
-
-        @media (max-width: 680px) {
-          nav .nav-secondary { display: none; }
-          nav .btn { padding: 7px 11px !important; font-size: 0.73rem !important; }
-          .hero-grid { gap: 28px !important; }
-          main > section:first-of-type { padding: 112px 20px 72px !important; }
-          .tl-spine { display: none; }
-          .tl-row { grid-template-columns: 1fr !important; }
-          .tl-row > div:first-child { display: none; }
-          .tl-row > div:last-child { opacity: 1 !important; padding-left: 0 !important; }
-          h1 { letter-spacing: -2px !important; }
-        }
-      `}</style>
     </main>
   );
 }
