@@ -120,6 +120,8 @@ function useReveal(threshold = 0.06) {
 
 const EARLY_ACCESS_MAIL =
   "mailto:aishwaryshrivastava@gmail.com?subject=Decker%20assisted%20pilot&body=Hi%20there%2C%20I%20want%20to%20join%20the%20assisted%20pilot.%20%0A%0AUse%20case%3A%20%0AScheduled%20meeting%20URL%20or%20time%3A%20%0A%0AThank%20you.";
+const CHROME_STORE =
+  "https://chromewebstore.google.com/detail/decker-google-meet-notes/khbafeikhdehdhpfcbdlfkpmmikbfihk";
 const SUPPORT_ROUTE = "/support";
 const GITHUB = "https://github.com/AishwaryShrivastav/decker";
 
@@ -141,7 +143,7 @@ export default function Home() {
             <a href="#closing" style={{ color: C.muted, textDecoration: "none" }} className="nav-link nav-secondary">Closing deck</a>
             <a href="#how" style={{ color: C.muted, textDecoration: "none" }} className="nav-link nav-secondary">How it works</a>
             <a href={SUPPORT_ROUTE} style={{ color: C.muted, textDecoration: "none" }} className="nav-link nav-secondary">Support</a>
-            <a href={EARLY_ACCESS_MAIL} className="btn btn-primary" style={{ padding: "6px 14px", fontSize: "0.79rem" }}>Request assisted pilot</a>
+            <a href={CHROME_STORE} className="btn btn-primary" style={{ padding: "6px 14px", fontSize: "0.79rem" }}>Add to Chrome</a>
           </div>
         </div>
       </nav>
@@ -156,7 +158,7 @@ export default function Home() {
           <div>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(34,211,168,0.14)", border: `1px solid rgba(34,211,168,0.22)`, borderRadius: 99, padding: "5px 14px", marginBottom: 24, fontSize: "0.73rem", color: "#86efac", fontWeight: 600, letterSpacing: "0.05em" }}>
               <span style={{ width: 5, height: 5, borderRadius: "50%", background: C.green, display: "inline-block", boxShadow: `0 0 5px ${C.green}` }} />
-              Chrome Web Store submission: In review
+              Available on the Chrome Web Store
             </div>
 
             <h1 style={{ fontSize: "clamp(2.6rem, 6vw, 4.8rem)", fontWeight: 800, margin: "0 0 18px", letterSpacing: "-3px", lineHeight: 1.02 }}>
@@ -166,11 +168,11 @@ export default function Home() {
               Decker captures the conversation, lets you review transcript details, and produces a closing deck with objective, agreements, scope boundaries, and owners.
             </p>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
-              <a href={EARLY_ACCESS_MAIL} className="btn btn-primary">Request assisted pilot</a>
+              <a href={CHROME_STORE} className="btn btn-primary">Add to Chrome. It is free.</a>
               <a href="#closing" className="btn btn-secondary">See what gets generated</a>
             </div>
             <p style={{ fontSize: "0.72rem", color: C.muted, margin: 0 }}>
-              Not in the Web Store yet. Early access is assisted during the review period.
+              Free and open source. Bring one OpenAI API key. No Decker bot joins your meeting.
             </p>
           </div>
 
@@ -360,10 +362,11 @@ export default function Home() {
           </span>
         </h2>
         <p style={{ color: C.muted, fontSize: "1rem", maxWidth: 430, margin: "0 auto 32px", lineHeight: 1.75 }}>
-          Not available in the store yet. Use the assisted pilot to start in live meetings now.
+          Install Decker from the Chrome Web Store. If you want help on your first real meeting, book an assisted pilot.
         </p>
         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginBottom: 12 }}>
-          <a href={EARLY_ACCESS_MAIL} className="btn btn-primary" style={{ padding: "12px 26px", fontSize: "0.92rem" }}>Request assisted pilot</a>
+          <a href={CHROME_STORE} className="btn btn-primary" style={{ padding: "12px 26px", fontSize: "0.92rem" }}>Add to Chrome</a>
+          <a href={EARLY_ACCESS_MAIL} className="btn btn-secondary" style={{ padding: "12px 26px", fontSize: "0.92rem" }}>Get help with your first meeting</a>
           <a href={SUPPORT_ROUTE} className="btn btn-secondary" style={{ padding: "12px 26px", fontSize: "0.92rem" }}>Need support?</a>
         </div>
         <p style={{ fontSize: "0.71rem", color: C.muted, margin: 0 }}>No subscription. No usage analytics in Decker.</p>

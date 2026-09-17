@@ -6,13 +6,13 @@ Decker captures the Meet tab from your own browser, so no extra participant join
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
-[![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-blue?logo=googlechrome)](https://decker.techforgood.studio)
+[![Chrome Extension](https://img.shields.io/badge/Chrome-Install-blue?logo=googlechrome)](https://chromewebstore.google.com/detail/decker-google-meet-notes/khbafeikhdehdhpfcbdlfkpmmikbfihk)
 
 **Website:** [decker.techforgood.studio](https://decker.techforgood.studio)
 
 No Decker server is required for the extension. Audio and transcript content go directly from the browser to OpenAI using your own key.
 
-> **Free and open source.** Decker is not on the Chrome Web Store yet. Build from source (five minutes, steps below) or email [aishwaryshrivastava@gmail.com](mailto:aishwaryshrivastava@gmail.com?subject=Decker%20early%20access) for early access.
+> **Free and open source.** [Install Decker from the Chrome Web Store](https://chromewebstore.google.com/detail/decker-google-meet-notes/khbafeikhdehdhpfcbdlfkpmmikbfihk), or build it from source using the steps below.
 
 > **Built for meetings where you owe someone a deliverable:** a pitch, a spec review, a client kickoff. The meeting-brief output covers plain notes too.
 
