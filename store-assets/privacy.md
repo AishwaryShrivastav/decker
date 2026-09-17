@@ -41,10 +41,13 @@ See [OpenAI API data controls](https://developers.openai.com/api/docs/guides/you
 
 ## Local storage and deletion
 
-- `chrome.storage.local`: `openaiKey` and `deckerDebugLog`. The latter keeps up
-  to 15 recent debug events, including timestamps, status messages, selected
-  topic text, and API errors. Errors may include provider response details.
-  Decker adds no encryption at rest and does not use `storage.sync`.
+- `chrome.storage.local`: `openaiKey`, `deckerDebugLog`, and
+  `deckerActivationV1`. The debug log keeps up to 15 recent events, including
+  timestamps, status messages, selected topic text, and API errors. Errors may
+  include provider response details. The activation record keeps timestamps for
+  key saved, recording started, transcript ready, and output generated. It
+  contains no meeting content and is not sent automatically. Decker adds no
+  encryption at rest and does not use `storage.sync`.
 - Local IndexedDB: one recovery session containing pending audio segments,
   transcript text, selected topics, instructions, edits, warnings, research
   results, and generated HTML. Pending audio is removed after transcription

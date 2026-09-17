@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Decker",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "description": "Record meeting calls and generate Reveal.js presentations",
   "browser_specific_settings": {
     "gecko": {

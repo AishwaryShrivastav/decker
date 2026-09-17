@@ -9,7 +9,20 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.1.2] — unreleased
+## [0.1.3] - unreleased
+
+### Added
+
+- A first-meeting checklist in the extension popup for the OpenAI key, Google Meet tab, and microphone.
+- Four timestamp-only activation milestones stored locally: key saved, recording started, transcript ready, and output generated.
+- A user-initiated first-meeting feedback draft that includes milestone labels but no meeting content.
+
+### Changed
+
+- Rebuilt the website around the meeting close, a real output preview, and a five-step first-meeting setup path.
+- Added an in-repository first-10 pilot kit and public-safe activation ledger.
+
+## [0.1.2] - 2026-09-17
 
 ### Changed
 

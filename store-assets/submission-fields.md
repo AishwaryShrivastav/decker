@@ -30,7 +30,7 @@ Used only after the user clicks Start Recording to capture audio from the active
 ### storage
 
 ```
-Stores the user's OpenAI API key and up to 15 recent debug events in chrome.storage.local. It does not use Chrome Sync. The key authenticates direct browser-to-OpenAI requests.
+Stores the user's OpenAI API key, up to 15 recent debug events, and four timestamp-only activation milestones in chrome.storage.local. The milestones contain no meeting content and are not sent automatically. It does not use Chrome Sync. The key authenticates direct browser-to-OpenAI requests.
 ```
 
 ### activeTab

@@ -32,6 +32,7 @@ import {
 import { freshSession, recoverSession, processPendingChunks, transcriptForGeneration, reconcileTopics, addWarning, addCaptureNotice } from "../shared/capture";
 import type { TranscriptEdit } from "../shared/capture";
 import { loadSession, saveSession } from "../shared/sessionStore";
+import { recordActivation } from "../shared/activation";
 
 const OPENAI_API_BASE = "https://api.openai.com/v1";
 const GPT_MINI = "gpt-4o-mini"; // fast + cheap — topic extraction, research
@@ -455,6 +456,7 @@ async function startRecordingWithStream(tabId: number, streamId: string): Promis
     if (!response?.ok) throw new Error(response?.error ?? 'Audio capture did not start.');
     response.warnings?.forEach(w => addWarning(session, w));
     broadcastStatus('recording');
+    void recordActivation('recording_started').catch(() => {});
   } catch (error) {
     broadcastStatus('error', error instanceof Error ? error.message : String(error));
     await closeOffscreenDocument();
@@ -502,6 +504,7 @@ async function runPhase1(): Promise<void> {
     broadcastStatus('reviewing', undefined, { transcript: session.transcript, points: session.points,
       topicResearch: Array.from(topicResearchMap.values()) });
     await persist();
+    if (session.transcript.trim()) void recordActivation('transcript_ready').catch(() => {});
     await closeOffscreenDocument();
   } catch {
     broadcastStatus('reviewing', 'Recovery storage failed. Copy your transcript before leaving.', { transcript: session.transcript });
@@ -673,6 +676,7 @@ async function runPhase2(
     const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
     await chrome.downloads.download({ url: dataUrl, filename, saveAs: false });
 
+    void recordActivation('output_generated').catch(() => {});
     broadcastStatus("done", `Saved as ${filename}`);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -708,6 +712,7 @@ async function handleMessage(msg: Message, sender: chrome.runtime.MessageSender)
     case MessageType.SET_API_SETTINGS: {
       openaiKey = (msg.payload as ApiSettings).openaiKey?.trim() ?? '';
       await chrome.storage.local.set({ openaiKey });
+      if (openaiKey) void recordActivation('key_saved').catch(() => {});
       return { ok: true };
     }
     case MessageType.PREFLIGHT: checkKey(); return { ok: true };

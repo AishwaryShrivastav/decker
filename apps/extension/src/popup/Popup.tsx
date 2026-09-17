@@ -13,6 +13,7 @@ import {
 } from "../shared/types";
 
 import type { TranscriptEdit } from "../shared/capture";
+import { completedMilestones, getActivationState } from "../shared/activation";
 
 const C = {
   blue: "#818cf8",     // indigo-400
@@ -142,6 +143,7 @@ export function Popup() {
       if (!res) throw new Error('Could not recover the session. Reopen Decker.');
       apply(res);
       setOpenaiKeyInput(res.openaiKey);
+      if (!res.openaiKey.trim()) setShowSettings(true);
       setCustomPrompt(res.customPrompt);
       setOutputFormat(res.outputFormat);
       setEdit(res.edit);
@@ -224,13 +226,34 @@ export function Popup() {
     setStatus("processing");
   };
 
-  const handleSaveKey = () => {
-    chrome.runtime.sendMessage<Message<ApiSettings>>({
-      type: MessageType.SET_API_SETTINGS,
-      payload: { openaiKey: openaiKeyInput.trim() },
-    });
-    setKeySaved(true);
-    setTimeout(() => setKeySaved(false), 2000);
+  const handleSaveKey = async () => {
+    setError(null);
+    try {
+      const response = await chrome.runtime.sendMessage<Message<ApiSettings>>({
+        type: MessageType.SET_API_SETTINGS,
+        payload: { openaiKey: openaiKeyInput.trim() },
+      });
+      if (!response?.ok) throw new Error(response?.error ?? "Could not save the OpenAI key.");
+      setKeySaved(true);
+      setTimeout(() => setKeySaved(false), 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const handleFeedback = async () => {
+    const activation = await getActivationState().catch(() => null);
+    const steps = completedMilestones(activation).join(", ") || "none recorded";
+    const subject = encodeURIComponent("Decker first meeting feedback");
+    const body = encodeURIComponent(
+      `Decker version: ${chrome.runtime.getManifest().version}\n` +
+      `Local activation steps: ${steps}\n\n` +
+      "Was the output usable?\n\n" +
+      "What did you change before sharing it?\n\n" +
+      "Where did you get stuck?\n\n" +
+      "Please do not include private meeting content or your API key."
+    );
+    chrome.tabs.create({ url: `mailto:aishwaryshrivastava@gmail.com?subject=${subject}&body=${body}` });
   };
 
   const handleSelectAll = () => {
@@ -295,6 +318,7 @@ export function Popup() {
   const allSelected = points.length > 0 && selectedPoints.size === points.length;
 
   const isIdle = status === "idle";
+  const hasOpenaiKey = openaiKeyInput.trim().length > 0;
   const isRecording = status === "recording";
   const isBusy = ["processing", "finalizing", "transcribing", "extracting"].includes(status);
   const isReviewing = hydrated && status === "reviewing";
@@ -383,6 +407,24 @@ export function Popup() {
       {/* ── IDLE ── */}
       {isIdle && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ padding: 10, background: C.surface, borderRadius: 8, border: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.text, marginBottom: 7 }}>Ready for the first meeting?</div>
+            <div style={{ display: "grid", gap: 5, fontSize: 11 }}>
+              <span style={{ color: hasOpenaiKey ? C.green : C.amber }}>{hasOpenaiKey ? "1. OpenAI key saved" : "1. Add an OpenAI key in Settings"}</span>
+              <span style={{ color: isOnMeet ? C.green : C.muted }}>{isOnMeet ? "2. Google Meet tab ready" : "2. Open a Google Meet tab"}</span>
+              <span style={{ color: micGranted ? C.green : C.muted }}>{micGranted ? "3. Microphone allowed" : "3. Allow the microphone if you want your voice captured"}</span>
+            </div>
+            {!hasOpenaiKey && (
+              <button onClick={() => setShowSettings(true)} style={{ ...btn(false), marginTop: 9, padding: "7px 10px", fontSize: 11 }}>
+                Add OpenAI key
+              </button>
+            )}
+            {isOnMeet === false && (
+              <button onClick={() => chrome.tabs.create({ url: "https://meet.new" })} style={{ ...btn(false), marginTop: 9, padding: "7px 10px", fontSize: 11 }}>
+                Open a test meeting
+              </button>
+            )}
+          </div>
           {isOnMeet === false && (
             <div style={{ padding: 10, background: C.surface, borderRadius: 8, fontSize: 12, color: C.amber, border: `1px solid ${C.border}` }}>
               Open a <strong>Google Meet</strong> tab first.
@@ -410,7 +452,7 @@ export function Popup() {
                 One recovery session, including pending audio and transcript content, is stored locally in IndexedDB.
                 {" "}<a href="https://decker.techforgood.studio/privacy" target="_blank" rel="noopener noreferrer" style={{ color: C.blue }}>Privacy policy</a>
               </p>
-              <button onClick={handleStart} disabled={starting || !hydrated} style={btn(true)}>
+              <button onClick={handleStart} disabled={starting || !hydrated || !hasOpenaiKey} style={{ ...btn(true), opacity: hasOpenaiKey ? 1 : 0.55 }}>
                 {starting ? "Starting…" : "▶  Start Recording"}
               </button>
             </>
@@ -666,10 +708,15 @@ export function Popup() {
             {statusMsg ?? (status === "error" ? "An error occurred" : "Saved to Downloads")}
           </div>
           {status === "done" && (
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={handleOpenHtml} style={{ ...btn(false), padding: "8px 12px", fontSize: 11, flex: 1 }}>Open HTML</button>
-              <button onClick={handleCopyHtml} style={{ ...btn(false), padding: "8px 12px", fontSize: 11, flex: 1 }}>
-                {copiedHtml ? "Copied!" : "Copy HTML"}
+            <div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={handleOpenHtml} style={{ ...btn(false), padding: "8px 12px", fontSize: 11, flex: 1 }}>Open HTML</button>
+                <button onClick={handleCopyHtml} style={{ ...btn(false), padding: "8px 12px", fontSize: 11, flex: 1 }}>
+                  {copiedHtml ? "Copied" : "Copy HTML"}
+                </button>
+              </div>
+              <button onClick={handleFeedback} style={{ ...btn(false), marginTop: 8, padding: "8px 12px", fontSize: 11 }}>
+                Share first-meeting feedback
               </button>
             </div>
           )}
