@@ -10,6 +10,8 @@ Decker captures the Meet tab from your own browser, so no extra participant join
 
 **Website:** [decker.techforgood.studio](https://decker.techforgood.studio)
 
+**Launch status:** [website, Store review, and first-user plan](docs/launch-status.md)
+
 No Decker server is required for the extension. Audio and transcript content go directly from the browser to OpenAI using your own key.
 
 > **Free and open source.** [Install Decker from the Chrome Web Store](https://chromewebstore.google.com/detail/decker-google-meet-notes/khbafeikhdehdhpfcbdlfkpmmikbfihk), or build it from source using the steps below.

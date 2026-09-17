@@ -1,7 +1,12 @@
-# Decker Store audit: live 0.1.2 versus prepared 0.1.3
+# Decker Store audit: live 0.1.2 versus submitted 0.1.3
 
 Audited September 17, 2026 against the public Chrome Web Store listing, the
 0.1.3 package, extension source, and https://decker.techforgood.studio.
+
+Version 0.1.3 was submitted for review on September 17, 2026. Automatic
+publication is enabled. The public listing will continue to serve 0.1.2 until
+Google approves the update. Do not upload another package while this review is
+open unless Google reports a blocking defect.
 
 ## What is live now
 
@@ -18,19 +23,19 @@ scan before the install decision.
 
 ## Changes for 0.1.3
 
-| Area | Live 0.1.2 | Prepared 0.1.3 | Dashboard action |
+| Area | Live 0.1.2 | Submitted 0.1.3 | Submission state |
 | --- | --- | --- | --- |
-| Product | Capture, transcript review, four HTML outputs | Same core workflow plus first-meeting checklist, local milestone timestamps, and voluntary feedback draft | Upload new ZIP |
-| Version | 0.1.2 | 0.1.3 | Confirm after upload |
-| Short description | Leads with recording and data flow | Leads with notes, decks, prototypes, BYOK, free/open source | Replace |
-| Detailed description | Accurate but compliance-heavy | Opens with the meeting result, then states exact data handling | Replace |
-| Category | Developer Tools | Workflow & Planning | Change |
-| Support URL | Homepage | Dedicated `/support` page | Change |
-| Privacy categories | Four categories | Adds User activity for four local milestone timestamps | Add category |
-| Permissions | Same narrow MV3 set | `tabCapture`, `storage`, `activeTab`, `offscreen`, `downloads`, and OpenAI host access | Paste refreshed justifications |
-| Privacy page | Previously named stale `tabs` and Meet host access | Corrected to match the 0.1.3 manifest | Verify deployed page |
-| Promo assets | 440x280 tile present | Adds optional 1400x560 marquee in the same brand system | Upload both |
-| Reviewer path | General BYOK instructions | Exact eight-step test path and expected traffic | Replace |
+| Product | Capture, transcript review, four HTML outputs | Same core workflow plus first-meeting checklist, local milestone timestamps, and voluntary feedback draft | Submitted |
+| Version | 0.1.2 | 0.1.3 | Submitted |
+| Short description | Leads with recording and data flow | Leads with notes, decks, prototypes, BYOK, free/open source | Submitted |
+| Detailed description | Accurate but compliance-heavy | Opens with the meeting result, then states exact data handling | Submitted |
+| Category | Developer Tools | Workflow & Planning | Submitted |
+| Support URL | Homepage | Dedicated `/support` page | Submitted |
+| Privacy categories | Four categories | Adds User activity for four local milestone timestamps | Submitted |
+| Permissions | Same narrow MV3 set | `tabCapture`, `storage`, `activeTab`, `offscreen`, `downloads`, and OpenAI host access | Submitted |
+| Privacy page | Previously named stale `tabs` and Meet host access | Corrected to match the 0.1.3 manifest | Live |
+| Promo assets | 440x280 tile present | Adds optional 1400x560 marquee in the same brand system | Submitted |
+| Reviewer path | General BYOK instructions | Exact eight-step test path and expected traffic | Submitted |
 
 ## Conversion decisions
 

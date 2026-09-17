@@ -9,7 +9,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.1.3] - unreleased
+## [0.1.3] - pending Chrome Web Store review
+
+Submitted on September 17, 2026 with automatic publication enabled. The public
+listing remains on 0.1.2 until Google approves the update.
 
 ### Added
 

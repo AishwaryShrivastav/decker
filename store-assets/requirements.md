@@ -1,8 +1,12 @@
-# Submit Decker 0.1.3 today
+# Decker 0.1.3 submission record
 
-This is the ordered checklist for the existing Chrome Web Store item
-`khbafeikhdehdhpfcbdlfkpmmikbfihk`. Stop before the final Submit for Review
-button if another person is preparing the draft.
+Version 0.1.3 was submitted to the existing Chrome Web Store item on September
+17, 2026. Automatic publication is enabled. The public listing remains on 0.1.2
+while Google reviews the update. This checklist is retained as the submission
+record and the source for any reviewer follow-up. Do not rebuild or upload a new
+package during review unless Google identifies a blocking problem.
+
+The existing Chrome Web Store item is `khbafeikhdehdhpfcbdlfkpmmikbfihk`.
 
 ## Files to upload
 
