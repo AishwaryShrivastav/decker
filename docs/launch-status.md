@@ -2,6 +2,9 @@
 
 Updated September 17, 2026.
 
+Latest verified Cloudflare Pages deployment:
+https://dd0e7d30.decker-ekx.pages.dev
+
 ## Live surfaces
 
 | Surface | State | URL |
@@ -51,5 +54,6 @@ conversion risks.
 
 The September 17 landing pass ran 23 extension tests, extension TypeScript,
 the Chrome production build, package verification, and the Cloudflare Pages
-build. The public routes and Store link must be checked again after every web
-deployment or Store approval.
+build. After deployment, `/`, `/demo`, `/privacy`, and `/support` loaded on the
+custom domain. The public Store listing still served version 0.1.2. Check these
+surfaces again after Store approval.
