@@ -1,0 +1,11 @@
+pilot_id,segment,source,meeting_type,install_completed,key_saved,rehearsal_completed,recording_started,transcript_reviewed,output_generated,presented_or_shared,second_meeting_scheduled,blocker,follow_up_date
+pilot-01,,,,false,false,false,false,false,false,false,false,,
+pilot-02,,,,false,false,false,false,false,false,false,false,,
+pilot-03,,,,false,false,false,false,false,false,false,false,,
+pilot-04,,,,false,false,false,false,false,false,false,false,,
+pilot-05,,,,false,false,false,false,false,false,false,false,,
+pilot-06,,,,false,false,false,false,false,false,false,false,,
+pilot-07,,,,false,false,false,false,false,false,false,false,,
+pilot-08,,,,false,false,false,false,false,false,false,false,,
+pilot-09,,,,false,false,false,false,false,false,false,false,,
+pilot-10,,,,false,false,false,false,false,false,false,false,,
