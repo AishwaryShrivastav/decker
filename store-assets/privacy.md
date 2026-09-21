@@ -58,8 +58,8 @@ See [OpenAI API data controls](https://developers.openai.com/api/docs/guides/you
 - Downloads: generated HTML remains on disk until the user deletes it. Copy HTML
   writes the output to the clipboard; clipboard history is outside Decker's control.
 
-Clear the key field and save to remove the saved key value. Uninstalling clears
-local extension storage, including logs. Delete downloaded files separately.
+Use the Clear key action to remove saved provider settings and the legacy OpenAI
+key. Uninstalling clears local extension storage, including logs. Delete downloaded files separately.
 Neither action deletes data already sent to OpenAI. Revoke keys in the OpenAI
 account when needed. Resetting a session replaces the IndexedDB recovery record
 but does not erase stored debug logs.
