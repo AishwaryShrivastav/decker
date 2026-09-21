@@ -9,6 +9,7 @@ export interface StoredProviderSettings extends ProviderSelection {
 export interface ProviderSettingsStorage {
   get(keys: string[]): Promise<Record<string, unknown>>;
   set(values: Record<string, unknown>): Promise<void>;
+  remove(keys: string[]): Promise<void>;
 }
 
 function isProvider(value: unknown): value is ProviderId {
@@ -50,4 +51,10 @@ export async function saveProviderSettings(
   if (settings.provider === "openai") values.openaiKey = settings.apiKey;
   await storage.set(values);
   return settings;
+}
+
+export async function clearProviderSettings(
+  storage: ProviderSettingsStorage = chrome.storage.local
+): Promise<void> {
+  await storage.remove([PROVIDER_SETTINGS_STORAGE_KEY, "openaiKey"]);
 }

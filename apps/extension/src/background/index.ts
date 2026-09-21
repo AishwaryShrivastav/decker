@@ -36,6 +36,7 @@ import { recordActivation } from "../shared/activation";
 import { createProviderAdapter } from "../providers/registry";
 import type { ProviderAdapter, ProviderSelection } from "../providers/registry";
 import {
+  clearProviderSettings,
   loadProviderSettings,
   saveProviderSettings,
   type StoredProviderSettings,
@@ -591,6 +592,12 @@ async function handleMessage(msg: Message, sender: chrome.runtime.MessageSender)
       providerSettings = await saveProviderSettings(chrome.storage.local, selection);
       provider = nextProvider;
       if (selection.apiKey) void recordActivation('key_saved').catch(() => {});
+      return { ok: true };
+    }
+    case MessageType.CLEAR_PROVIDER_SETTINGS: {
+      await clearProviderSettings(chrome.storage.local);
+      providerSettings = { version: 1, provider: 'openai', apiKey: '' };
+      provider = createProviderAdapter(providerSettings, fetch);
       return { ok: true };
     }
     case MessageType.PREFLIGHT: checkKey(); return { ok: true };

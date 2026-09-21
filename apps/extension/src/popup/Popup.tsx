@@ -241,6 +241,20 @@ export function Popup() {
     }
   };
 
+  const handleClearKey = async () => {
+    setError(null);
+    try {
+      const response = await chrome.runtime.sendMessage<Message>({
+        type: MessageType.CLEAR_PROVIDER_SETTINGS,
+      });
+      if (!response?.ok) throw new Error(response?.error ?? "Could not clear the OpenAI key.");
+      setOpenaiKeyInput("");
+      setKeySaved(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
   const handleFeedback = async () => {
     const activation = await getActivationState().catch(() => null);
     const steps = completedMilestones(activation).join(", ") || "none recorded";
@@ -374,9 +388,12 @@ export function Popup() {
           <p style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
             Your key is saved in local extension storage and sent to OpenAI to authenticate requests.
             Local debug logs can contain topic text and API errors. The developer receives no automatic telemetry.
-            Clear the field and save to remove the key. Uninstall to remove local logs; downloaded files remain.
+            Use Clear key to remove the saved credential. Uninstall to remove local logs; downloaded files remain.
           </p>
-          <button onClick={handleSaveKey} style={{ ...btn(true), padding: "7px 12px" }}>{keySaved ? "Saved ✓" : "Save key"}</button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button disabled={!hasOpenaiKey} onClick={handleSaveKey} style={{ ...btn(true), padding: "7px 12px", opacity: hasOpenaiKey ? 1 : 0.5 }}>{keySaved ? "Saved ✓" : "Save key"}</button>
+            <button onClick={handleClearKey} style={{ ...btn(false), padding: "7px 12px" }}>Clear key</button>
+          </div>
         </div>
       )}
 

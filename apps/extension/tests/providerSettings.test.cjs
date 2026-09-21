@@ -2,6 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
   PROVIDER_SETTINGS_STORAGE_KEY,
+  clearProviderSettings,
   loadProviderSettings,
   saveProviderSettings,
 } = require('../src/shared/providerSettings.ts');
@@ -12,6 +13,7 @@ function memoryStorage(initial = {}) {
     values,
     async get() { return { ...values }; },
     async set(patch) { Object.assign(values, patch); },
+    async remove(keys) { keys.forEach(key => delete values[key]); },
   };
 }
 
@@ -94,4 +96,16 @@ test('saving a whitespace-only provider key is rejected without changing storage
     [PROVIDER_SETTINGS_STORAGE_KEY]: existing,
     openaiKey: 'sk-existing',
   });
+});
+
+test('clearing provider settings removes both versioned and legacy credentials', async () => {
+  const storage = memoryStorage({
+    [PROVIDER_SETTINGS_STORAGE_KEY]: { version: 1, provider: 'gemini', apiKey: 'gemini-existing' },
+    openaiKey: 'sk-existing',
+    unrelated: 'keep-me',
+  });
+
+  await clearProviderSettings(storage);
+
+  assert.deepEqual(storage.values, { unrelated: 'keep-me' });
 });

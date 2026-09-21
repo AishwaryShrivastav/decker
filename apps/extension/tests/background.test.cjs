@@ -33,6 +33,7 @@ function worker(saved, options = {}) {
     storage: { local: {
       get: async (keys, cb) => { if (options.hydration) await options.hydration; if (cb) cb(local); return local; },
       set: async patch => Object.assign(local, patch),
+      remove: async keys => keys.forEach(key => delete local[key]),
     } },
     tabs: { get: async () => ({ url: 'https://meet.google.com/abc-defg-hij' }), sendMessage: async () => {} },
     offscreen: { closeDocument: async () => { closeCount++; }, createDocument: async () => {}, Reason: { USER_MEDIA: 'USER_MEDIA' } },
@@ -234,6 +235,25 @@ test('the existing OpenAI save payload validates and updates provider settings',
   assert.equal(w.local.openaiKey, 'sk-new');
   assert.equal(w.local.providerSettings.provider, 'openai');
   assert.equal(w.local.providerSettings.apiKey, 'sk-new');
+});
+
+test('explicit provider clear removes credentials and resets the cached adapter', async () => {
+  const saved = freshSession('test');
+  const local = {
+    providerSettings: { version: 1, provider: 'gemini', apiKey: 'gemini-existing' },
+    openaiKey: 'sk-existing',
+  };
+  const w = worker(saved, { local });
+
+  assert.equal((await w.send('CLEAR_PROVIDER_SETTINGS')).ok, true);
+
+  assert.equal('providerSettings' in w.local, false);
+  assert.equal('openaiKey' in w.local, false);
+  const settings = await w.send('GET_API_SETTINGS');
+  assert.equal(settings.provider, 'openai');
+  assert.equal(settings.apiKey, '');
+  assert.equal(settings.openaiKey, '');
+  assert.match((await w.send('PREFLIGHT')).error, /OpenAI key/);
 });
 
 
