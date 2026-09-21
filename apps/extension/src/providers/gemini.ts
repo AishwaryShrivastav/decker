@@ -6,6 +6,7 @@ const TEXT_MODELS: Record<ProviderModel, string> = {
   mini: "gemini-3.5-flash",
   full: "gemini-3.8-flash",
 };
+const FILE_DELETE_ATTEMPTS = 3;
 
 function generatedText(data: unknown): string {
   const response = data as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
@@ -26,6 +27,24 @@ function interactionText(data: unknown): string {
 
 export function createGeminiProvider(apiKey: string, fetchImpl: FetchLike = fetch): ProviderAdapter {
   const authHeaders = { "x-goog-api-key": apiKey };
+
+  const deleteUploadedFile = async (name: string): Promise<string | null> => {
+    let lastError = "unknown error";
+    for (let attempt = 1; attempt <= FILE_DELETE_ATTEMPTS; attempt++) {
+      try {
+        const response = await fetchImpl(`${API_BASE}/v1beta/${name}`, {
+          method: "DELETE",
+          signal: AbortSignal.timeout(20_000),
+          headers: authHeaders,
+        });
+        if (response.ok) return null;
+        lastError = (await responseError("Gemini", "temporary file cleanup", response)).message;
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : String(error);
+      }
+    }
+    return `Gemini could not delete temporary file ${name} after ${FILE_DELETE_ATTEMPTS} attempts: ${lastError}`;
+  };
 
   const generate = async (request: TextGenerationRequest, stream: boolean): Promise<Response> => {
     const model = TEXT_MODELS[request.model ?? (stream ? "full" : "mini")];
@@ -53,7 +72,7 @@ export function createGeminiProvider(apiKey: string, fetchImpl: FetchLike = fetc
       });
       if (!response.ok) throw await responseError("Gemini", "key validation", response);
     },
-    async transcribe(audio: Blob): Promise<string> {
+    async transcribe(audio: Blob, onWarning?: (message: string) => void): Promise<string> {
       const mimeType = audio.type.split(";")[0]?.trim() || "audio/webm";
       const start = await fetchImpl(`${API_BASE}/upload/v1beta/files`, {
         method: "POST",
@@ -84,7 +103,9 @@ export function createGeminiProvider(apiKey: string, fetchImpl: FetchLike = fetc
       });
       if (!upload.ok) throw await responseError("Gemini", "audio upload", upload);
       const uploaded = await upload.json() as { file?: { name?: string; uri?: string } };
+      const name = uploaded.file?.name;
       const uri = uploaded.file?.uri;
+      if (!name) throw new Error("Gemini audio upload failed: no file name returned.");
       if (!uri) throw new Error("Gemini audio upload failed: no file URI returned.");
 
       try {
@@ -94,6 +115,7 @@ export function createGeminiProvider(apiKey: string, fetchImpl: FetchLike = fetc
           headers: { ...authHeaders, "content-type": "application/json" },
           body: JSON.stringify({
             model: "gemini-3.5-transcribe",
+            store: false,
             input: [{ type: "audio", uri, mime_type: mimeType }],
             generation_config: { transcription_config: { language_codes: [] } },
           }),
@@ -101,12 +123,8 @@ export function createGeminiProvider(apiKey: string, fetchImpl: FetchLike = fetc
         if (!interaction.ok) throw await responseError("Gemini", "transcription", interaction);
         return interactionText(await interaction.json()).trim();
       } finally {
-        if (uploaded.file?.name) {
-          void fetchImpl(`${API_BASE}/v1beta/${uploaded.file.name}`, {
-            method: "DELETE",
-            headers: authHeaders,
-          }).catch(() => {});
-        }
+        const warning = await deleteUploadedFile(name);
+        if (warning) onWarning?.(warning);
       }
     },
     async complete(request: TextGenerationRequest): Promise<string> {

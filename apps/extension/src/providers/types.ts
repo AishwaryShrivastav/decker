@@ -17,7 +17,7 @@ export interface ProviderAdapter {
   readonly id: ProviderId;
   readonly label: string;
   validateKey(): Promise<void>;
-  transcribe(audio: Blob): Promise<string>;
+  transcribe(audio: Blob, onWarning?: (message: string) => void): Promise<string>;
   complete(request: TextGenerationRequest): Promise<string>;
   stream(request: TextGenerationRequest): Promise<string>;
 }

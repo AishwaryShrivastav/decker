@@ -188,7 +188,7 @@ test('Gemini settings route transcription and text generation through Gemini', a
       return new Response('{}', { headers: { 'x-goog-upload-url': 'https://generativelanguage.googleapis.com/upload/session' } });
     }
     if (url.endsWith('/upload/session')) {
-      return new Response(JSON.stringify({ file: { uri: 'https://files.example/audio' } }));
+      return new Response(JSON.stringify({ file: { name: 'files/background-audio', uri: 'https://files.example/audio' } }));
     }
     if (url.endsWith('/v1beta/interactions')) {
       return new Response(JSON.stringify({ output_text: 'A complete Gemini meeting transcript with enough detail for topic extraction.' }));
@@ -196,6 +196,7 @@ test('Gemini settings route transcription and text generation through Gemini', a
     if (url.includes(':generateContent')) {
       return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"points":["Gemini route"]}' }] } }] }));
     }
+    if (url.endsWith('/v1beta/files/background-audio')) return new Response('{}');
     throw new Error(`Unexpected URL: ${url}`);
   } });
 

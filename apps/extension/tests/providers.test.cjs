@@ -92,19 +92,85 @@ test('Gemini uploads audio and uses the transcription interaction', async () => 
     if (url.endsWith('/upload/v1beta/files')) {
       return jsonResponse({}, { headers: { 'x-goog-upload-url': 'https://generativelanguage.googleapis.com/upload/session' } });
     }
-    if (url.endsWith('/upload/session')) return jsonResponse({ file: { uri: 'https://files.example/audio' } });
-    return jsonResponse({ output_text: '  Gemini transcript  ' });
+    if (url.endsWith('/upload/session')) return jsonResponse({ file: { name: 'files/audio-1', uri: 'https://files.example/audio' } });
+    if (url.endsWith('/v1beta/interactions')) return jsonResponse({ output_text: '  Gemini transcript  ' });
+    if (url.endsWith('/v1beta/files/audio-1')) return jsonResponse({});
+    throw new Error(`Unexpected URL: ${url}`);
   });
 
   const transcript = await provider.transcribe(new Blob(['audio'], { type: 'audio/webm' }));
 
   assert.equal(transcript, 'Gemini transcript');
-  assert.equal(requests.length, 3);
+  assert.equal(requests.length, 4);
   assert.equal(requests[0].init.headers['X-Goog-Upload-Header-Content-Type'], 'audio/webm');
   assert.equal(requests[1].init.body.size, 5);
   const interaction = JSON.parse(requests[2].init.body);
   assert.equal(interaction.model, 'gemini-3.5-transcribe');
+  assert.equal(interaction.store, false);
   assert.deepEqual(interaction.input, [{ type: 'audio', uri: 'https://files.example/audio', mime_type: 'audio/webm' }]);
+  assert.equal(requests[3].url, 'https://generativelanguage.googleapis.com/v1beta/files/audio-1');
+  assert.equal(requests[3].init.method, 'DELETE');
+});
+
+test('Gemini retries file cleanup without rerunning successful transcription', async () => {
+  let interactions = 0;
+  let deletions = 0;
+  const warnings = [];
+  const provider = createProviderAdapter({ provider: 'gemini', apiKey: 'gemini-key' }, async (url) => {
+    if (url.endsWith('/upload/v1beta/files')) {
+      return jsonResponse({}, { headers: { 'x-goog-upload-url': 'https://generativelanguage.googleapis.com/upload/session' } });
+    }
+    if (url.endsWith('/upload/session')) {
+      return jsonResponse({ file: { name: 'files/audio-retry', uri: 'https://files.example/audio-retry' } });
+    }
+    if (url.endsWith('/v1beta/interactions')) {
+      interactions++;
+      return jsonResponse({ output_text: 'Transcript survives cleanup retry' });
+    }
+    if (url.endsWith('/v1beta/files/audio-retry')) {
+      deletions++;
+      return deletions === 1 ? jsonResponse({ error: 'temporary' }, { status: 503 }) : jsonResponse({});
+    }
+    throw new Error(`Unexpected URL: ${url}`);
+  });
+
+  const transcript = await provider.transcribe(new Blob(['audio'], { type: 'audio/webm' }), warning => warnings.push(warning));
+
+  assert.equal(transcript, 'Transcript survives cleanup retry');
+  assert.equal(interactions, 1);
+  assert.equal(deletions, 2);
+  assert.deepEqual(warnings, []);
+});
+
+test('Gemini warns after bounded cleanup failure without rerunning successful transcription', async () => {
+  let interactions = 0;
+  let deletions = 0;
+  const warnings = [];
+  const provider = createProviderAdapter({ provider: 'gemini', apiKey: 'gemini-key' }, async (url) => {
+    if (url.endsWith('/upload/v1beta/files')) {
+      return jsonResponse({}, { headers: { 'x-goog-upload-url': 'https://generativelanguage.googleapis.com/upload/session' } });
+    }
+    if (url.endsWith('/upload/session')) {
+      return jsonResponse({ file: { name: 'files/audio-failure', uri: 'https://files.example/audio-failure' } });
+    }
+    if (url.endsWith('/v1beta/interactions')) {
+      interactions++;
+      return jsonResponse({ output_text: 'Transcript survives cleanup failure' });
+    }
+    if (url.endsWith('/v1beta/files/audio-failure')) {
+      deletions++;
+      return jsonResponse({ error: 'still unavailable' }, { status: 503 });
+    }
+    throw new Error(`Unexpected URL: ${url}`);
+  });
+
+  const transcript = await provider.transcribe(new Blob(['audio'], { type: 'audio/webm' }), warning => warnings.push(warning));
+
+  assert.equal(transcript, 'Transcript survives cleanup failure');
+  assert.equal(interactions, 1);
+  assert.equal(deletions, 3);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /could not delete.*files\/audio-failure/i);
 });
 
 test('Gemini supports complete and streamed text generation', async () => {

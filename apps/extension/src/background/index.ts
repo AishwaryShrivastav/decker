@@ -278,7 +278,7 @@ function assertValidHtml(html: string, label: string): void {
 // Chunk transcription pipeline
 // ---------------------------------------------------------------------------
 async function transcribeChunk(base64: string, mimeType: string): Promise<string> {
-  return provider.transcribe(base64ToBlob(base64, mimeType));
+  return provider.transcribe(base64ToBlob(base64, mimeType), warning => addWarning(session, warning));
 }
 
 function reportQueueFailure(): void {
