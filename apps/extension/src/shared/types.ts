@@ -86,7 +86,9 @@ export interface RecordingStoppedPayload extends AudioChunkPayload {
 }
 
 export interface ApiSettings {
-  openaiKey: string;
+  provider?: "openai" | "gemini";
+  apiKey?: string;
+  openaiKey?: string;
 }
 
 export interface StartRecordingStreamPayload {
@@ -108,6 +110,8 @@ export interface FullStateResponse {
   points?: string[];
   topicResearch?: TopicResearch[];
   hasHtml: boolean;
+  provider: "openai" | "gemini";
+  apiKey: string;
   openaiKey: string;
 }
 

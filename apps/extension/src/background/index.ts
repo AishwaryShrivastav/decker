@@ -33,17 +33,21 @@ import { freshSession, recoverSession, processPendingChunks, transcriptForGenera
 import type { TranscriptEdit } from "../shared/capture";
 import { loadSession, saveSession } from "../shared/sessionStore";
 import { recordActivation } from "../shared/activation";
-
-const OPENAI_API_BASE = "https://api.openai.com/v1";
-const GPT_MINI = "gpt-4o-mini"; // fast + cheap — topic extraction, research
-const GPT_FULL = "gpt-4o";      // final doc/deck generation
+import { createProviderAdapter } from "../providers/registry";
+import type { ProviderAdapter, ProviderSelection } from "../providers/registry";
+import {
+  loadProviderSettings,
+  saveProviderSettings,
+  type StoredProviderSettings,
+} from "../shared/providerSettings";
 
 // The durable session is the source of truth. Runtime locks are reconstructed.
 let session = freshSession();
 let chunkProcessing: Promise<void> | null = null;
 let finalizing: Promise<void> | null = null;
 let isExtractingTopics = false;
-let openaiKey = "";
+let providerSettings: StoredProviderSettings = { version: 1, provider: "openai", apiKey: "" };
+let provider: ProviderAdapter = createProviderAdapter(providerSettings, fetch);
 
 // Live topic + research state
 const topicResearchMap = new Map<string, TopicResearch>();
@@ -69,9 +73,10 @@ async function persist(): Promise<void> {
 
 const ready = (async () => {
   const [settings, saved] = await Promise.all([
-    chrome.storage.local.get(["openaiKey"]), loadSession(),
+    loadProviderSettings(chrome.storage.local), loadSession(),
   ]);
-  openaiKey = typeof settings.openaiKey === 'string' ? settings.openaiKey.trim() : '';
+  providerSettings = settings;
+  provider = createProviderAdapter(providerSettings, fetch);
   if (saved) session = recoverSession(saved);
   session.research.forEach(r => topicResearchMap.set(r.topic, r));
 })();
@@ -92,162 +97,21 @@ async function resumeSession(): Promise<void> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Whisper (OpenAI) — audio transcription
-// ---------------------------------------------------------------------------
-const MIME_TO_EXT: Record<string, string> = {
-  "audio/webm": "webm",
-  "audio/ogg": "ogg",
-  "audio/mp4": "mp4",
-  "audio/mpeg": "mp3",
-  "audio/wav": "wav",
-  "audio/flac": "flac",
-};
-
-async function openaiTranscribe(audioBlob: Blob): Promise<string> {
-  const baseMime = audioBlob.type.split(";")[0]?.trim() || "audio/webm";
-  const ext = MIME_TO_EXT[baseMime] ?? "webm";
-  const file = new File([audioBlob], `audio.${ext}`, { type: baseMime });
-
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("model", "whisper-1");
-  formData.append("language", "en");
-
-  if (!openaiKey) throw new Error("No OpenAI key set — add it in Decker settings (⚙) for Whisper transcription.");
-  const res = await fetch(`${OPENAI_API_BASE}/audio/transcriptions`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${openaiKey}` },
-    body: formData,
-    signal: AbortSignal.timeout(20_000),
-  });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Whisper error ${res.status}: ${err}`);
-  }
-
-  const data = (await res.json()) as { text: string };
-  return typeof data.text === "string" ? data.text.trim() : "";
-}
-
-// ---------------------------------------------------------------------------
-// LLM helpers (OpenAI chat completions)
-// ---------------------------------------------------------------------------
-
-/**
- * Non-streaming completion — for topic extraction and research.
- * Uses gpt-4o-mini by default (fast + cheap for structured extraction).
- */
 async function llmComplete(
   systemPrompt: string,
   userMessage: string,
   model: "mini" | "full" = "mini"
 ): Promise<string> {
-  if (!openaiKey) throw new Error("No OpenAI key set — add it in Decker settings (⚙).");
-  const modelId = model === "mini" ? GPT_MINI : GPT_FULL;
-
-  const res = await fetch(`${OPENAI_API_BASE}/chat/completions`, {
-    method: "POST",
-    signal: AbortSignal.timeout(60_000),
-    headers: {
-      Authorization: `Bearer ${openaiKey}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: modelId,
-      max_tokens: 2048,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userMessage },
-      ],
-    }),
-  });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`OpenAI ${modelId} error ${res.status}: ${err}`);
-  }
-
-  const data = (await res.json()) as { choices: { message?: { content?: string | null } }[] };
-  return data.choices[0]?.message?.content ?? "{}";
+  return provider.complete({ systemPrompt, userMessage, model });
 }
 
-/**
- * Streaming completion — for final doc/deck generation.
- * Uses gpt-4o by default. Calls onProgress every ~100 tokens.
- */
 async function llmStream(
   systemPrompt: string,
   userMessage: string,
   model: "mini" | "full" = "full",
   onProgress?: (tokenCount: number) => void
 ): Promise<string> {
-  if (!openaiKey) throw new Error("No OpenAI key set — add it in Decker settings (⚙).");
-  const modelId = model === "mini" ? GPT_MINI : GPT_FULL;
-
-  const res = await fetch(`${OPENAI_API_BASE}/chat/completions`, {
-    method: "POST",
-    signal: AbortSignal.timeout(60_000),
-    headers: {
-      Authorization: `Bearer ${openaiKey}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: modelId,
-      max_tokens: 16384,
-      stream: true,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userMessage },
-      ],
-    }),
-  });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`OpenAI ${modelId} stream error ${res.status}: ${err}`);
-  }
-
-  const reader = res.body!.getReader();
-  const decoder = new TextDecoder();
-  let fullText = "";
-  let buffer = "";
-  let tokenCount = 0;
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-
-      for (const line of lines) {
-        if (!line.startsWith("data: ")) continue;
-        const data = line.slice(6).trim();
-        if (!data || data === "[DONE]") continue;
-        try {
-          const event = JSON.parse(data) as {
-            choices?: { delta?: { content?: string | null } }[];
-          };
-          const deltaText = event.choices?.[0]?.delta?.content;
-          if (deltaText) {
-            fullText += deltaText;
-            tokenCount++;
-            if (tokenCount % 100 === 0) onProgress?.(tokenCount);
-          }
-        } catch {
-          // ignore individual SSE parse errors
-        }
-      }
-    }
-  } finally {
-    reader.releaseLock();
-  }
-
-  return fullText;
+  return provider.stream({ systemPrompt, userMessage, model, onProgress });
 }
 
 // ---------------------------------------------------------------------------
@@ -413,7 +277,7 @@ function assertValidHtml(html: string, label: string): void {
 // Chunk transcription pipeline
 // ---------------------------------------------------------------------------
 async function transcribeChunk(base64: string, mimeType: string): Promise<string> {
-  return openaiTranscribe(base64ToBlob(base64, mimeType));
+  return provider.transcribe(base64ToBlob(base64, mimeType));
 }
 
 function reportQueueFailure(): void {
@@ -432,7 +296,9 @@ function processChunkQueue(): Promise<void> {
 }
 
 function checkKey(): void {
-  if (!openaiKey.trim()) throw new Error('Add and save an OpenAI key in Settings before recording.');
+  if (!providerSettings.apiKey.trim()) {
+    throw new Error(`Add and save a ${provider.label} key in Settings before recording.`);
+  }
 }
 
 async function startRecordingWithStream(tabId: number, streamId: string): Promise<void> {
@@ -700,19 +566,31 @@ async function handleMessage(msg: Message, sender: chrome.runtime.MessageSender)
         transcript: session.transcript, transcriptRevision: session.transcriptRevision,
         points: session.points, selectedPoints: session.selectedPoints, warnings: session.warnings,
         customPrompt: session.customPrompt, outputFormat: session.outputFormat, edit: session.edit,
-        topicResearch: Array.from(topicResearchMap.values()), hasHtml: session.html !== null, openaiKey,
+        topicResearch: Array.from(topicResearchMap.values()), hasHtml: session.html !== null,
+        provider: providerSettings.provider, apiKey: providerSettings.apiKey,
+        openaiKey: providerSettings.provider === 'openai' ? providerSettings.apiKey : '',
       };
       return fullState;
     }
-    case MessageType.GET_API_SETTINGS: return { openaiKey };
+    case MessageType.GET_API_SETTINGS: return {
+      provider: providerSettings.provider,
+      apiKey: providerSettings.apiKey,
+      openaiKey: providerSettings.provider === 'openai' ? providerSettings.apiKey : '',
+    };
     case MessageType.GET_DEBUG_LOG: {
       const r = await chrome.storage.local.get(DEBUG_LOG_KEY);
       return { log: r[DEBUG_LOG_KEY] ?? [] };
     }
     case MessageType.SET_API_SETTINGS: {
-      openaiKey = (msg.payload as ApiSettings).openaiKey?.trim() ?? '';
-      await chrome.storage.local.set({ openaiKey });
-      if (openaiKey) void recordActivation('key_saved').catch(() => {});
+      const payload = msg.payload as ApiSettings;
+      const selection: ProviderSelection = payload.provider && payload.apiKey !== undefined
+        ? { provider: payload.provider, apiKey: payload.apiKey.trim() }
+        : { provider: 'openai', apiKey: payload.openaiKey?.trim() ?? '' };
+      const nextProvider = createProviderAdapter(selection, fetch);
+      if (selection.apiKey) await nextProvider.validateKey();
+      providerSettings = await saveProviderSettings(chrome.storage.local, selection);
+      provider = nextProvider;
+      if (selection.apiKey) void recordActivation('key_saved').catch(() => {});
       return { ok: true };
     }
     case MessageType.PREFLIGHT: checkKey(); return { ok: true };
