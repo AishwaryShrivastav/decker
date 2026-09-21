@@ -65,3 +65,33 @@ test('saving Gemini does not overwrite the legacy OpenAI key', async () => {
   });
   assert.equal(storage.values.openaiKey, 'sk-existing');
 });
+
+test('saving an empty provider key is rejected without changing storage', async () => {
+  const existing = { version: 1, provider: 'openai', apiKey: 'sk-existing' };
+  const storage = memoryStorage({ [PROVIDER_SETTINGS_STORAGE_KEY]: existing, openaiKey: 'sk-existing' });
+
+  await assert.rejects(
+    saveProviderSettings(storage, { provider: 'openai', apiKey: '' }),
+    /API key is required/
+  );
+
+  assert.deepEqual(storage.values, {
+    [PROVIDER_SETTINGS_STORAGE_KEY]: existing,
+    openaiKey: 'sk-existing',
+  });
+});
+
+test('saving a whitespace-only provider key is rejected without changing storage', async () => {
+  const existing = { version: 1, provider: 'gemini', apiKey: 'gemini-existing' };
+  const storage = memoryStorage({ [PROVIDER_SETTINGS_STORAGE_KEY]: existing, openaiKey: 'sk-existing' });
+
+  await assert.rejects(
+    saveProviderSettings(storage, { provider: 'gemini', apiKey: '   \t\n  ' }),
+    /API key is required/
+  );
+
+  assert.deepEqual(storage.values, {
+    [PROVIDER_SETTINGS_STORAGE_KEY]: existing,
+    openaiKey: 'sk-existing',
+  });
+});

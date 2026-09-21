@@ -39,10 +39,12 @@ export async function saveProviderSettings(
   storage: ProviderSettingsStorage = chrome.storage.local,
   selection: ProviderSelection
 ): Promise<StoredProviderSettings> {
+  const apiKey = selection.apiKey.trim();
+  if (!apiKey) throw new Error("API key is required.");
   const settings: StoredProviderSettings = {
     version: 1,
     provider: selection.provider,
-    apiKey: selection.apiKey.trim(),
+    apiKey,
   };
   const values: Record<string, unknown> = { [PROVIDER_SETTINGS_STORAGE_KEY]: settings };
   if (settings.provider === "openai") values.openaiKey = settings.apiKey;
