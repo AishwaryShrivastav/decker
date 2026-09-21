@@ -176,6 +176,33 @@ test('Gemini uploads audio and uses the transcription interaction', async () => 
   assert.equal(requests[3].init.method, 'DELETE');
 });
 
+test('Gemini cleans up and warns when upload finalization returns a name without a URI', async () => {
+  let deletions = 0;
+  const warnings = [];
+  const provider = createProviderAdapter({ provider: 'gemini', apiKey: 'gemini-key' }, async (url) => {
+    if (url.endsWith('/upload/v1beta/files')) {
+      return jsonResponse({}, { headers: { 'x-goog-upload-url': 'https://generativelanguage.googleapis.com/upload/missing-uri' } });
+    }
+    if (url.endsWith('/upload/missing-uri')) {
+      return jsonResponse({ file: { name: 'files/audio-missing-uri' } });
+    }
+    if (url.endsWith('/v1beta/files/audio-missing-uri')) {
+      deletions++;
+      return jsonResponse({ error: 'cleanup unavailable' }, { status: 503 });
+    }
+    throw new Error(`Unexpected URL: ${url}`);
+  });
+
+  await assert.rejects(
+    provider.transcribe(new Blob(['audio'], { type: 'audio/webm' }), warning => warnings.push(warning)),
+    /no file URI returned/
+  );
+
+  assert.equal(deletions, 3);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /could not delete.*files\/audio-missing-uri/i);
+});
+
 test('Gemini retries file cleanup without rerunning successful transcription', async () => {
   let interactions = 0;
   let deletions = 0;

@@ -109,9 +109,9 @@ export function createGeminiProvider(apiKey: string, fetchImpl: FetchLike = fetc
     const name = uploaded.file?.name;
     const uri = uploaded.file?.uri;
     if (!name) throw new Error("Gemini audio upload failed: no file name returned.");
-    if (!uri) throw new Error("Gemini audio upload failed: no file URI returned.");
 
     try {
+      if (!uri) throw new Error("Gemini audio upload failed: no file URI returned.");
       const interaction = await fetchImpl(`${API_BASE}/v1beta/interactions`, {
         method: "POST",
         signal: AbortSignal.timeout(60_000),
