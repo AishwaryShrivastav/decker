@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { createProviderAdapter } = require('../src/providers/registry.ts');
+const { readSseText } = require('../src/providers/http.ts');
 
 function jsonResponse(body, init = {}) {
   return new Response(JSON.stringify(body), {
@@ -127,4 +128,19 @@ test('Gemini supports complete and streamed text generation', async () => {
   const body = JSON.parse(requests[0].init.body);
   assert.deepEqual(body.system_instruction, { parts: [{ text: 'system' }] });
   assert.deepEqual(body.contents, [{ role: 'user', parts: [{ text: 'user' }] }]);
+});
+
+test('SSE parsing consumes complete event blocks with optional spaces and multiline data', async () => {
+  const response = new Response(
+    ': keepalive\r\n' +
+    'event: message\r\n' +
+    'data:{"text":"Hello"}\r\n\r\n' +
+    'data: {"text":\n' +
+    'data: " world"}\n\n' +
+    'data:[DONE]\n\n'
+  );
+
+  const text = await readSseText(response, event => event.text ?? '');
+
+  assert.equal(text, 'Hello world');
 });
