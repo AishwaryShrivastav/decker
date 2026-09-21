@@ -5,7 +5,6 @@
   "scripts": {
     "build": "vite build",
     "build:watch": "vite build --watch",
-    "build:firefox": "vite build --config vite.firefox.config.ts",
     "test": "node --require ./tests/register.cjs --test tests/*.test.cjs"
   },
   "dependencies": {

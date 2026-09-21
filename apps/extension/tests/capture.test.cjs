@@ -63,12 +63,16 @@ test('stale edits cannot replace newer final transcript; matching explicit edits
 });
 
 test('restart restores pending attempts, transcript, deliberate deselections and custom instructions', async () => {
-  const original = freshSession('session');
+  const original = freshSession('session', 7);
   Object.assign(original, { status: 'recording', transcript: 'Earlier words', transcriptRevision: 1,
     points: ['A', 'B'], selectedPoints: ['B'], customPrompt: 'Include owners', outputFormat: 'doc',
-    edit: { text: 'Edited earlier words', baseRevision: 1 }, queue: [{ ...chunk(1), attempts: 2 }] });
+    edit: { text: 'Edited earlier words', baseRevision: 1 }, queue: [{ ...chunk(1), attempts: 2 }],
+    captureSource: { tabId: 19, name: 'Zoom Web' }, includeMicrophone: false });
   const state = recoverSession(structuredClone(original));
   assert.equal(state.status, 'recording');
+  assert.equal(state.generation, 7);
+  assert.deepEqual(state.captureSource, { tabId: 19, name: 'Zoom Web' });
+  assert.equal(state.includeMicrophone, false);
   assert.deepEqual(state.selectedPoints, ['B']);
   assert.equal(state.customPrompt, 'Include owners');
   assert.deepEqual(state.edit, original.edit);
@@ -76,6 +80,17 @@ test('restart restores pending attempts, transcript, deliberate deselections and
   await processPendingChunks(state, async () => { attempts++; throw new Error('offline'); }, async () => {}, async () => {}, () => {});
   assert.equal(attempts, 1);
   assert.match(state.transcript, /^Earlier words/);
+});
+
+test('legacy recovery sessions receive ordered capture defaults', () => {
+  const legacy = freshSession('legacy');
+  delete legacy.generation;
+  delete legacy.captureSource;
+  delete legacy.includeMicrophone;
+  const recovered = recoverSession(legacy);
+  assert.equal(recovered.generation, 0);
+  assert.equal(recovered.captureSource, null);
+  assert.equal(recovered.includeMicrophone, true);
 });
 
 test('topic reordering preserves explicit deselections and selects only new topics', () => {

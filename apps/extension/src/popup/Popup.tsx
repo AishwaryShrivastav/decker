@@ -1,187 +1,224 @@
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ProviderId } from "../providers/types";
+import { assessCaptureTab, captureErrorMessage, type CaptureReadiness, type CaptureTab } from "../shared/tabReadiness";
 import {
-  Message,
   MessageType,
-  RecordingStatus,
-  StatusPayload,
-  StartRecordingStreamPayload,
-  ApiSettings,
-  GenerateDeckPayload,
-  OutputFormat,
-  TopicResearch,
-  FullStateResponse,
+  type ApiSettings,
+  type FullStateResponse,
+  type Message,
+  type RecordingStatus,
+  type StartRecordingStreamPayload,
+  type StatusPayload,
+  type CaptureSource,
 } from "../shared/types";
-
-import type { TranscriptEdit } from "../shared/capture";
-import { completedMilestones, getActivationState } from "../shared/activation";
+import { popupStage, providerSetup, savedStateNotice, settingsControlsDisabled, statusUpdateIsCurrent, type SettingsSaveState } from "./model";
 
 const C = {
-  blue: "#818cf8",     // indigo-400
+  blue: "#818cf8",
   red: "#ef4444",
   green: "#34d399",
   amber: "#f59e0b",
-  muted: "#64748b",
   dimText: "#94a3b8",
   text: "#e2e8f0",
   bg: "#080c18",
   surface: "#0d1224",
-  surface2: "rgba(255,255,255,0.04)",
   border: "rgba(255,255,255,0.08)",
-  accentDim: "rgba(99,102,241,0.15)",
-  accentBorder: "rgba(99,102,241,0.3)",
 };
 
-function statusText(status: RecordingStatus, msg?: string): string {
+type MicState = "checking" | "granted" | "prompt" | "denied" | "unavailable";
+function statusText(status: RecordingStatus, message?: string): string {
+  if (message && ["processing", "finalizing", "transcribing", "extracting"].includes(status)) return message;
   switch (status) {
-    case "idle":        return "Ready to record";
-    case "recording":  return "Recording…";
-    case "processing": return "Processing audio…";
-    case "finalizing": return msg ?? "Preparing audio…";
-    case "transcribing": return msg ?? "Transcribing…";
-    case "extracting": return msg ?? "Extracting topics…";
-    case "researching": return msg ?? "Researching topics…";
-    case "reviewing":  return "Review & generate";
-    case "generating": return msg ?? "Generating document…";
-    case "done":       return msg ?? "Document ready!";
-    case "error":      return msg ?? "Error";
-    default:           return String(status);
+    case "recording": return "Recording meeting audio";
+    case "processing": return "Finishing audio capture...";
+    case "finalizing": return "Preparing saved audio...";
+    case "transcribing": return "Finishing transcription...";
+    case "extracting": return "Saving the transcript...";
+    case "error": return message ?? "Recording could not start";
+    default: return "Ready to record";
   }
 }
 
-function ResearchPill({ research }: { research?: TopicResearch }) {
-  if (!research || research.status === "pending") return null;
-
-  if (research.status === "researching") {
-    return (
-      <span style={{ fontSize: 10, color: C.amber, display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
-        <span style={{ width: 8, height: 8, border: `1px solid ${C.amber}`, borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} />
-        Researching…
-      </span>
-    );
-  }
-
-  if (research.status === "done" && (research.keyInsight || research.summary)) {
-    return (
-      <div style={{ marginTop: 4, padding: "5px 8px", background: C.accentDim, border: `1px solid ${C.accentBorder}`, borderRadius: 5, fontSize: 10, color: C.dimText }}>
-        {research.keyInsight || research.summary}
-      </div>
-    );
-  }
-
-  if (research.status === "error") {
-    return <span style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>Research unavailable</span>;
-  }
-
-  return null;
-}
+const emptyReadiness: CaptureReadiness = {
+  eligible: false,
+  meetingName: "Browser meeting",
+  message: "Checking the active tab...",
+};
 
 export function Popup() {
   const [status, setStatus] = useState<RecordingStatus>("idle");
-  const [statusMsg, setStatusMsg] = useState<string | undefined>();
+  const [statusMessage, setStatusMessage] = useState<string>();
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [transcript, setTranscript] = useState("");
+  const [hydrated, setHydrated] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [openaiKeyInput, setOpenaiKeyInput] = useState("");
-  const [showOpenaiKey, setShowOpenaiKey] = useState(false);
-  const [keySaved, setKeySaved] = useState(false);
-  const [transcript, setTranscript] = useState<string | null>(null);
-  const [edit, setEdit] = useState<TranscriptEdit | undefined>();
-  const [transcriptRevision, setTranscriptRevision] = useState(0);
-  const [warnings, setWarnings] = useState<string[]>([]);
-  const [hydrated, setHydrated] = useState(false);
-  const sessionIdRef = useRef('');
-  const revisionRef = useRef(0);
-  const [showTranscriptEdit, setShowTranscriptEdit] = useState(false);
-  const [points, setPoints] = useState<string[]>([]);
-  const [selectedPoints, setSelectedPoints] = useState<Set<string>>(new Set());
-  const [topicResearch, setTopicResearch] = useState<Map<string, TopicResearch>>(new Map());
-  const [customPrompt, setCustomPrompt] = useState("");
-  const [outputFormat, setOutputFormat] = useState<OutputFormat>("doc");
-  const [micDenied, setMicDenied] = useState(false);
-  const [copiedHtml, setCopiedHtml] = useState(false);
-  const [isOnMeet, setIsOnMeet] = useState<boolean | null>(null);
-  const [micGranted, setMicGranted] = useState<boolean | null>(null);
-  const liveTranscriptEndRef = useRef<HTMLDivElement>(null);
 
-  const saveReview = (patch: { selectedPoints?: string[]; customPrompt?: string; outputFormat?: OutputFormat; edit?: TranscriptEdit }) => {
-    chrome.runtime.sendMessage({ type: MessageType.SAVE_REVIEW,
-      payload: { sessionId: sessionIdRef.current, ...patch } })
-      .then(res => { if (res?.error) setError(res.error); })
-      .catch(() => setError('Could not save review changes. Keep this popup open and copy your text.'));
+  const [showSettings, setShowSettings] = useState(false);
+  const [provider, setProvider] = useState<ProviderId>("openai");
+  const [apiKey, setApiKey] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const [saveState, setSaveState] = useState<SettingsSaveState>("idle");
+  const [credentialSaved, setCredentialSaved] = useState(false);
+
+  const [readiness, setReadiness] = useState<CaptureReadiness>(emptyReadiness);
+  const [includeMicrophone, setIncludeMicrophone] = useState(true);
+  const [captureSource, setCaptureSource] = useState<CaptureSource | null>(null);
+  const [micState, setMicState] = useState<MicState>("checking");
+  const sessionIdRef = useRef("");
+  const sessionGenerationRef = useRef(-1);
+  const transcriptRevisionRef = useRef(0);
+  const keyInputRef = useRef<HTMLInputElement>(null);
+
+  const setup = providerSetup(provider);
+  const stage = popupStage(status, showSettings);
+  const savedNotice = savedStateNotice(status);
+  const displayedError = error ?? (status === "error" ? statusMessage ?? "Recording could not start." : null);
+  const wordCount = transcript.trim() ? transcript.trim().split(/\s+/).length : 0;
+  const settingsPending = settingsControlsDisabled(saveState);
+
+  const refreshActiveTab = useCallback(async () => {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const captureTab: CaptureTab | undefined = tab
+        ? { id: tab.id, active: tab.active, url: tab.url, audible: tab.audible, mutedInfo: tab.mutedInfo }
+        : undefined;
+      setReadiness(assessCaptureTab(captureTab));
+      return captureTab;
+    } catch {
+      setReadiness({
+        eligible: false,
+        meetingName: "Browser meeting",
+        message: "Decker could not inspect the active tab. Reopen the popup and try again.",
+      });
+      return undefined;
+    }
+  }, []);
+
+  useEffect(() => {
+    const applyStatus = (payload: StatusPayload) => {
+      if (!statusUpdateIsCurrent(sessionIdRef.current, sessionGenerationRef.current, transcriptRevisionRef.current, payload)) return;
+      const nextGeneration = payload.sessionGeneration ?? sessionGenerationRef.current;
+      if (nextGeneration > sessionGenerationRef.current || (!sessionIdRef.current && payload.sessionId)) {
+        if (payload.sessionId) sessionIdRef.current = payload.sessionId;
+        sessionGenerationRef.current = nextGeneration;
+        transcriptRevisionRef.current = 0;
+        setTranscript("");
+        setWarnings([]);
+      }
+      if (payload.transcriptRevision !== undefined) transcriptRevisionRef.current = payload.transcriptRevision;
+      if (payload.captureSource !== undefined) setCaptureSource(payload.captureSource);
+      if (payload.includeMicrophone !== undefined) setIncludeMicrophone(payload.includeMicrophone);
+      setStatus(payload.status);
+      setStatusMessage(payload.message);
+      if (payload.warnings) setWarnings(payload.warnings);
+      if (payload.transcript !== undefined) setTranscript(payload.transcript);
+    };
+    const onMessage = (message: Message) => {
+      if (message.type === MessageType.STATUS_UPDATE) applyStatus(message.payload as StatusPayload);
+    };
+    chrome.runtime.onMessage.addListener(onMessage);
+    chrome.runtime.sendMessage<Message>({ type: MessageType.GET_FULL_STATE })
+      .then((response: FullStateResponse & { error?: string }) => {
+        if (!response || response.error) throw new Error(response?.error ?? "Decker could not restore the saved recording.");
+        applyStatus(response);
+        setProvider(response.provider);
+        setApiKey(response.apiKey);
+        setCredentialSaved(Boolean(response.apiKey.trim()));
+        setShowSettings(!response.apiKey.trim());
+        setHydrated(true);
+      })
+      .catch(reason => setError(reason instanceof Error ? reason.message : String(reason)));
+    return () => chrome.runtime.onMessage.removeListener(onMessage);
+  }, []);
+
+  useEffect(() => {
+    if (stage === "setup") keyInputRef.current?.focus();
+  }, [stage, provider]);
+
+  useEffect(() => {
+    void refreshActiveTab();
+    const refresh = () => { void refreshActiveTab(); };
+    chrome.tabs.onActivated?.addListener(refresh);
+    chrome.tabs.onUpdated?.addListener(refresh);
+    return () => {
+      chrome.tabs.onActivated?.removeListener(refresh);
+      chrome.tabs.onUpdated?.removeListener(refresh);
+    };
+  }, [refreshActiveTab]);
+
+  useEffect(() => {
+    let permission: PermissionStatus | undefined;
+    let mounted = true;
+    navigator.permissions.query({ name: "microphone" as PermissionName })
+      .then(result => {
+        if (!mounted) return;
+        permission = result;
+        const update = () => setMicState(result.state === "granted" ? "granted" : result.state === "denied" ? "denied" : "prompt");
+        update();
+        result.onchange = update;
+      })
+      .catch(() => { if (mounted) setMicState("unavailable"); });
+    return () => {
+      mounted = false;
+      if (permission) permission.onchange = null;
+    };
+  }, []);
+
+  const buttonStyle = useMemo(() => ({
+    width: "100%",
+    padding: "10px 14px",
+    border: "none",
+    borderRadius: 8,
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: "pointer",
+  } as const), []);
+
+  const openMicPermission = () => chrome.tabs.create({ url: chrome.runtime.getURL("permission.html") });
+
+  const handleProviderChange = (next: ProviderId) => {
+    if (settingsPending || next === provider) return;
+    setProvider(next);
+    setApiKey("");
+    setCredentialSaved(false);
+    setSaveState("idle");
+    setError(null);
   };
 
-  useEffect(() => {
-    const apply = (p: StatusPayload) => {
-      if (p.sessionId && p.sessionId !== sessionIdRef.current) {
-        sessionIdRef.current = p.sessionId;
-        revisionRef.current = 0;
-        setEdit(undefined);
-        setTranscript(null);
-        setTranscriptRevision(0);
-        setPoints([]);
-        setSelectedPoints(new Set());
-      }
-      if ((p.transcriptRevision ?? 0) < revisionRef.current) return;
-      setStatus(p.status);
-      setStatusMsg(p.message);
-      if (p.warnings) setWarnings(p.warnings);
-      if (p.transcript !== undefined) setTranscript(p.transcript);
-      if (p.transcriptRevision !== undefined) {
-        revisionRef.current = p.transcriptRevision;
-        setTranscriptRevision(p.transcriptRevision);
-      }
-      if (p.points) setPoints(p.points);
-      if (p.selectedPoints) setSelectedPoints(new Set(p.selectedPoints));
-      if (p.topicResearch) setTopicResearch(new Map(p.topicResearch.map(r => [r.topic, r])));
-    };
-    const handler = (message: Message) => {
-      if (message.type === MessageType.STATUS_UPDATE) apply(message.payload as StatusPayload);
-    };
-    chrome.runtime.onMessage.addListener(handler);
-    chrome.runtime.sendMessage<Message>({ type: MessageType.GET_FULL_STATE }).then((res: FullStateResponse & { error?: string }) => {
-      if (res?.error) throw new Error(res.error);
-      if (!res) throw new Error('Could not recover the session. Reopen Decker.');
-      apply(res);
-      setOpenaiKeyInput(res.openaiKey);
-      if (!res.openaiKey.trim()) setShowSettings(true);
-      setCustomPrompt(res.customPrompt);
-      setOutputFormat(res.outputFormat);
-      setEdit(res.edit);
-      setHydrated(true);
-    }).catch(err => setError(err instanceof Error ? err.message : String(err)));
-    return () => chrome.runtime.onMessage.removeListener(handler);
-  }, []);
+  const handleSaveKey = async () => {
+    if (settingsPending) return;
+    setError(null);
+    setSaveState("validating");
+    try {
+      const response = await chrome.runtime.sendMessage<Message<ApiSettings>>({
+        type: MessageType.SET_API_SETTINGS,
+        payload: { provider, apiKey: apiKey.trim() },
+      });
+      if (!response?.ok) throw new Error(response?.error ?? `${setup.label} could not validate this key.`);
+      setCredentialSaved(true);
+      setSaveState("saved");
+    } catch (reason) {
+      setCredentialSaved(false);
+      setSaveState("idle");
+      setError(reason instanceof Error ? reason.message : String(reason));
+    }
+  };
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        setIsOnMeet(!!(tab?.url?.includes("meet.google.com")));
-        try {
-          const perm = await navigator.permissions.query({ name: "microphone" as PermissionName });
-          setMicGranted(perm.state === "granted");
-        } catch {
-          setMicGranted(false);
-        }
-      } catch {
-        setIsOnMeet(false);
-        setMicGranted(false);
-      }
-    })();
-  }, []);
-
-  useEffect(() => {
-    liveTranscriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [transcript]);
-
-  const togglePoint = (idx: number) => {
-    const topic = points[idx];
-    const next = new Set(selectedPoints);
-    const selecting = !next.has(topic);
-    if (selecting) next.add(topic); else next.delete(topic);
-    setSelectedPoints(next);
-    saveReview({ selectedPoints: [...next] });
-    if (selecting) chrome.runtime.sendMessage({ type: MessageType.TOPIC_SELECTED, payload: { topic } }).catch(() => {});
+  const handleClearKey = async () => {
+    if (settingsPending) return;
+    setError(null);
+    setSaveState("clearing");
+    try {
+      const response = await chrome.runtime.sendMessage<Message>({ type: MessageType.CLEAR_PROVIDER_SETTINGS });
+      if (!response?.ok) throw new Error(response?.error ?? "Decker could not clear the saved key.");
+      setApiKey("");
+      setCredentialSaved(false);
+      setSaveState("idle");
+    } catch (reason) {
+      setSaveState("idle");
+      setError(reason instanceof Error ? reason.message : String(reason));
+    }
   };
 
   const handleStart = async () => {
@@ -189,574 +226,161 @@ export function Popup() {
     setStarting(true);
     try {
       const preflight = await chrome.runtime.sendMessage({ type: MessageType.PREFLIGHT });
-      if (!preflight?.ok) throw new Error(preflight?.error ?? 'Save an OpenAI key before recording.');
-      setMicDenied(false);
-      try {
-        const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        micStream.getTracks().forEach((t) => t.stop());
-      } catch {
-        setMicDenied(true);
+      if (!preflight?.ok) throw new Error(preflight?.error ?? `Save a ${setup.label} API key before recording.`);
+
+      const tab = await refreshActiveTab();
+      const currentReadiness = assessCaptureTab(tab);
+      if (!currentReadiness.eligible || !tab?.id) throw new Error(currentReadiness.message);
+
+      if (includeMicrophone) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream.getTracks().forEach(track => track.stop());
+          setMicState("granted");
+        } catch {
+          setMicState("denied");
+          throw new Error("Microphone access was denied. Turn off Include microphone to record tab audio only, or allow microphone access first.");
+        }
       }
 
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (!tab?.id) throw new Error("No active tab found.");
-      if (!tab.url?.includes("meet.google.com")) throw new Error("Navigate to a Google Meet first.");
-
       const streamId = await new Promise<string>((resolve, reject) => {
-        chrome.tabCapture.getMediaStreamId({ targetTabId: tab.id! }, (id) => {
-          if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+        chrome.tabCapture.getMediaStreamId({ targetTabId: tab.id }, id => {
+          if (chrome.runtime.lastError) reject(new Error(captureErrorMessage(chrome.runtime.lastError.message ?? "Capture permission was denied.")));
+          else if (!id) reject(new Error("Decker could not start tab audio capture. Reopen the meeting tab and try again."));
           else resolve(id);
         });
       });
 
       const started = await chrome.runtime.sendMessage<Message<StartRecordingStreamPayload>>({
         type: MessageType.START_RECORDING_WITH_STREAM,
-        payload: { tabId: tab.id, streamId },
+        payload: { tabId: tab.id, streamId, includeMicrophone },
       });
-      if (!started?.ok) throw new Error(started?.error ?? "Audio capture did not start.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      if (!started?.ok) throw new Error(captureErrorMessage(started?.error ?? "Audio capture did not start."));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
       setStarting(false);
     }
   };
 
-  const handleStop = () => {
-    chrome.runtime.sendMessage<Message>({ type: MessageType.STOP_RECORDING });
-    setStatus("processing");
-  };
-
-  const handleSaveKey = async () => {
+  const handleStop = async () => {
     setError(null);
-    try {
-      const response = await chrome.runtime.sendMessage<Message<ApiSettings>>({
-        type: MessageType.SET_API_SETTINGS,
-        payload: { openaiKey: openaiKeyInput.trim() },
-      });
-      if (!response?.ok) throw new Error(response?.error ?? "Could not save the OpenAI key.");
-      setKeySaved(true);
-      setTimeout(() => setKeySaved(false), 2000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
+    const response = await chrome.runtime.sendMessage<Message>({ type: MessageType.STOP_RECORDING }).catch(() => null);
+    if (!response?.ok) setError(response?.error ?? "Decker could not stop the recorder. Reopen the popup to recover the session.");
   };
 
-  const handleClearKey = async () => {
-    setError(null);
-    try {
-      const response = await chrome.runtime.sendMessage<Message>({
-        type: MessageType.CLEAR_PROVIDER_SETTINGS,
-      });
-      if (!response?.ok) throw new Error(response?.error ?? "Could not clear the OpenAI key.");
-      setOpenaiKeyInput("");
-      setKeySaved(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  };
-
-  const handleFeedback = async () => {
-    const activation = await getActivationState().catch(() => null);
-    const steps = completedMilestones(activation).join(", ") || "none recorded";
-    const subject = encodeURIComponent("Decker first meeting feedback");
-    const body = encodeURIComponent(
-      `Decker version: ${chrome.runtime.getManifest().version}\n` +
-      `Local activation steps: ${steps}\n\n` +
-      "Was the output usable?\n\n" +
-      "What did you change before sharing it?\n\n" +
-      "Where did you get stuck?\n\n" +
-      "Please do not include private meeting content or your API key."
-    );
-    chrome.tabs.create({ url: `mailto:aishwaryshrivastava@gmail.com?subject=${subject}&body=${body}` });
-  };
-
-  const handleSelectAll = () => {
-    setSelectedPoints(new Set(points));
-    saveReview({ selectedPoints: points });
-    points.forEach(topic => {
-      chrome.runtime.sendMessage({ type: MessageType.TOPIC_SELECTED, payload: { topic } }).catch(() => {});
-    });
-  };
-
-  const handleDeselectAll = () => {
-    setSelectedPoints(new Set());
-    saveReview({ selectedPoints: [] });
-  };
-
-  const editIsCurrent = edit?.baseRevision === transcriptRevision;
-  const editedTranscript = editIsCurrent ? edit!.text : transcript ?? '';
-  const handleGenerateDeck = async () => {
-    setError(null);
-    try {
-      const response = await chrome.runtime.sendMessage<Message<GenerateDeckPayload>>({
-        type: MessageType.GENERATE_DECK,
-        payload: {
-          sessionId: sessionIdRef.current, selectedPoints: points.filter(p => selectedPoints.has(p)),
-          customPrompt: customPrompt.trim(), transcript: editedTranscript,
-          transcriptRevision, transcriptEdited: editIsCurrent, outputFormat,
-        },
-      });
-      if (!response?.ok) throw new Error(response?.error ?? 'Generation did not start.');
-    } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
-  };
-
-  const handleReset = async () => {
-    try {
-      const response = await chrome.runtime.sendMessage<Message>({ type: MessageType.RESET_STATE });
-      if (!response?.ok) throw new Error(response?.error ?? 'Could not reset the session.');
-      window.location.reload();
-    } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
-  };
-
-  const handleOpenHtml = () => {
-    chrome.runtime.sendMessage<Message>({ type: MessageType.GET_LAST_HTML }, (res: { html?: string | null }) => {
-      if (res?.html) {
-        const blob = new Blob([res.html], { type: "text/html" });
-        chrome.tabs.create({ url: URL.createObjectURL(blob) });
-      }
-    });
-  };
-
-  const handleCopyHtml = () => {
-    chrome.runtime.sendMessage<Message>({ type: MessageType.GET_LAST_HTML }, (res: { html?: string | null }) => {
-      if (res?.html) {
-        navigator.clipboard.writeText(res.html);
-        setCopiedHtml(true);
-        setTimeout(() => setCopiedHtml(false), 2000);
-      }
-    });
-  };
-
-  const transcriptToUse = editedTranscript.trim();
-  const canGenerate = transcriptToUse.length >= 50;
-  const allSelected = points.length > 0 && selectedPoints.size === points.length;
-
-  const isIdle = status === "idle";
-  const hasOpenaiKey = openaiKeyInput.trim().length > 0;
-  const isRecording = status === "recording";
-  const isBusy = ["processing", "finalizing", "transcribing", "extracting"].includes(status);
-  const isReviewing = hydrated && status === "reviewing";
-  const isGeneratingOrResearching = ["generating", "researching"].includes(status);
-  const isDone = status === "done" || status === "error";
-  const showTopics = points.length > 0 && (isRecording || isReviewing);
-
-  const btn = (primary: boolean) => ({
-    width: "100%",
-    padding: "10px 16px",
-    background: primary ? C.blue : "transparent",
-    color: primary ? C.bg : C.muted,
-    border: primary ? "none" : `1px solid ${C.border}`,
-    borderRadius: 8,
-    fontSize: 13,
-    fontWeight: 700 as const,
-    cursor: "pointer" as const,
-  });
+  const micLabel = !includeMicrophone ? "Microphone excluded"
+    : micState === "granted" ? "Microphone ready"
+    : micState === "denied" ? "Microphone blocked"
+    : micState === "checking" ? "Checking microphone"
+    : "Microphone permission needed";
 
   return (
-    <div style={{ padding: "14px 16px", minWidth: 320, maxWidth: 420, background: C.bg, minHeight: "100%" }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+    <main style={{ padding: "14px 16px", minWidth: 340, maxWidth: 420, background: C.bg, color: C.text, minHeight: "100%" }}>
+      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <img src={chrome.runtime.getURL("icons/icon48.png")} width={28} height={28} style={{ borderRadius: 6 }} alt="Decker" />
+          <img src={chrome.runtime.getURL("icons/icon48.png")} width={28} height={28} style={{ borderRadius: 6 }} alt="" />
           <span style={{ fontSize: 17, fontWeight: 800, color: C.blue }}>Decker</span>
         </div>
-        <button onClick={() => setShowSettings((s) => !s)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: C.muted, padding: 4 }} title="Settings">⚙</button>
-      </div>
+        <button type="button" onClick={() => setShowSettings(value => !value)} aria-label="Settings" style={{ background: "none", border: "none", color: C.dimText, cursor: "pointer", fontSize: 14 }}>
+          Settings
+        </button>
+      </header>
 
-      {/* Settings */}
-      {showSettings && (
-        <div style={{ marginBottom: 12, padding: 12, background: C.surface, borderRadius: 8, border: `1px solid ${C.border}` }}>
-          <button onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL("permission.html") })} style={{ ...btn(false), marginBottom: 12, padding: "6px 12px", fontSize: 11 }}>
-            🎤 Allow microphone
-          </button>
-
-          <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 4 }}>
-            OpenAI key <span style={{ color: "#10b981", fontFamily: "monospace" }}>sk-…</span>
-            <span style={{ color: C.muted }}> · transcription, topics, research, generation</span>
-          </label>
-          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-            <input
-              type={showOpenaiKey ? "text" : "password"}
-              value={openaiKeyInput}
-              onChange={(e) => setOpenaiKeyInput(e.target.value)}
-              placeholder="sk-proj-…"
-              style={{ flex: 1, padding: 7, borderRadius: 6, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 12 }}
-            />
-            <button onClick={() => setShowOpenaiKey((s) => !s)} style={{ ...btn(false), width: 36, padding: 0 }}>{showOpenaiKey ? "🙈" : "👁"}</button>
+      {stage === "setup" && (
+        <section style={{ marginBottom: 12, padding: 12, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8 }}>
+          <div role="group" aria-label="AI provider" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 12 }}>
+            {(["openai", "gemini"] as ProviderId[]).map(option => (
+              <button key={option} type="button" aria-pressed={provider === option} disabled={settingsPending} onClick={() => handleProviderChange(option)} style={{ ...buttonStyle, padding: "8px", color: provider === option ? C.bg : C.text, background: provider === option ? C.blue : C.bg, border: `1px solid ${provider === option ? C.blue : C.border}` }}>
+                {providerSetup(option).label}
+              </button>
+            ))}
           </div>
 
-          <p style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
-            Your key is saved in local extension storage and sent to OpenAI to authenticate requests.
-            Local debug logs can contain topic text and API errors. The developer receives no automatic telemetry.
-            Use Clear key to remove the saved credential. Uninstall to remove local logs; downloaded files remain.
+          <label htmlFor="provider-key" style={{ display: "block", fontSize: 12, marginBottom: 5 }}>{setup.keyLabel}</label>
+          <div style={{ display: "flex", gap: 6 }}>
+            <input ref={keyInputRef} id="provider-key" type={showKey ? "text" : "password"} value={apiKey} placeholder={setup.placeholder} disabled={settingsPending}
+              onChange={event => { setApiKey(event.target.value); setCredentialSaved(false); setSaveState("idle"); }}
+              style={{ flex: 1, minWidth: 0, padding: 8, borderRadius: 6, border: `1px solid ${C.border}`, background: C.bg, color: C.text }} />
+            <button type="button" disabled={settingsPending} onClick={() => setShowKey(value => !value)} style={{ padding: "0 10px", borderRadius: 6, border: `1px solid ${C.border}`, background: C.bg, color: C.dimText, cursor: "pointer" }}>
+              {showKey ? "Hide" : "Show"}
+            </button>
+          </div>
+          <a href={setup.helpUrl} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", marginTop: 7, color: C.blue, fontSize: 11 }}>{setup.helpText}</a>
+          <p style={{ color: C.dimText, fontSize: 11, lineHeight: 1.5, margin: "9px 0" }}>
+            Decker saves this key in extension storage. Requests go directly to {setup.label}; the developer does not receive your key or meeting content.
           </p>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button disabled={!hasOpenaiKey} onClick={handleSaveKey} style={{ ...btn(true), padding: "7px 12px", opacity: hasOpenaiKey ? 1 : 0.5 }}>{keySaved ? "Saved ✓" : "Save key"}</button>
-            <button onClick={handleClearKey} style={{ ...btn(false), padding: "7px 12px" }}>Clear key</button>
+          <div style={{ display: "flex", gap: 7 }}>
+            <button type="button" disabled={!apiKey.trim() || settingsPending} onClick={handleSaveKey}
+              style={{ ...buttonStyle, flex: 1, padding: "8px", color: C.bg, background: C.blue, opacity: apiKey.trim() ? 1 : 0.5 }}>
+              {saveState === "validating" ? "Checking key..." : saveState === "saved" ? "Key saved" : "Save key"}
+            </button>
+            <button type="button" disabled={settingsPending} onClick={handleClearKey} style={{ ...buttonStyle, width: "auto", padding: "8px 12px", color: C.text, background: "transparent", border: `1px solid ${C.border}` }}>
+              {saveState === "clearing" ? "Clearing..." : "Clear key"}
+            </button>
           </div>
-        </div>
+        </section>
       )}
 
-      {/* Status bar */}
-      <div style={{
-        fontSize: 12,
-        color: isRecording ? C.red : isBusy || isGeneratingOrResearching ? C.amber : isDone ? (status === "error" ? C.red : C.green) : C.muted,
-        marginBottom: 10,
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-      }}>
-        {isRecording && <span style={{ width: 8, height: 8, borderRadius: "50%", background: C.red, animation: "pulse 1.2s infinite", flexShrink: 0 }} />}
-        {(isBusy || isGeneratingOrResearching) && <span style={{ width: 11, height: 11, border: `2px solid ${C.amber}`, borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite", flexShrink: 0 }} />}
-        <span>{statusText(status, statusMsg)}</span>
-      </div>
-
-      {error && <div style={{ fontSize: 11, color: C.red, marginBottom: 10, padding: 8, background: "rgba(239,68,68,0.1)", borderRadius: 6 }}>{error}</div>}
-
+      {displayedError && <div role="alert" style={{ marginBottom: 10, padding: 9, borderRadius: 6, color: C.red, background: "rgba(239,68,68,0.1)", fontSize: 11, lineHeight: 1.45 }}>{displayedError}</div>}
       {warnings.length > 0 && (
-        <div role="alert" style={{ fontSize: 11, color: C.amber, marginBottom: 10, padding: 8, background: C.surface, borderRadius: 6 }}>
-          <strong>Capture warnings</strong>
-          <ul style={{ margin: '6px 0 0', paddingLeft: 16 }}>{warnings.map(w => <li key={w}>{w}</li>)}</ul>
+        <div role="alert" style={{ marginBottom: 10, padding: 9, borderRadius: 6, color: C.amber, background: C.surface, fontSize: 11 }}>
+          {warnings.map(warning => <div key={warning}>{warning}</div>)}
         </div>
       )}
-      {edit && !editIsCurrent && <p role="alert" style={{ color: C.amber, fontSize: 11 }}>New transcript segments arrived after your edit. The complete transcript is shown below; review it before generating.</p>}
 
-      {/* ── IDLE ── */}
-      {isIdle && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ padding: 10, background: C.surface, borderRadius: 8, border: `1px solid ${C.border}` }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: C.text, marginBottom: 7 }}>Ready for the first meeting?</div>
-            <div style={{ display: "grid", gap: 5, fontSize: 11 }}>
-              <span style={{ color: hasOpenaiKey ? C.green : C.amber }}>{hasOpenaiKey ? "1. OpenAI key saved" : "1. Add an OpenAI key in Settings"}</span>
-              <span style={{ color: isOnMeet ? C.green : C.muted }}>{isOnMeet ? "2. Google Meet tab ready" : "2. Open a Google Meet tab"}</span>
-              <span style={{ color: micGranted ? C.green : C.muted }}>{micGranted ? "3. Microphone allowed" : "3. Allow the microphone if you want your voice captured"}</span>
-            </div>
-            {!hasOpenaiKey && (
-              <button onClick={() => setShowSettings(true)} style={{ ...btn(false), marginTop: 9, padding: "7px 10px", fontSize: 11 }}>
-                Add OpenAI key
-              </button>
-            )}
-            {isOnMeet === false && (
-              <button onClick={() => chrome.tabs.create({ url: "https://meet.new" })} style={{ ...btn(false), marginTop: 9, padding: "7px 10px", fontSize: 11 }}>
-                Open a test meeting
-              </button>
-            )}
+      {stage === "readiness" && (
+        <section>
+          <h1 style={{ fontSize: 15, margin: "0 0 10px" }}>Ready to record</h1>
+          {savedNotice && <div role="status" style={{ marginBottom: 9, padding: 9, borderRadius: 6, color: C.green, background: C.surface, fontSize: 11 }}>{savedNotice}</div>}
+          <div style={{ padding: 11, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, display: "grid", gap: 8, fontSize: 12 }}>
+            <div style={{ color: credentialSaved ? C.green : C.amber }}>{credentialSaved ? `${setup.label} key saved` : `Save a ${setup.label} API key`}</div>
+            <div style={{ color: readiness.eligible ? C.green : C.amber }}>{readiness.message}</div>
+            {readiness.warning && <div style={{ color: C.amber }}>{readiness.warning}</div>}
+            <div style={{ color: includeMicrophone && micState !== "granted" ? C.amber : C.green }}>{micLabel}</div>
           </div>
-          {isOnMeet === false && (
-            <div style={{ padding: 10, background: C.surface, borderRadius: 8, fontSize: 12, color: C.amber, border: `1px solid ${C.border}` }}>
-              Open a <strong>Google Meet</strong> tab first.
-            </div>
+
+          {!credentialSaved && <button type="button" onClick={() => setShowSettings(true)} style={{ ...buttonStyle, marginTop: 9, color: C.text, background: "transparent", border: `1px solid ${C.border}` }}>Set up provider</button>}
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 11, fontSize: 12, color: C.text }}>
+            <input type="checkbox" checked={includeMicrophone} onChange={event => setIncludeMicrophone(event.target.checked)} />
+            Include my microphone
+          </label>
+          {includeMicrophone && micState !== "granted" && (
+            <button type="button" onClick={openMicPermission} style={{ ...buttonStyle, marginTop: 8, color: C.text, background: "transparent", border: `1px solid ${C.border}` }}>Allow microphone access</button>
           )}
-          {(isOnMeet === true || isOnMeet === null) && (
+
+          <p style={{ margin: "11px 0", color: C.dimText, fontSize: 11, lineHeight: 1.55 }}>
+            Decker records eligible browser tabs and checks the captured audio signal after starting. Native Zoom, Teams, and Webex apps are not supported.
+          </p>
+          <p style={{ margin: "0 0 11px", color: C.dimText, fontSize: 11, lineHeight: 1.55 }}>
+            By starting, you confirm that you have permission to record. Audio and transcript content go directly to {setup.label} using your key. Provider API charges may apply. One recovery session is stored on this device. <a href="https://decker.techforgood.studio/privacy" target="_blank" rel="noopener noreferrer" style={{ color: C.blue }}>Privacy policy</a>
+          </p>
+          <button type="button" onClick={handleStart} disabled={starting || !hydrated || !credentialSaved || !readiness.eligible}
+            style={{ ...buttonStyle, color: C.bg, background: C.blue, opacity: hydrated && credentialSaved && readiness.eligible ? 1 : 0.5 }}>
+            {starting ? "Starting recording..." : "Start recording"}
+          </button>
+        </section>
+      )}
+
+      {stage === "recording" && (
+        <section style={{ padding: 13, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: status === "recording" ? C.red : C.amber, fontSize: 13, fontWeight: 700 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: status === "recording" ? C.red : C.amber }} />
+            {statusText(status, statusMessage)}
+          </div>
+          {status === "recording" && (
             <>
-              {isOnMeet === true && (
-                <div style={{ display: "flex", gap: 8, fontSize: 11, color: C.muted }}>
-                  <span style={{ color: C.green }}>✓ Meet tab</span>
-                  {micGranted === true && <span style={{ color: C.green }}>✓ Mic</span>}
-                  {micGranted === false && <span style={{ color: C.amber }}>⚠ Mic not allowed</span>}
-                </div>
-              )}
-              {micGranted === false && (
-                <button onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL("permission.html") })} style={btn(false)}>
-                  🎤 Allow microphone
-                </button>
-              )}
-              <p style={{ margin: 0, fontSize: 12, color: C.text, lineHeight: 1.5 }}>
-                Start Recording sends Meet audio and your microphone, when available, directly to OpenAI
-                for transcription using your key. Transcript content, selected topics, and instructions
-                also go to OpenAI for summaries and generation. API charges apply.
-                The developer does not receive these requests. Obtain any required participant consent.
-                One recovery session, including pending audio and transcript content, is stored locally in IndexedDB.
-                {" "}<a href="https://decker.techforgood.studio/privacy" target="_blank" rel="noopener noreferrer" style={{ color: C.blue }}>Privacy policy</a>
-              </p>
-              <button onClick={handleStart} disabled={starting || !hydrated || !hasOpenaiKey} style={{ ...btn(true), opacity: hasOpenaiKey ? 1 : 0.55 }}>
-                {starting ? "Starting…" : "▶  Start Recording"}
-              </button>
+              <div style={{ marginTop: 9, color: C.dimText, fontSize: 11 }}>{captureSource?.name ?? readiness.meetingName}, {includeMicrophone ? "tab audio and microphone" : "tab audio only"}</div>
+              <div style={{ marginTop: 5, color: C.dimText, fontSize: 11 }}>{wordCount ? `${wordCount} words transcribed so far` : "Listening for speech..."}</div>
+              <button type="button" onClick={handleStop} style={{ ...buttonStyle, marginTop: 12, color: "#fff", background: C.red }}>Stop recording</button>
             </>
           )}
-        </div>
+          {status !== "recording" && <p style={{ margin: "9px 0 0", color: C.dimText, fontSize: 11 }}>Keep Decker open while the last audio segments are saved.</p>}
+        </section>
       )}
 
-      {/* HTML may include resources or code supplied by the model. */}
-      {(isReviewing || status === "done") && (
-        <p style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
-          Generated HTML is saved to Downloads and can load external resources or run code when opened.
-          Review it before opening or sharing. Copy HTML writes the output to your clipboard.
-        </p>
-      )}
-
-      {/* ── RECORDING ── */}
-      {isRecording && (
-        <div>
-          {/* Live topics — show as they're discovered */}
-          {showTopics && (
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <span style={{ fontSize: 11, color: C.muted }}>Topics discovered</span>
-                <button onClick={allSelected ? handleDeselectAll : handleSelectAll} style={{ background: "none", border: "none", color: C.blue, cursor: "pointer", fontSize: 11 }}>
-                  {allSelected ? "Deselect all" : "Select all"}
-                </button>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                {points.map((p, i) => {
-                  const research = topicResearch.get(p);
-                  return (
-                    <label key={p} style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "7px 10px", background: selectedPoints.has(p) ? C.accentDim : C.surface2, border: `1px solid ${selectedPoints.has(p) ? C.accentBorder : C.border}`, borderRadius: 6, cursor: "pointer" }}>
-                      <input type="checkbox" checked={selectedPoints.has(p)} onChange={() => togglePoint(i)} style={{ marginTop: 2, flexShrink: 0, accentColor: C.blue }} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12, color: C.text, lineHeight: 1.4 }}>{p}</div>
-                        <ResearchPill research={research} />
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
-              <p style={{ fontSize: 10, color: C.muted, marginTop: 5 }}>
-                Select topics to research in background. New topics appear as Decker listens.
-              </p>
-            </div>
-          )}
-
-          {/* Live transcript toggle */}
-          {transcript && transcript.trim().length > 0 && (
-            <div style={{ marginBottom: 10 }}>
-              <button
-                onClick={() => setShowTranscriptEdit((s) => !s)}
-                style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 11, padding: 0 }}
-              >
-                {showTranscriptEdit ? "▲ Hide" : "▼ Show"} transcript ({transcript.split(" ").filter(Boolean).length} words)
-              </button>
-              {showTranscriptEdit && (
-                <div style={{ marginTop: 6, maxHeight: 140, overflowY: "auto", padding: 8, borderRadius: 6, border: `1px solid ${C.border}`, background: C.surface, color: C.dimText, fontSize: 11, lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                  {transcript}
-                  <div ref={liveTranscriptEndRef} />
-                </div>
-              )}
-            </div>
-          )}
-
-          <button onClick={handleStop} style={{ ...btn(true), background: C.red, color: "#fff" }}>
-            ■  Stop & Transcribe
-          </button>
-          {micDenied && (
-            <p style={{ marginTop: 8, fontSize: 10, color: C.amber }}>
-              Tab audio only.{" "}
-              <button onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL("permission.html") })} style={{ background: "none", border: "none", color: C.blue, cursor: "pointer", textDecoration: "underline", padding: 0, fontSize: 10 }}>
-                Allow mic
-              </button>{" "}
-              to capture your voice.
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* ── BUSY (processing/transcribing/extracting) ── */}
-      {isBusy && (
-        <div style={{ padding: "14px 12px", textAlign: "center", color: C.dimText, fontSize: 12, background: C.surface, borderRadius: 8, border: `1px solid ${C.border}` }}>
-          {statusMsg ?? statusText(status)}
-        </div>
-      )}
-
-      {/* ── GENERATING / RESEARCHING ── */}
-      {isGeneratingOrResearching && (
-        <div style={{ padding: 12, background: C.surface, borderRadius: 8, border: `1px solid ${C.border}` }}>
-          <div style={{ fontSize: 11, color: C.dimText, marginBottom: 6 }}>{statusMsg ?? "Working…"}</div>
-          {points.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-              {points.filter(p => selectedPoints.has(p)).map((p) => {
-                const r = topicResearch.get(p);
-                const isDone = r?.status === "done";
-                const isWorking = r?.status === "researching";
-                return (
-                  <div key={p} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11 }}>
-                    {isDone ? (
-                      <span style={{ color: C.green }}>✓</span>
-                    ) : isWorking ? (
-                      <span style={{ width: 8, height: 8, border: `1px solid ${C.amber}`, borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block", flexShrink: 0 }} />
-                    ) : (
-                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: C.border, flexShrink: 0 }} />
-                    )}
-                    <span style={{ color: isDone ? C.dimText : C.muted }}>{p}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── REVIEWING ── */}
-      {isReviewing && (
-        <div style={{ marginTop: 4 }}>
-          {statusMsg && <p role="alert" style={{ color: C.amber, fontSize: 11 }}>{statusMsg}</p>}
-          {(transcript?.trim()?.length ?? 0) < 50 && points.length === 0 && (
-            <div style={{ fontSize: 11, color: C.amber, marginBottom: 10, padding: 8, background: C.surface, borderRadius: 6 }}>
-              Transcript too short. Paste or type your meeting transcript below.
-            </div>
-          )}
-
-          {/* Topics with research */}
-          {points.length > 0 && (
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <span style={{ fontSize: 11, color: C.muted }}>Topics ({points.length})</span>
-                <button onClick={allSelected ? handleDeselectAll : handleSelectAll} style={{ background: "none", border: "none", color: C.blue, cursor: "pointer", fontSize: 11 }}>
-                  {allSelected ? "Deselect all" : "Select all"}
-                </button>
-              </div>
-              <div style={{ maxHeight: 260, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
-                {points.map((p, i) => {
-                  const research = topicResearch.get(p);
-                  return (
-                    <label key={p} style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "8px 10px", background: selectedPoints.has(p) ? C.accentDim : C.surface2, border: `1px solid ${selectedPoints.has(p) ? C.accentBorder : C.border}`, borderRadius: 7, cursor: "pointer" }}>
-                      <input type="checkbox" checked={selectedPoints.has(p)} onChange={() => togglePoint(i)} style={{ marginTop: 2, flexShrink: 0, accentColor: C.blue }} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12, color: C.text, lineHeight: 1.4, fontWeight: 500 }}>{p}</div>
-                        <ResearchPill research={research} />
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Transcript (collapsed by default) */}
-          <div style={{ marginBottom: 12 }}>
-            <button onClick={() => setShowTranscriptEdit((s) => !s)} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 11, padding: 0, marginBottom: 4 }}>
-              {showTranscriptEdit ? "▲ Hide" : "▼ Edit"} transcript
-            </button>
-            {showTranscriptEdit && (
-              <textarea
-                value={editedTranscript}
-                onChange={(e) => {
-                  const next = { text: e.target.value, baseRevision: transcriptRevision };
-                  setEdit(next);
-                  saveReview({ edit: next });
-                }}
-                placeholder={transcript || "Paste or type your meeting transcript…"}
-                rows={6}
-                style={{ width: "100%", padding: 8, borderRadius: 6, border: `1px solid ${C.border}`, background: C.surface, color: C.text, fontSize: 11, resize: "vertical" }}
-              />
-            )}
-          </div>
-
-          {/* Output format */}
-          <div style={{ marginBottom: 10 }}>
-            <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 4 }}>Output</label>
-            <select
-              value={outputFormat}
-              onChange={(e) => {
-                const next = e.target.value as OutputFormat;
-                setOutputFormat(next);
-                saveReview({ outputFormat: next });
-              }}
-              style={{ width: "100%", padding: 7, borderRadius: 6, border: `1px solid ${C.border}`, background: C.surface, color: C.text, fontSize: 11 }}
-            >
-              <option value="prototype">Static Prototype — AI builds the app</option>
-              <option value="presentation">Presentation — HTML slide deck</option>
-              <option value="notes">Discussion SPA — product brief website</option>
-              <option value="doc">Meeting Brief — structured document</option>
-            </select>
-            {outputFormat === "prototype" && (
-              <p style={{ fontSize: 10, color: C.muted, marginTop: 5, lineHeight: 1.5 }}>
-                Decker generates an HTML prototype from the discussion. Review it before opening or sharing.
-              </p>
-            )}
-            {outputFormat === "presentation" && (
-              <p style={{ fontSize: 10, color: C.muted, marginTop: 5, lineHeight: 1.5 }}>
-                A beautiful HTML slide deck — click or arrow-key to navigate. Share in chat as a single file.
-              </p>
-            )}
-            {outputFormat === "notes" && (
-              <p style={{ fontSize: 10, color: C.muted, marginTop: 5, lineHeight: 1.5 }}>
-                A full website covering everything discussed — hero, sections, insights. Not notes, a brief.
-              </p>
-            )}
-            {outputFormat === "doc" && (
-              <p style={{ fontSize: 10, color: C.muted, marginTop: 5, lineHeight: 1.5 }}>
-                Structured document with per-topic summaries, key decisions, and an action items table.
-              </p>
-            )}
-          </div>
-
-          {/* Custom prompt — hint changes for prototype */}
-          <textarea
-            value={customPrompt}
-            onChange={(e) => {
-              setCustomPrompt(e.target.value);
-              saveReview({ customPrompt: e.target.value });
-            }}
-            placeholder={
-              outputFormat === "prototype"
-                ? "Anything specific to build? (optional — the model decides if blank)"
-                : "Custom instructions (optional)"
-            }
-            rows={2}
-            style={{ width: "100%", padding: 8, borderRadius: 6, border: `1px solid ${C.border}`, background: C.surface, color: C.text, fontSize: 11, marginBottom: 10, resize: "vertical" }}
-          />
-
-          <button onClick={handleGenerateDeck} disabled={!canGenerate} style={{ ...btn(true), opacity: canGenerate ? 1 : 0.5 }}>
-            {outputFormat === "prototype" ? "Build Prototype"
-              : outputFormat === "presentation" ? "Build Presentation"
-              : outputFormat === "notes" ? "Build Discussion Site"
-              : "Generate Brief"}
-            {selectedPoints.size > 0 ? ` (${selectedPoints.size} topics)` : ""}
-          </button>
-          {!canGenerate && transcriptToUse.length > 0 && (
-            <div style={{ fontSize: 10, color: C.muted, marginTop: 5 }}>Need 50+ chars to generate</div>
-          )}
-        </div>
-      )}
-
-      {transcript && !isRecording && !isBusy && (
-        <button onClick={() => navigator.clipboard.writeText([editedTranscript, ...warnings].join('\n\n')).catch(() => setError('Could not copy transcript. Select and copy it from the transcript field.'))}
-          style={{ ...btn(false), marginTop: 8, fontSize: 11 }}>Copy transcript</button>
-      )}
-
-      {isReviewing && (
-        <button onClick={handleReset} style={{ ...btn(false), marginTop: 8, fontSize: 11 }}>Discard session & start over</button>
-      )}
-
-      {/* ── DONE / ERROR ── */}
-      {isDone && (
-        <div style={{ marginTop: 8 }}>
-          <div style={{ fontSize: 11, color: status === "error" ? C.red : C.green, marginBottom: 10, padding: 8, background: status === "error" ? "rgba(239,68,68,0.08)" : "rgba(52,211,153,0.08)", borderRadius: 6 }}>
-            {statusMsg ?? (status === "error" ? "An error occurred" : "Saved to Downloads")}
-          </div>
-          {status === "done" && (
-            <div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={handleOpenHtml} style={{ ...btn(false), padding: "8px 12px", fontSize: 11, flex: 1 }}>Open HTML</button>
-                <button onClick={handleCopyHtml} style={{ ...btn(false), padding: "8px 12px", fontSize: 11, flex: 1 }}>
-                  {copiedHtml ? "Copied" : "Copy HTML"}
-                </button>
-              </div>
-              <button onClick={handleFeedback} style={{ ...btn(false), marginTop: 8, padding: "8px 12px", fontSize: 11 }}>
-                Share first-meeting feedback
-              </button>
-            </div>
-          )}
-          <button
-            onClick={handleReset}
-            style={{ ...btn(false), marginTop: 8, padding: "7px 12px", fontSize: 11 }}
-          >
-            Start over
-          </button>
-        </div>
-      )}
-
-      {isIdle && isOnMeet === true && (
-        <p style={{ marginTop: 10, fontSize: 10, color: C.muted, lineHeight: 1.5 }}>
-          Records tab audio + mic. Topics appear live as Decker listens. Select topics to auto-research them.
-        </p>
-      )}
-
-      <style>{`
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        * { box-sizing: border-box; }
-      `}</style>
-    </div>
+      <style>{`* { box-sizing: border-box; } body { margin: 0; background: ${C.bg}; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; } button:disabled { cursor: not-allowed; }`}</style>
+    </main>
   );
 }

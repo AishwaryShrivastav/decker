@@ -55,6 +55,7 @@ export interface TopicResearch {
 
 export interface StatusPayload {
   sessionId?: string;
+  sessionGeneration?: number;
   transcriptRevision?: number;
   warnings?: string[];
   selectedPoints?: string[];
@@ -63,6 +64,13 @@ export interface StatusPayload {
   transcript?: string;
   points?: string[];
   topicResearch?: TopicResearch[];
+  captureSource?: CaptureSource | null;
+  includeMicrophone?: boolean;
+}
+
+export interface CaptureSource {
+  tabId: number;
+  name: string;
 }
 
 export interface Message<T = unknown> {
@@ -73,6 +81,7 @@ export interface Message<T = unknown> {
 export interface OffscreenStartPayload {
   sessionId: string;
   streamId: string;
+  includeMicrophone: boolean;
 }
 
 export interface AudioChunkPayload {
@@ -95,10 +104,12 @@ export interface ApiSettings {
 export interface StartRecordingStreamPayload {
   tabId: number;
   streamId: string;
+  includeMicrophone: boolean;
 }
 
 export interface FullStateResponse {
   sessionId: string;
+  sessionGeneration: number;
   transcriptRevision: number;
   warnings: string[];
   selectedPoints: string[];
@@ -114,6 +125,8 @@ export interface FullStateResponse {
   provider: "openai" | "gemini";
   apiKey: string;
   openaiKey: string;
+  captureSource: CaptureSource | null;
+  includeMicrophone: boolean;
 }
 
 export interface TopicSelectedPayload {

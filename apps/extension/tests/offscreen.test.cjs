@@ -100,3 +100,12 @@ test('actual microphone denial is returned to the worker and missing tab audio p
   assert.match((await missing.send('OFFSCREEN_START', { sessionId: 'test', streamId: 'test-stream' })).error, /No tab audio/);
   assert.equal(missing.recorders.length, 0);
 });
+
+test('microphone capture is skipped when the popup excludes it', async () => {
+  const h = recorderHarness({ denyMic: true });
+  const started = await h.send('OFFSCREEN_START', { sessionId: 'test', streamId: 'test-stream', includeMicrophone: false });
+  assert.equal(started.ok, true);
+  assert.equal(started.warnings.length, 0);
+  await h.send('OFFSCREEN_STOP');
+  await turn();
+});

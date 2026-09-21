@@ -34,11 +34,11 @@ No Decker server is required for the extension. Audio and transcript content go 
 
 | Browser | Status |
 |---------|--------|
-| Chrome | ✅ Supported |
-| Brave | ✅ Supported |
-| Arc | ✅ Supported |
-| Edge | ✅ Supported |
-| Firefox | 🚧 Scaffold exists, recording pipeline coming soon |
+| Chrome | Supported |
+| Brave | Supported |
+| Arc | Supported |
+| Edge | Supported |
+| Firefox | Not supported in v0.1.4 |
 
 ---
 
@@ -171,7 +171,7 @@ Decker/
 │   │           └── types.ts          # Shared TypeScript types + enums
 │   └── web/                         # Next.js landing page (not required to use extension)
 ├── scripts/
-│   ├── package-extension.sh         # Zip dist/ for Chrome Web Store / Firefox Add-ons
+│   ├── package-extension.sh         # Zip dist/ for the Chrome Web Store
 │   └── generate-icons.js
 └── README.md
 ```
@@ -187,15 +187,11 @@ pnpm install
 # Build Chrome extension → apps/extension/dist/
 pnpm --filter extension build
 
-# Build Firefox extension → apps/extension/dist-firefox/
-pnpm --filter extension build:firefox
-
 # Run the landing page locally (optional)
 pnpm --filter web dev
 
 # Package extension for store submission
 bash scripts/package-extension.sh chrome
-bash scripts/package-extension.sh firefox
 ```
 
 After any code change, rebuild and then click **↺ refresh** on the Decker card at `chrome://extensions`.

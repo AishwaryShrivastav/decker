@@ -7,8 +7,7 @@
     "dev:extension": "pnpm --filter extension build:watch",
     "build:web": "pnpm --filter web build",
     "build:extension": "pnpm --filter extension build",
-    "watch:extension": "pnpm --filter extension build:watch",
-    "build:firefox": "pnpm --filter extension build:firefox"
+    "watch:extension": "pnpm --filter extension build:watch"
   },
   "devDependencies": {
     "typescript": "^5.4.5"

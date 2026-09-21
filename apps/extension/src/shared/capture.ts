@@ -1,12 +1,15 @@
-import type { AudioChunkPayload, OutputFormat, RecordingStatus, TopicResearch } from './types';
+import type { AudioChunkPayload, CaptureSource, OutputFormat, RecordingStatus, TopicResearch } from './types';
 
 export interface TranscriptEdit { text: string; baseRevision: number }
 export interface PendingChunk extends AudioChunkPayload { attempts: number }
 export interface CaptureSession {
   id: string;
+  generation: number;
   status: RecordingStatus;
   message?: string;
   tabId: number | null;
+  captureSource: CaptureSource | null;
+  includeMicrophone: boolean;
   transcript: string;
   transcriptRevision: number;
   edit?: TranscriptEdit;
@@ -22,14 +25,17 @@ export interface CaptureSession {
   html: string | null;
 }
 
-export function freshSession(id = crypto.randomUUID()): CaptureSession {
-  return { id, status: 'idle', tabId: null, transcript: '', transcriptRevision: 0,
+export function freshSession(id = crypto.randomUUID(), generation = 0): CaptureSession {
+  return { id, generation, status: 'idle', tabId: null, captureSource: null, includeMicrophone: true, transcript: '', transcriptRevision: 0,
     points: [], selectedPoints: [], customPrompt: '', outputFormat: 'doc', research: [],
     warnings: [], queue: [], lastSequence: -1, finalReceived: false, html: null };
 }
 
 export function recoverSession(saved: CaptureSession): CaptureSession {
   const state = structuredClone(saved);
+  if (!Number.isInteger(state.generation)) state.generation = 0;
+  if (!state.captureSource || typeof state.captureSource.tabId !== 'number' || typeof state.captureSource.name !== 'string') state.captureSource = null;
+  if (typeof state.includeMicrophone !== 'boolean') state.includeMicrophone = true;
   state.research = state.research.map(r => r.status === 'researching' ? { ...r, status: 'error' } : r);
   if (['generating', 'researching'].includes(state.status)) {
     state.status = 'reviewing';

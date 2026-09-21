@@ -33,7 +33,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     allow.disabled = true;
     status.style.display = "block";
     status.className = "status pending";
-    status.textContent = "Requesting…";
+    status.textContent = "Requesting access...";
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -43,8 +43,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       allow.style.display = "none";
     } catch (err) {
       const msg = err.name === "NotAllowedError"
-        ? "Permission denied. Click the lock/camera icon in the address bar to allow microphone for this extension."
-        : err.message || "Failed to access microphone.";
+        ? "Permission denied. Allow microphone access for this extension in the browser's address bar."
+        : err.message || "Decker could not access the microphone.";
       status.className = "status error";
       status.textContent = msg;
       allow.disabled = false;

@@ -41,6 +41,7 @@ import {
   saveProviderSettings,
   type StoredProviderSettings,
 } from "../shared/providerSettings";
+import { assessCaptureTab, captureErrorMessage } from "../shared/tabReadiness";
 
 // The durable session is the source of truth. Runtime locks are reconstructed.
 let session = freshSession();
@@ -49,6 +50,7 @@ let finalizing: Promise<void> | null = null;
 let isExtractingTopics = false;
 let providerSettings: StoredProviderSettings = { version: 1, provider: "openai", apiKey: "" };
 let provider: ProviderAdapter = createProviderAdapter(providerSettings, fetch);
+let providerSettingsMutations: Promise<void> = Promise.resolve();
 
 // Live topic + research state
 const topicResearchMap = new Map<string, TopicResearch>();
@@ -70,6 +72,12 @@ async function debugLog(msg: string): Promise<void> {
 async function persist(): Promise<void> {
   session.research = Array.from(topicResearchMap.values());
   await saveSession(session);
+}
+
+function queueProviderSettingsMutation<T>(operation: () => Promise<T>): Promise<T> {
+  const result = providerSettingsMutations.catch(() => {}).then(operation);
+  providerSettingsMutations = result.then(() => undefined, () => undefined);
+  return result;
 }
 
 const ready = (async () => {
@@ -153,6 +161,8 @@ function broadcastStatus(
   session.status = status;
   session.message = message;
   const payload: StatusPayload = { status, message, ...extra, sessionId: session.id,
+    sessionGeneration: session.generation, captureSource: session.captureSource,
+    includeMicrophone: session.includeMicrophone,
     transcriptRevision: session.transcriptRevision, warnings: session.warnings,
     selectedPoints: session.selectedPoints };
   void persist().catch(() => {
@@ -302,15 +312,19 @@ function checkKey(): void {
   }
 }
 
-async function startRecordingWithStream(tabId: number, streamId: string): Promise<void> {
+async function startRecordingWithStream(tabId: number, streamId: string, includeMicrophone: boolean): Promise<void> {
   checkKey();
   if (!['idle', 'done', 'error', 'reviewing'].includes(session.status) || chunkProcessing || finalizing) {
     throw new Error('A capture or generation is already in progress.');
   }
   const tab = await chrome.tabs.get(tabId);
-  if (!tab.url || new URL(tab.url).hostname !== 'meet.google.com') throw new Error('Open a Google Meet tab first.');
-  session = freshSession();
+  const readiness = assessCaptureTab(tab);
+  if (!readiness.eligible) throw new Error(readiness.message);
+  session = freshSession(undefined, session.generation + 1);
   session.tabId = tabId;
+  session.captureSource = { tabId, name: readiness.meetingName };
+  session.includeMicrophone = includeMicrophone;
+  if (readiness.warning) addWarning(session, readiness.warning);
   session.status = 'processing';
   topicResearchMap.clear();
   researchInProgress.clear();
@@ -318,16 +332,17 @@ async function startRecordingWithStream(tabId: number, streamId: string): Promis
   try {
     await ensureOffscreenDocument();
     const response = await chrome.runtime.sendMessage<Message<OffscreenStartPayload>>({
-      type: MessageType.OFFSCREEN_START, payload: { streamId, sessionId: session.id },
+      type: MessageType.OFFSCREEN_START, payload: { streamId, sessionId: session.id, includeMicrophone },
     }) as { ok?: boolean; error?: string; warnings?: string[] };
     if (!response?.ok) throw new Error(response?.error ?? 'Audio capture did not start.');
     response.warnings?.forEach(w => addWarning(session, w));
     broadcastStatus('recording');
     void recordActivation('recording_started').catch(() => {});
   } catch (error) {
-    broadcastStatus('error', error instanceof Error ? error.message : String(error));
+    const message = captureErrorMessage(error instanceof Error ? error.message : String(error));
+    broadcastStatus('error', message);
     await closeOffscreenDocument();
-    throw error;
+    throw new Error(message);
   }
 }
 
@@ -563,13 +578,15 @@ async function handleMessage(msg: Message, sender: chrome.runtime.MessageSender)
     case MessageType.GET_FULL_STATE: {
       void resumeSession().catch(reportQueueFailure);
       const fullState: FullStateResponse = {
-        sessionId: session.id, status: session.status, message: session.message,
+        sessionId: session.id, sessionGeneration: session.generation,
+        status: session.status, message: session.message,
         transcript: session.transcript, transcriptRevision: session.transcriptRevision,
         points: session.points, selectedPoints: session.selectedPoints, warnings: session.warnings,
         customPrompt: session.customPrompt, outputFormat: session.outputFormat, edit: session.edit,
         topicResearch: Array.from(topicResearchMap.values()), hasHtml: session.html !== null,
         provider: providerSettings.provider, apiKey: providerSettings.apiKey,
         openaiKey: providerSettings.provider === 'openai' ? providerSettings.apiKey : '',
+        captureSource: session.captureSource, includeMicrophone: session.includeMicrophone,
       };
       return fullState;
     }
@@ -584,26 +601,30 @@ async function handleMessage(msg: Message, sender: chrome.runtime.MessageSender)
     }
     case MessageType.SET_API_SETTINGS: {
       const payload = msg.payload as ApiSettings;
-      const selection: ProviderSelection = payload.provider && payload.apiKey !== undefined
-        ? { provider: payload.provider, apiKey: payload.apiKey.trim() }
-        : { provider: 'openai', apiKey: payload.openaiKey?.trim() ?? '' };
-      const nextProvider = createProviderAdapter(selection, fetch);
-      if (selection.apiKey) await nextProvider.validateKey();
-      providerSettings = await saveProviderSettings(chrome.storage.local, selection);
-      provider = nextProvider;
-      if (selection.apiKey) void recordActivation('key_saved').catch(() => {});
-      return { ok: true };
+      return queueProviderSettingsMutation(async () => {
+        const selection: ProviderSelection = payload.provider && payload.apiKey !== undefined
+          ? { provider: payload.provider, apiKey: payload.apiKey.trim() }
+          : { provider: 'openai', apiKey: payload.openaiKey?.trim() ?? '' };
+        const nextProvider = createProviderAdapter(selection, fetch);
+        if (selection.apiKey) await nextProvider.validateKey();
+        providerSettings = await saveProviderSettings(chrome.storage.local, selection);
+        provider = nextProvider;
+        if (selection.apiKey) void recordActivation('key_saved').catch(() => {});
+        return { ok: true };
+      });
     }
     case MessageType.CLEAR_PROVIDER_SETTINGS: {
-      await clearProviderSettings(chrome.storage.local);
-      providerSettings = { version: 1, provider: 'openai', apiKey: '' };
-      provider = createProviderAdapter(providerSettings, fetch);
-      return { ok: true };
+      return queueProviderSettingsMutation(async () => {
+        await clearProviderSettings(chrome.storage.local);
+        providerSettings = { version: 1, provider: 'openai', apiKey: '' };
+        provider = createProviderAdapter(providerSettings, fetch);
+        return { ok: true };
+      });
     }
     case MessageType.PREFLIGHT: checkKey(); return { ok: true };
     case MessageType.START_RECORDING_WITH_STREAM: {
       const payload = msg.payload as StartRecordingStreamPayload;
-      await startRecordingWithStream(payload.tabId, payload.streamId);
+      await startRecordingWithStream(payload.tabId, payload.streamId, payload.includeMicrophone !== false);
       return { ok: true };
     }
     case MessageType.START_RECORDING: return { error: 'Use Start Recording from the popup.' };
@@ -682,7 +703,7 @@ async function handleMessage(msg: Message, sender: chrome.runtime.MessageSender)
     }
     case MessageType.RESET_STATE: {
       if (chunkProcessing || finalizing || !['idle', 'reviewing', 'done', 'error'].includes(session.status)) return { error: 'Stop capture and wait for processing before resetting.' };
-      session = freshSession(); topicResearchMap.clear(); researchInProgress.clear();
+      session = freshSession(undefined, session.generation + 1); topicResearchMap.clear(); researchInProgress.clear();
       await persist(); return { ok: true };
     }
     case MessageType.GET_LAST_HTML: return { html: session.html };

@@ -17,6 +17,7 @@ function worker(saved, options = {}) {
   let closeCount = 0;
   const module = { exports: {} };
   const local = options.local ?? { openaiKey: options.noKey ? '' : 'test-only-key' };
+  let offscreenStartCount = 0;
   const chrome = {
     runtime: {
       onMessage: { addListener: fn => { listener = fn; } },
@@ -25,7 +26,11 @@ function worker(saved, options = {}) {
       getURL: p => `chrome-extension://test/${p}`,
       sendMessage: async msg => {
         if (msg.type === 'OFFSCREEN_STATUS') return options.capture ? options.capture() : options.captureGone ? undefined : { sessionId: saved?.id, active: true };
-        if (msg.type === 'OFFSCREEN_START') return { ok: true, warnings: [] };
+        if (msg.type === 'OFFSCREEN_START') {
+          offscreenStartCount++;
+          events.push(structuredClone(msg));
+          return options.offscreenStart ? options.offscreenStart(msg, offscreenStartCount) : { ok: true, warnings: [] };
+        }
         if (msg.type === 'OFFSCREEN_STOP') return { ok: true };
         events.push(structuredClone(msg)); return { ok: true };
       },
@@ -35,7 +40,7 @@ function worker(saved, options = {}) {
       set: async patch => Object.assign(local, patch),
       remove: async keys => keys.forEach(key => delete local[key]),
     } },
-    tabs: { get: async () => ({ url: 'https://meet.google.com/abc-defg-hij' }), sendMessage: async () => {} },
+    tabs: { get: async () => options.tab ?? ({ id: 1, url: 'https://meet.google.com/abc-defg-hij', audible: true, mutedInfo: { muted: false } }), sendMessage: async () => {} },
     offscreen: { closeDocument: async () => { closeCount++; }, createDocument: async () => {}, Reason: { USER_MEDIA: 'USER_MEDIA' } },
     downloads: { download: async () => 1 },
   };
@@ -59,7 +64,7 @@ function worker(saved, options = {}) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText, context);
   const send = (type, payload) => new Promise(resolve => listener({ type, payload }, {}, resolve));
-  return { send, events, requests, local, get stored() { return stored; }, get closeCount() { return closeCount; } };
+  return { send, events, requests, local, get stored() { return stored; }, get closeCount() { return closeCount; }, get offscreenStartCount() { return offscreenStartCount; } };
 }
 
 const audio = (sequence, text = 'Final decision: release Friday after the owner signs off.') => ({ sessionId: 'test', sequence, base64: Buffer.from(text).toString('base64'), mimeType: 'audio/webm' });
@@ -266,6 +271,68 @@ test('explicit provider clear removes credentials and resets the cached adapter'
   assert.match((await w.send('PREFLIGHT')).error, /OpenAI key/);
 });
 
+function successfulProviderValidation(url) {
+  if (url.includes('api.openai.com') && url.endsWith('/chat/completions')) {
+    return new Response(JSON.stringify({ choices: [{ message: { content: '' } }] }));
+  }
+  if (url.includes('api.openai.com') && url.endsWith('/audio/transcriptions')) {
+    return new Response(JSON.stringify({ text: '' }));
+  }
+  if (url.endsWith('/upload/v1beta/files')) {
+    return new Response('{}', { headers: { 'x-goog-upload-url': 'https://generativelanguage.googleapis.com/upload/validation' } });
+  }
+  if (url.endsWith('/upload/validation')) {
+    return new Response(JSON.stringify({ file: { name: 'files/validation', uri: 'https://files.example/validation' } }));
+  }
+  if (url.endsWith('/v1beta/interactions')) return new Response(JSON.stringify({ output_text: '' }));
+  if (url.endsWith('/v1beta/files/validation')) return new Response('{}');
+  if (url.includes(':generateContent')) return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '' }] } }] }));
+  throw new Error(`Unexpected validation URL: ${url}`);
+}
+
+test('a clear requested after a delayed save wins in provider mutation order', async () => {
+  let release;
+  let validationStarted = false;
+  const gate = new Promise(resolve => { release = resolve; });
+  const local = { openaiKey: 'sk-existing' };
+  const w = worker(freshSession('test'), { local, fetch: async (url) => {
+    validationStarted = true;
+    await gate;
+    return successfulProviderValidation(url);
+  } });
+
+  const save = w.send('SET_API_SETTINGS', { provider: 'openai', apiKey: 'sk-delayed' });
+  await until(() => validationStarted);
+  const clear = w.send('CLEAR_PROVIDER_SETTINGS');
+  release();
+  assert.equal((await save).ok, true);
+  assert.equal((await clear).ok, true);
+  assert.equal('providerSettings' in local, false);
+  assert.equal('openaiKey' in local, false);
+});
+
+test('a provider change requested after a delayed save wins in provider mutation order', async () => {
+  let release;
+  let delayedStarted = false;
+  const gate = new Promise(resolve => { release = resolve; });
+  const local = { openaiKey: 'sk-existing' };
+  const w = worker(freshSession('test'), { local, fetch: async (url, init) => {
+    if (init?.headers?.Authorization === 'Bearer sk-delayed') {
+      delayedStarted = true;
+      await gate;
+    }
+    return successfulProviderValidation(url);
+  } });
+
+  const first = w.send('SET_API_SETTINGS', { provider: 'openai', apiKey: 'sk-delayed' });
+  await until(() => delayedStarted);
+  const second = w.send('SET_API_SETTINGS', { provider: 'gemini', apiKey: 'gemini-latest' });
+  release();
+  assert.equal((await first).ok, true);
+  assert.equal((await second).ok, true);
+  assert.deepEqual(local.providerSettings, { version: 1, provider: 'gemini', apiKey: 'gemini-latest' });
+});
+
 
 test('reopening the popup probes a stalled final delivery even when the worker is still alive', async () => {
   const saved = freshSession('test'); saved.status = 'processing';
@@ -283,4 +350,72 @@ test('reopening the popup probes a stalled final delivery even when the worker i
   await w.send('GET_FULL_STATE');
   await until(() => w.stored?.status === 'reviewing');
   assert.match(w.stored.transcript, /Final decision/);
+});
+
+test('background accepts supported browser meetings with audio warnings and rejects unsupported tabs', async () => {
+  const audible = worker(freshSession('test'), { tab: { id: 1, url: 'https://calls.example.org/room', audible: true, mutedInfo: { muted: false } } });
+  assert.equal((await audible.send('START_RECORDING_WITH_STREAM', { tabId: 1, streamId: 'stream', includeMicrophone: false })).ok, true);
+
+  const muted = worker(freshSession('test'), { tab: { id: 1, url: 'https://app.zoom.us/wc/1', audible: true, mutedInfo: { muted: true } } });
+  assert.equal((await muted.send('START_RECORDING_WITH_STREAM', { tabId: 1, streamId: 'stream', includeMicrophone: true })).ok, true);
+  await until(() => muted.stored?.status === 'recording');
+  assert.match(muted.stored.warnings.join(' '), /muted.*capture.*silent/i);
+
+  const unsupported = worker(freshSession('test'), { tab: { id: 1, url: 'chrome://settings', audible: true } });
+  assert.match((await unsupported.send('START_RECORDING_WITH_STREAM', { tabId: 1, streamId: 'stream', includeMicrophone: true })).error, /browser does not allow/);
+  assert.equal(unsupported.offscreenStartCount, 0);
+
+  const inactive = worker(freshSession('test'), { tab: { id: 1, active: false, url: 'https://meet.google.com/a', audible: true } });
+  assert.match((await inactive.send('START_RECORDING_WITH_STREAM', { tabId: 1, streamId: 'stream', includeMicrophone: true })).error, /active meeting tab/);
+  assert.equal(inactive.offscreenStartCount, 0);
+});
+
+test('capture source, microphone choice, and session generation survive reopening', async () => {
+  const first = worker(freshSession('test', 4), { tab: { id: 1, url: 'https://app.zoom.us/wc/1', audible: false, mutedInfo: { muted: false } } });
+  assert.equal((await first.send('START_RECORDING_WITH_STREAM', { tabId: 1, streamId: 'stream', includeMicrophone: false })).ok, true);
+  await until(() => first.stored?.status === 'recording');
+  const live = await first.send('GET_FULL_STATE');
+  assert.equal(live.sessionGeneration, 5);
+  assert.equal(live.captureSource.tabId, 1);
+  assert.equal(live.captureSource.name, 'Zoom Web');
+  assert.equal(live.includeMicrophone, false);
+  assert.match(live.warnings.join(' '), /No tab audio.*captured signal/i);
+
+  const reopened = worker(first.stored);
+  const restored = await reopened.send('GET_FULL_STATE');
+  assert.equal(restored.sessionGeneration, 5);
+  assert.equal(restored.captureSource.tabId, 1);
+  assert.equal(restored.captureSource.name, 'Zoom Web');
+  assert.equal(restored.includeMicrophone, false);
+});
+
+test('capture denial gives recovery steps, leaves a recoverable session, and allows retry', async () => {
+  const saved = freshSession('test');
+  const w = worker(saved, { offscreenStart: (_msg, count) => count === 1
+    ? { error: 'Tab capture permission was denied.' }
+    : { ok: true, warnings: [] } });
+
+  const denied = await w.send('START_RECORDING_WITH_STREAM', { tabId: 1, streamId: 'denied', includeMicrophone: true });
+  assert.match(denied.error, /permission was denied/i);
+  assert.match(denied.error, /Select the meeting tab.*audio is playing.*reopen Decker.*try again/i);
+  await until(() => w.stored?.status === 'error');
+  assert.equal(w.stored.message, denied.error);
+  assert.equal((await w.send('START_RECORDING_WITH_STREAM', { tabId: 1, streamId: 'retry', includeMicrophone: false })).ok, true);
+  await until(() => w.stored?.status === 'recording');
+  assert.equal(w.offscreenStartCount, 2);
+  const startMessages = w.events.filter(event => event.type === 'OFFSCREEN_START');
+  assert.equal(startMessages.at(-1).payload.includeMicrophone, false);
+});
+
+test('background start failures are normalized without losing the durable error state', async () => {
+  const saved = freshSession('test');
+  const w = worker(saved, { offscreenStart: () => ({ error: 'Audio device failed unexpectedly.' }) });
+
+  const failed = await w.send('START_RECORDING_WITH_STREAM', { tabId: 1, streamId: 'stream', includeMicrophone: true });
+
+  assert.match(failed.error, /Audio capture did not start/i);
+  assert.match(failed.error, /Select the meeting tab.*audio is playing.*reopen Decker.*try again/i);
+  assert.doesNotMatch(failed.error, /device failed unexpectedly/i);
+  await until(() => w.stored?.status === 'error');
+  assert.equal(w.stored.message, failed.error);
 });

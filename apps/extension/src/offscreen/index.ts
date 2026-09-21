@@ -42,15 +42,19 @@ async function startRecording(payload: OffscreenStartPayload): Promise<string[]>
       }, video: false,
     });
     if (!tabStream.getAudioTracks().some(t => t.readyState === 'live')) {
-      throw new Error('No tab audio track was captured. Reopen the Meet tab and try again.');
+      throw new Error('No tab audio track was captured. Return to the meeting tab, play audio, and try again.');
     }
-    try {
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      if (!micStream.getAudioTracks().some(t => t.readyState === 'live')) throw new Error('No live microphone');
-    } catch {
-      micStream?.getTracks().forEach(t => t.stop());
+    if (payload.includeMicrophone !== false) {
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        if (!micStream.getAudioTracks().some(t => t.readyState === 'live')) throw new Error('No live microphone');
+      } catch {
+        micStream?.getTracks().forEach(t => t.stop());
+        micStream = null;
+        warnings.push('Microphone unavailable. Only tab audio is being captured; your voice may be missing. Allow microphone access in Settings.');
+      }
+    } else {
       micStream = null;
-      warnings.push('Microphone unavailable. Only tab audio is being captured; your voice may be missing. Allow microphone access in Settings.');
     }
     if (tabStream.getAudioTracks().some(t => t.muted)) warnings.push('The tab audio track is muted. Check that meeting audio is playing.');
 

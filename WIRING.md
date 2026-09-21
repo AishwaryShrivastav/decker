@@ -32,7 +32,7 @@ Worker restart resumes pending transcription and finalization. Interrupted gener
 
 ## Verification and real-Meet checks
 
-Automated tests use synthetic audio, API responses, and Chrome lifecycle events. Run `pnpm --filter extension test`, `pnpm --filter extension exec tsc --noEmit`, `pnpm --filter extension build`, and `pnpm --filter extension build:firefox`. Firefox build success does not provide Firefox recording support; that capture implementation remains absent.
+Automated tests use synthetic audio, API responses, and Chrome lifecycle events. Run `pnpm --filter extension test`, `pnpm --filter extension exec tsc --noEmit`, and `pnpm --filter extension build`. Decker v0.1.4 supports Chromium browsers only. The repository does not produce a Firefox artifact because Firefox capture has no implemented recorder path.
 
 Before release, load the Chrome build and check these in a real Meet call:
 
