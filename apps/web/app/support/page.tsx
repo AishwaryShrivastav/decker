@@ -19,18 +19,19 @@ const MAILTO =
   "?subject=" +
   encodeURIComponent("Decker support request") +
   "&body=" +
-  encodeURIComponent("Support request details:\n\nIssue:\n\nChrome version:\n\nMeet URL or environment:\n\nSteps to reproduce:\n");
+  encodeURIComponent("Support request details:\n\nIssue:\n\nBrowser and version:\n\nOpenAI or Gemini:\n\nMeeting service or page:\n\nSteps to reproduce:\n");
 
 export const metadata: Metadata = {
   title: "Support | Decker",
   description: "Get help with Decker installation, recording setup, a first meeting, or output generation.",
+  alternates: { canonical: "/support" },
 };
 
 export default function SupportPage() {
   const checks = [
-    "Chrome version and browser",
-    "OpenAI key and active billing status",
-    "Meet URL and permissions granted",
+    "Chromium browser and version",
+    "OpenAI or Gemini, with billing or quota status",
+    "Meeting service, tab mute state, and permissions granted",
     "Transcript review sequence used",
     "Exact browser popup error text, if any",
   ];
@@ -48,7 +49,7 @@ export default function SupportPage() {
         <div style={{ marginBottom: 12, fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: C.accent }}>Support</div>
         <h1 style={{ fontSize: "clamp(2rem, 4vw, 2.8rem)", fontWeight: 800, color: C.text, letterSpacing: "-1.5px", margin: "0 0 12px", lineHeight: 1.1 }}>Assisted setup and support</h1>
         <p style={{ color: C.muted, fontSize: "0.9rem", margin: "0 0 40px", lineHeight: 1.7 }}>
-          Decker is public on the Chrome Web Store. Use this page for setup help, a first-meeting pilot, or troubleshooting.
+          Decker is public on the Chrome Web Store. Use this page for provider setup, browser-tab recording, transcript review, or output help.
         </p>
 
         <div style={{ display: "grid", gap: 16 }}>
@@ -80,7 +81,7 @@ export default function SupportPage() {
           <div style={{ padding: "24px", background: C.surface, border: `1px solid ${C.accentBorder}`, borderRadius: 12 }}>
             <h2 style={{ fontSize: "1.04rem", margin: "0 0 10px", color: C.text }}>If you want an assisted pilot</h2>
             <p style={{ color: C.muted, lineHeight: 1.72, fontSize: "0.93rem", margin: 0 }}>
-              Send a message with your target meeting window. We can help with installation, run one rehearsal, and review whether the generated artifact was useful.
+              Send a message with your meeting service and target time. We can help with installation, run one browser-tab rehearsal, and review the generated artifact.
             </p>
           </div>
         </div>

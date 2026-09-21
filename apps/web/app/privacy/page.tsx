@@ -1,6 +1,7 @@
 export const metadata = {
   title: "Privacy Policy | Decker",
-  description: "How Decker sends meeting content to OpenAI, stores data locally, and handles website and support requests.",
+  description: "How Decker validates OpenAI or Gemini keys, processes meeting content, deletes temporary Gemini audio files, and stores recovery data locally.",
+  alternates: { canonical: "/privacy" },
 };
 
 const C = {
@@ -18,36 +19,40 @@ const C = {
 export default function PrivacyPolicy() {
   const sections = [
     {
-      title: "Recording and OpenAI processing",
-      body: "When you click Start Recording, Decker captures the active Google Meet tab audio and, if microphone access is available, mixes in your voice. Audio chunks are sent directly from your browser to OpenAI for transcription while recording, with a final segment after you stop. Transcript content, selected topics, your instructions, and generated research context are sent to OpenAI for topic summaries and document generation. Requests use HTTPS and your own OpenAI API key. OpenAI receives this content and your key; API usage is billed to your OpenAI account."
+      title: "Provider connection and validation",
+      body: "You choose OpenAI or Gemini and supply your own API key. Before Decker saves the key, it sends live capability probes to that provider for both text models and audio transcription. The text probes contain a single period. The audio probe is a generated silent WAV file. These checks can use provider quota and appear in provider logs. Requests use HTTPS and go directly from the extension to the selected provider. Decker does not send the key to its developer."
+    },
+    {
+      title: "Recording and direct processing",
+      body: "When you click Start Recording, Decker captures audio from the active eligible browser tab. It can mix in your microphone after you grant permission. Muted tabs and tabs with no recent audio remain eligible, so Decker shows a warning and checks the captured track and audio signal after recording starts. Native meeting apps cannot be captured by this browser extension. Audio segments go directly to the selected provider for transcription. Transcript text, selected topics, instructions, and generated topic context go to the same provider for text processing. Provider charges or quota use may apply."
+    },
+    {
+      title: "Gemini temporary audio files",
+      body: "Gemini transcription requires each audio segment to be uploaded as a temporary Gemini file. Decker asks Gemini to process that file with storage disabled, then waits for the file deletion request before it finishes the transcription step. A failed deletion is retried up to three times. If all three attempts fail, Decker keeps the transcript and adds a warning with the Gemini file name to the local recovery session and review page. Decker cannot promise that Google deleted a file when Gemini returns a cleanup error. The same upload and awaited deletion flow runs for the silent validation audio."
+    },
+    {
+      title: "OpenAI and provider retention",
+      body: "OpenAI receives audio through its transcription API and receives text through its chat-completions API. Gemini receives temporary uploaded audio through its Files and Interactions APIs and receives text through its generation API. Provider processing, logs, and retention follow the terms and account controls for the provider you select. Decker cannot delete content already sent to OpenAI. For Gemini audio, Decker can report only whether the deletion request succeeded or failed."
     },
     {
       title: "What stays on your device",
-      body: "Your API key, a rolling log of up to 15 debug events, and four activation timestamps are saved in Chrome's local extension storage, without Chrome sync. The timestamps record when a key was saved, recording started, a transcript became ready, and an output was generated. They contain no meeting content and stay on your device unless you choose to include their labels in a feedback email. Decker does not add its own encryption to local storage. Logs can include selected topic text and API error responses. Decker also stores one recovery session in local IndexedDB. It can include pending audio segments, transcript text, selected topics, instructions, edits, warnings, research results, and generated HTML. Pending audio is removed after transcription succeeds or exhausts three attempts. Starting over or starting another recording replaces the saved session. This recovery record is not a complete recording archive."
+      body: "The selected provider and API key are saved in chrome.storage.local without Chrome Sync. Decker also stores up to 15 recent debug events and four timestamps for key saved, recording started, transcript ready, and output generated. Logs can include topic text, warnings, and provider error details. One recovery session is stored in local IndexedDB. It can contain pending audio segments, transcript text, selected topics, instructions, edits, warnings, topic context, and generated HTML. A pending segment is removed after transcription succeeds or after three failed transcription attempts. A new or reset session replaces the recovery record. Decker adds no separate encryption to this local data."
     },
     {
-      title: "Downloads and deletion",
-      body: "Generated HTML files are saved to your Downloads folder and remain until you delete them. The Copy HTML action writes the output to your clipboard. To remove a saved key, clear the key field and click Save key. Uninstalling the extension removes its local storage, including debug logs; it does not delete downloaded files, clipboard history, or data already sent to OpenAI. Revoke a key through your OpenAI account if you need to stop its use."
+      title: "Local deletion and downloads",
+      body: "Clear key removes the saved provider setting and any migrated OpenAI key. Resetting or starting a session replaces the IndexedDB recovery record. Uninstalling removes extension storage, including logs and recovery data. Generated HTML files stay in Downloads until you delete them. Copy HTML writes the output to the clipboard. These actions do not erase provider records, downloaded files, or clipboard history. Revoke a key in the provider account when needed."
     },
     {
       title: "What the developer receives",
-      body: "The extension's recording and generation pipeline sends no audio, transcripts, prompts, API keys, or automatic telemetry to the Decker developer. There is no Decker account requirement. If you email us for a pilot or support, we receive your email address and whatever you send. Public GitHub issues are visible to others. Review logs and remove sensitive content before sharing them; never send an API key."
+      body: "The extension sends no audio, transcript, prompt, API key, or automatic meeting-content telemetry to the Decker developer. No Decker account is required. If you email support or request a pilot, the developer receives your email address and message. GitHub issues are public. Remove sensitive content from logs before sharing them, and never send an API key."
     },
     {
-      title: "Website and separate web APIs",
-      body: "Visiting this website sends ordinary request information, such as your IP address and browser details, to the website host. Pages load Google Fonts, which sends font requests to Google. The checked-in website code has no analytics integration; hosting logs and their retention depend on the operator's configuration. The repository also contains separate web API routes for audio and text processing. The Chrome extension does not call them. If you call those routes on a deployment, its operator receives the submitted content and any API key in the request, and forwards processing requests to OpenAI or Anthropic depending on the route. This differs from the extension's direct-to-OpenAI flow."
+      title: "Website and generated HTML",
+      body: "The website host receives ordinary request data, including IP address and browser details. The pages request Google Fonts. The checked-in site has no analytics integration, though hosting logs depend on the operator's configuration. This repository contains separate web API routes that the extension does not call. A deployed route can receive content submitted directly to it. Generated HTML can load external fonts, scripts, styles, or other resources and can contain executable code. Review each file before opening or sharing it."
     },
     {
-      title: "External resources in outputs",
-      body: "Downloaded or opened HTML can request external fonts, scripts, styles, or other resources. The meeting document template uses Google Fonts. Model-generated presentations, prototypes, and discussion sites can include external resources or executable code. Opening or sharing a file can therefore cause additional network requests; an HTML file is not a guarantee of offline operation. Review generated content before opening or sharing it."
-    },
-    {
-      title: "Permissions and recording choices",
-      body: "Decker requests tabCapture for tab audio, offscreen for the recorder, storage for the key and local support data, activeTab to check and capture the Meet tab after you invoke the extension, and downloads for HTML exports. Its only persistent host access is api.openai.com for transcription and generation. Decker does not request broad tab access or persistent access to Google Meet. Microphone permission is requested separately. Browser or organization policies can block recording, installation, or OpenAI access. Tell participants about recording and OpenAI processing and obtain any required consent before starting."
-    },
-    {
-      title: "OpenAI data controls",
-      body: "OpenAI's processing and retention depend on the API endpoint, applicable terms, and your account's data controls. Decker does not control OpenAI retention or delete content already transmitted to OpenAI. Consult OpenAI's API data controls documentation before recording sensitive content."
+      title: "Permissions and recording limits",
+      body: "Decker uses tabCapture for user-initiated tab audio, offscreen for the recorder, storage for local settings and recovery support, activeTab to inspect and capture the selected tab, and downloads for HTML exports. Persistent host access is limited to the OpenAI and Gemini API origins. Microphone access uses a separate browser permission. Browser and organization policies can block installation, capture, microphones, or provider traffic. Tell participants which provider will process the meeting and obtain any required consent before recording."
     },
     {
       title: "Contact",
@@ -72,17 +77,19 @@ export default function PrivacyPolicy() {
           Privacy Policy
         </h1>
         <p style={{ color: C.muted, fontSize: "0.9rem", margin: "0 0 56px" }}>
-          Last updated: September 17, 2026
+          Last updated: September 21, 2026
         </p>
 
         <div style={{ padding: "24px 28px", background: C.surface, border: `1px solid ${C.accentBorder}`, borderLeft: `3px solid ${C.accent}`, borderRadius: 12, marginBottom: 48 }}>
           <p style={{ color: C.text, fontSize: "1rem", lineHeight: 1.8, margin: 0, fontWeight: 500 }}>
-            Decker sends recorded audio and transcript content directly from your browser to OpenAI using your own API key. The extension stores your key and debug logs locally. Its recording and generation pipeline does not send this content to the developer.
+            Connect OpenAI or Gemini with your own key. Decker sends meeting content directly to that provider, keeps one recovery session on your device, and sends no automatic meeting-content telemetry to the developer.
           </p>
         </div>
 
         <p style={{ marginBottom: 36 }}>
           <a href="https://developers.openai.com/api/docs/guides/your-data" style={{ color: C.accent }}>OpenAI API data controls</a>
+          <span style={{ color: C.dim, margin: "0 10px" }}>|</span>
+          <a href="https://ai.google.dev/gemini-api/terms" style={{ color: C.accent }}>Gemini API terms</a>
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
           {sections.map((s) => (

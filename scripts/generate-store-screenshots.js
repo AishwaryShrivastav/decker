@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Rebuild Store screenshots from the current extension UI and checked-in logo.
-// The images use fictional state only: masked key, test Meet, no private content.
+// The images use fictional state only: masked key, browser meeting, no private content.
 const path = require("node:path");
 const fs = require("node:fs/promises");
 const root = path.resolve(__dirname, "..");
@@ -37,52 +37,53 @@ async function main() {
   const logo = await logoData();
 
   const setup = `
-    <rect x="394" y="153" width="492" height="250" rx="14" fill="#0c1426" stroke="#1e3347"/>
-    <rect x="414" y="174" width="452" height="48" rx="9" fill="#080d19" stroke="#2a3854"/>
-    ${text(520, 205, "Allow microphone", 17, "#9aa8c2", 600)}
-    ${text(414, 253, "OpenAI key", 15, "#8da0bc", 400)}
-    ${text(502, 253, "sk-...", 15, "#34d399", 500)}
-    ${text(555, 253, "transcription, topics, generation", 14, "#6f819e", 400)}
-    <rect x="414" y="269" width="392" height="46" rx="8" fill="#080d19" stroke="#3b82f6" stroke-width="2"/>
-    ${text(432, 299, "••••••••••••••••••••••••", 19, "#e8f4fb", 500)}
-    <rect x="816" y="269" width="50" height="46" rx="8" fill="#080d19" stroke="#2a3854"/>
-    ${text(832, 300, "view", 12, "#8da0bc", 500)}
-    <rect x="414" y="332" width="452" height="48" rx="9" fill="#7c86ff"/>
-    ${text(607, 363, "Save key", 18, "#080d19", 700)}
-    ${text(394, 440, "Ready for the first meeting?", 18, "#e8f4fb", 700)}
-    <rect x="394" y="458" width="492" height="140" rx="13" fill="#0c1426" stroke="#1e3347"/>
-    ${text(418, 493, "1. OpenAI key saved", 16, "#34d399", 600)}
-    ${text(418, 531, "2. Open a Google Meet tab", 16, "#fbbf24", 500)}
-    ${text(418, 569, "3. Allow the microphone if you want your voice captured", 14, "#8da0bc", 400)}
-    <rect x="394" y="620" width="492" height="52" rx="10" fill="#18213b"/>
-    ${text(548, 653, "Open a test meeting", 17, "#c7d2fe", 700)}
-    ${text(454, 706, "Your key stays in local extension storage.", 14, "#6f819e", 400)}
+    <rect x="394" y="153" width="492" height="474" rx="14" fill="#0c1426" stroke="#1e3347"/>
+    <rect x="414" y="176" width="215" height="46" rx="8" fill="#7c86ff"/>
+    ${text(493, 205, "OpenAI", 16, "#080d19", 700)}
+    <rect x="639" y="176" width="227" height="46" rx="8" fill="#080d19" stroke="#2a3854"/>
+    ${text(723, 205, "Gemini", 16, "#e8f4fb", 700)}
+    ${text(414, 257, "OpenAI API key", 15, "#e8f4fb", 500)}
+    <rect x="414" y="272" width="382" height="46" rx="8" fill="#080d19" stroke="#3b82f6" stroke-width="2"/>
+    ${text(432, 302, "••••••••••••••••••••", 19, "#e8f4fb", 500)}
+    <rect x="806" y="272" width="60" height="46" rx="8" fill="#080d19" stroke="#2a3854"/>
+    ${text(820, 301, "Show", 13, "#8da0bc", 500)}
+    ${text(414, 345, "Get an OpenAI API key", 13, "#7c86ff", 500)}
+    ${text(414, 382, "Decker saves this key in extension storage.", 14, "#8da0bc", 400)}
+    ${text(414, 407, "Requests go directly to OpenAI; the developer does", 14, "#8da0bc", 400)}
+    ${text(414, 432, "not receive your key or meeting content.", 14, "#8da0bc", 400)}
+    <rect x="414" y="464" width="300" height="48" rx="9" fill="#7c86ff"/>
+    ${text(526, 495, "Save key", 17, "#080d19", 700)}
+    <rect x="724" y="464" width="142" height="48" rx="9" fill="#080d19" stroke="#2a3854"/>
+    ${text(759, 495, "Clear key", 16, "#e8f4fb", 600)}
+    <rect x="414" y="542" width="452" height="56" rx="9" fill="#091f30" stroke="#153c55"/>
+    ${text(437, 567, "Save runs live text and audio capability checks.", 13, "#9ab0c2", 400)}
+    ${text(437, 587, "Provider quota or charges may apply.", 13, "#9ab0c2", 400)}
   `;
 
   const ready = `
-    ${text(394, 174, "Ready for the first meeting?", 18, "#e8f4fb", 700)}
-    <rect x="394" y="192" width="492" height="148" rx="13" fill="#0c1426" stroke="#1e3347"/>
-    ${text(418, 229, "1. OpenAI key saved", 16, "#34d399", 600)}
-    ${text(418, 267, "2. Google Meet tab ready", 16, "#34d399", 600)}
-    ${text(418, 305, "3. Microphone allowed", 16, "#34d399", 600)}
-    ${text(394, 382, "Meet tab ready", 16, "#34d399", 600)}
-    ${text(530, 382, "Microphone ready", 16, "#34d399", 600)}
-    <rect x="394" y="408" width="492" height="58" rx="11" fill="#7c86ff"/>
-    ${text(549, 444, "Start Recording", 19, "#080d19", 700)}
-    ${text(394, 507, "Start Recording sends Meet audio and your microphone,", 15, "#8da0bc", 400)}
-    ${text(394, 532, "when available, directly to OpenAI for transcription.", 15, "#8da0bc", 400)}
-    ${text(394, 557, "Transcript content and selected topics also go to OpenAI.", 15, "#8da0bc", 400)}
-    ${text(394, 582, "API charges apply. Obtain any required participant consent.", 15, "#8da0bc", 400)}
-    <rect x="394" y="622" width="492" height="66" rx="11" fill="#091f30" stroke="#153c55"/>
-    ${text(417, 649, "What stays local", 14, "#1aade4", 700)}
-    ${text(417, 675, "No Decker account and no automatic developer telemetry.", 14, "#9ab0c2", 400)}
+    ${text(394, 174, "Ready to record", 19, "#e8f4fb", 700)}
+    <rect x="394" y="195" width="492" height="158" rx="13" fill="#0c1426" stroke="#1e3347"/>
+    ${text(418, 232, "Gemini key saved", 16, "#34d399", 600)}
+    ${text(418, 270, "Browser meeting is ready to capture.", 16, "#34d399", 600)}
+    ${text(418, 308, "Microphone ready", 16, "#34d399", 600)}
+    <rect x="396" y="383" width="18" height="18" rx="3" fill="#7c86ff"/>
+    ${text(400, 398, "✓", 14, "#080d19", 700)}
+    ${text(426, 398, "Include my microphone", 15, "#e8f4fb", 500)}
+    ${text(394, 444, "Decker records eligible browser tabs and checks the", 14, "#8da0bc", 400)}
+    ${text(394, 468, "captured audio signal after starting. Native meeting apps", 14, "#8da0bc", 400)}
+    ${text(394, 492, "are not supported.", 14, "#8da0bc", 400)}
+    ${text(394, 532, "Audio and transcript content go directly to Gemini using", 14, "#8da0bc", 400)}
+    ${text(394, 556, "your key. API charges may apply. One recovery session is", 14, "#8da0bc", 400)}
+    ${text(394, 580, "stored on this device.", 14, "#8da0bc", 400)}
+    <rect x="394" y="616" width="492" height="54" rx="10" fill="#7c86ff"/>
+    ${text(566, 650, "Start recording", 18, "#080d19", 700)}
   `;
 
   await sharp(frame(setup, logo)).flatten({ background: "#05111e" }).removeAlpha().png()
     .toFile(path.join(out, "01-popup-single-key.png"));
   await sharp(frame(ready, logo)).flatten({ background: "#05111e" }).removeAlpha().png()
     .toFile(path.join(out, "02-popup-ready.png"));
-  console.log("Generated two 1280x800 v0.1.3 Store screenshots from current setup copy and brand assets");
+  console.log("Generated two 1280x800 v0.1.4 Store screenshots from current provider and readiness copy");
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });

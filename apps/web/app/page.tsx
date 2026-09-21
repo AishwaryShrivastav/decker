@@ -2,14 +2,14 @@ const CHROME_STORE =
   "https://chromewebstore.google.com/detail/decker-google-meet-notes/khbafeikhdehdhpfcbdlfkpmmikbfihk";
 const GITHUB = "https://github.com/AishwaryShrivastav/decker";
 const PILOT_MAIL =
-  "mailto:aishwaryshrivastava@gmail.com?subject=Decker%20first%20meeting%20pilot&body=I%20have%20a%20Google%20Meet%20coming%20up.%0A%0AMeeting%20type%3A%0ADate%3A%0AWhat%20I%20need%20to%20leave%20with%3A%0A";
+  "mailto:aishwaryshrivastava@gmail.com?subject=Decker%20first%20meeting%20pilot&body=I%20have%20a%20browser%20meeting%20coming%20up.%0A%0AMeeting%20service%3A%0ADate%3A%0AWhat%20I%20need%20to%20leave%20with%3A%0A";
 
 const FIRST_MEETING = [
-  ["01", "Install and pin Decker", "Use Chrome, Brave, Arc, or Edge. The extension is free."],
-  ["02", "Save one OpenAI API key", "The key stays in local extension storage and OpenAI bills your account."],
-  ["03", "Run a two-minute rehearsal", "Open a Meet, allow the microphone, and confirm that words appear."],
-  ["04", "Record the decision portion", "Tell participants, obtain consent, and stop when the room reaches the close."],
-  ["05", "Review before you generate", "Correct the transcript, select the useful points, and choose the final format."],
+  ["01", "Install and pin Decker", "Use Chrome or another Chromium browser that can install Chrome extensions."],
+  ["02", "Connect OpenAI or Gemini", "Add your own provider key. Decker checks it before saving it on this device."],
+  ["03", "Run a two-minute rehearsal", "Open the meeting in a browser tab, allow the microphone if needed, and confirm that speech is transcribed."],
+  ["04", "Record the useful part", "Tell participants, obtain consent, and watch for silence or muted-tab warnings."],
+  ["05", "Review and open the artifact", "Correct the transcript, choose the useful points, generate an HTML file, then open it from Downloads."],
 ] as const;
 
 const OUTPUTS = [
@@ -38,19 +38,19 @@ export default function Home() {
       <section className="hero" id="top">
         <div className="release-line">
           <span className="live-dot" />
-          Public on the Chrome Web Store, version 0.1.2
+          Public on the Chrome Web Store
         </div>
         <div className="hero-copy">
           <h1>Close the call with the deck already made.</h1>
           <div className="hero-action">
             <p>
-              Decker records Google Meet from your browser, lets you check the transcript, and builds the artifact the room needs next.
+              Decker records a meeting tab in your Chromium browser, lets you correct the transcript, and builds the artifact the room needs next.
             </p>
             <div className="button-row">
               <a className="button" href={CHROME_STORE}>Add to Chrome</a>
               <a className="text-link" href="#first-meeting">Prepare your first meeting</a>
             </div>
-            <p className="microcopy">Free and open source. One OpenAI key. No meeting bot.</p>
+            <p className="microcopy">Free and open source. Bring an OpenAI or Gemini key. No meeting bot.</p>
           </div>
         </div>
 
@@ -97,7 +97,7 @@ export default function Home() {
       </section>
 
       <section className="statement-band">
-        <p>Record in your browser</p><p>Review the words</p><p>Generate the artifact</p><p>Leave with agreement</p>
+        <p>Connect a provider</p><p>Record the browser tab</p><p>Review the transcript</p><p>Open the artifact</p>
       </section>
 
       <section className="first-meeting section" id="first-meeting">
@@ -142,14 +142,14 @@ export default function Home() {
       <section className="trust-section section">
         <div className="trust-copy">
           <p className="eyebrow">Data path</p>
-          <h2>Your browser talks to OpenAI using your key.</h2>
-          <p>Meeting audio, transcript text, selected topics, and generation instructions go directly to OpenAI. Decker keeps one recovery session locally and sends no automatic product analytics to the developer.</p>
+          <h2>Your browser talks directly to your provider.</h2>
+          <p>Choose OpenAI or Gemini. Audio and text go to that provider with your key. Decker keeps the key and one recovery session locally and sends no automatic meeting-content telemetry to the developer.</p>
           <div className="trust-links"><a href="/privacy">Read the privacy policy</a><a href={GITHUB}>Inspect the source</a></div>
         </div>
         <div className="data-diagram" aria-label="Decker data path">
-          <div><span>1</span><strong>Google Meet</strong><small>Audio you choose to record</small></div><i />
-          <div><span>2</span><strong>Decker in Chrome</strong><small>Local key and recovery session</small></div><i />
-          <div><span>3</span><strong>OpenAI API</strong><small>Transcription and generation</small></div>
+          <div><span>1</span><strong>Browser meeting</strong><small>Audio from the active eligible tab</small></div><i />
+          <div><span>2</span><strong>Decker</strong><small>Local key and recovery session</small></div><i />
+          <div><span>3</span><strong>OpenAI or Gemini</strong><small>Validation, transcription, and generation</small></div>
         </div>
       </section>
 
@@ -158,7 +158,7 @@ export default function Home() {
         <div className="pilot-grid">
           <h2>Bring a real meeting. We will help you leave with the first artifact.</h2>
           <div>
-            <p>This cohort is for technical founders, consultants, and small agency leads with a Google Meet scheduled in the next ten days. Setup takes about fifteen minutes, followed by a short rehearsal and one feedback call.</p>
+            <p>This cohort is for technical founders, consultants, and small agency leads with a browser meeting scheduled in the next ten days. Setup takes about fifteen minutes, followed by a short rehearsal and one feedback call.</p>
             <a className="button" href={PILOT_MAIL}>Request a first-meeting pilot</a>
           </div>
         </div>

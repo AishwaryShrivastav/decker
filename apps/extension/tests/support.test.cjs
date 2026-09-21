@@ -17,6 +17,7 @@ test('v0.1.4 exposes only the functional Chromium build and package path', () =>
   assert.equal(fs.existsSync(path.join(repo, 'apps/extension/vite.firefox.config.ts')), false);
   assert.equal(fs.existsSync(path.join(repo, 'apps/extension/public-firefox')), false);
   assert.doesNotMatch(packaging, /firefox|dist-firefox|decker-firefox/i);
-  assert.match(readme, /Firefox.*not supported.*v0\.1\.4/i);
+  assert.match(readme, /Chromium browser/i);
+  assert.doesNotMatch(readme, /Firefox/i);
   assert.match(plan, /v0\.1\.4 is Chrome-only/i);
 });

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Decker: Google Meet Notes, Decks & AI",
+  "name": "Decker: Browser Meeting Notes & AI",
   "version": "0.1.3",
-  "description": "Turn Google Meet recordings into notes, decks and prototypes. Runs in Chrome with your OpenAI key. Free and open source.",
+  "description": "Record browser meetings, review transcripts, and create HTML artifacts with your OpenAI or Gemini key.",
   "permissions": [
     "tabCapture",
     "storage",

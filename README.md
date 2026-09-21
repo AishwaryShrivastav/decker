@@ -1,8 +1,8 @@
 # Decker
 
-**Record Google Meet without a bot and generate a deck or meeting brief from the transcript.**
+**Record a browser meeting without a bot, review the transcript, and create an HTML artifact.**
 
-Decker captures the Meet tab from your own browser, so no extra participant joins the call. It sends audio to OpenAI for transcription while recording. After stopping and reviewing the transcript, generate an HTML prototype, slide deck, discussion site, or meeting brief.
+Decker is a Chrome extension for meetings that run in a Chromium browser tab. Connect your own OpenAI or Gemini API key, record the active tab with an optional microphone, correct the transcript, and create a meeting document, presentation, discussion page, or prototype.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
@@ -12,248 +12,140 @@ Decker captures the Meet tab from your own browser, so no extra participant join
 
 **Launch status:** [website, Store review, and first-user plan](docs/launch-status.md)
 
-No Decker server is required for the extension. Audio and transcript content go directly from the browser to OpenAI using your own key.
+The extension sends requests directly to the provider you select. Decker has no extension backend and receives no automatic meeting-content telemetry. The separate web API routes in this repository are not used by the extension.
 
-> **Free and open source.** [Install Decker from the Chrome Web Store](https://chromewebstore.google.com/detail/decker-google-meet-notes/khbafeikhdehdhpfcbdlfkpmmikbfihk), or build it from source using the steps below.
+> [Install Decker from the Chrome Web Store](https://chromewebstore.google.com/detail/decker-google-meet-notes/khbafeikhdehdhpfcbdlfkpmmikbfihk), or build it from source.
 
-> **Built for meetings where you owe someone a deliverable:** a pitch, a spec review, a client kickoff. The meeting-brief output covers plain notes too.
+## How it works
 
----
+1. Connect OpenAI or Gemini with your own API key.
+2. Record an eligible meeting tab in a Chromium browser.
+3. Review and correct the transcript in the Decker review page.
+4. Generate an artifact, download the HTML file, and open it in your browser.
+
+Decker checks the provider key before saving it. The check makes small live requests for both text models and sends a generated silent audio sample through transcription. Provider quota or charges may apply.
 
 ## Features
 
-- **One-click tab-audio recording** via Chrome's `tabCapture` API — no bot, no screen share, no extra installs
-- **Live transcription** — Whisper processes audio roughly every 16 seconds as you record
-- **Live topic extraction and research** — GPT-4o mini pulls discussion points from the transcript and researches the ones you select, while the meeting runs
-- **Custom instructions** — steer the AI with your own plain-text prompt
-- **Bring your own key** — one OpenAI key, stored locally in the browser and sent directly to OpenAI for authentication
-- **Four output formats** — working prototype, presentation deck, discussion SPA, or meeting brief, each an HTML file that may load external resources
-- **Charts and diagrams** — Chart.js and Mermaid generated automatically where relevant
+- User-initiated tab audio capture through Chrome's `tabCapture` API
+- Optional microphone audio mixed with the meeting tab
+- OpenAI or Gemini bring-your-own-key processing
+- Muted-tab and silence warnings, followed by captured-track and signal checks
+- Editable transcript, topic selection, and custom generation instructions
+- Four HTML outputs: meeting document, presentation, discussion page, and prototype
+- One local recovery session for interrupted work
 
-## Browser support
-
-| Browser | Status |
-|---------|--------|
-| Chrome | Supported |
-| Brave | Supported |
-| Arc | Supported |
-| Edge | Supported |
-| Firefox | Not supported in v0.1.4 |
-
----
+Decker can record eligible `http` and `https` tabs when the browser allows capture. A muted tab or a tab with no recent audio can still start, but Decker warns you and checks the captured signal. Native Zoom, Teams, Webex, and other meeting apps are outside the browser and cannot be recorded by the extension.
 
 ## Requirements
 
-- Google Chrome 120+ (or Chromium-based equivalent)
-- An **OpenAI API key** — one key covers everything: `whisper-1` transcription plus topic extraction, research, and generation via GPT-4o mini and GPT-4o
-  - Get one at [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
-- Node.js 18+ and [pnpm](https://pnpm.io) (for local development/building only)
+- Chrome 120+ or a compatible Chromium browser that can install Chrome extensions
+- An OpenAI or Gemini API key with access to the required transcription and text models
+- Node.js 18+ and [pnpm](https://pnpm.io) for local development
 
----
+Get a key from [OpenAI](https://platform.openai.com/api-keys) or [Google AI Studio](https://aistudio.google.com/apikey). Each provider bills or meters API use through its own account.
 
-## Running locally
-
-### 1. Clone and install dependencies
+## Run locally
 
 ```bash
 git clone https://github.com/AishwaryShrivastav/decker.git
 cd decker
 pnpm install
-```
-
-### 2. Build the extension
-
-```bash
 pnpm --filter extension build
 ```
 
-This outputs the built extension to `apps/extension/dist/`.
+Open `chrome://extensions`, enable Developer mode, choose Load unpacked, and select `apps/extension/dist/`. Pin Decker to the toolbar.
 
-### 3. Load the extension in Chrome
+## Connect a provider
 
-1. Open `chrome://extensions` in Chrome
-2. Enable **Developer mode** — toggle in the top-right corner
-3. Click **Load unpacked**
-4. Select the `apps/extension/dist/` folder
+1. Open Decker from the browser toolbar.
+2. Choose OpenAI or Gemini.
+3. Paste the provider key and choose Save key.
+4. Wait for Decker to finish the live capability checks.
 
-The Decker icon will appear in your Chrome toolbar. Pin it for easy access.
+The selected provider and key are stored in `chrome.storage.local` on the device. Clear key removes the provider setting and any migrated OpenAI key.
 
-### 4. Add your API key
+## Record and review
 
-> The key is stored in `chrome.storage.local` — it is saved on your device and sent directly to `api.openai.com`.
+Open the meeting in a regular browser tab, then open Decker. The readiness view reports whether the tab is eligible and whether microphone permission is available. If the tab is muted or no audio is playing, Decker shows a warning and still lets the capture checks decide whether recording can continue.
 
-1. Click the **Decker icon** in the Chrome toolbar
-2. Click the **⚙ gear icon** in the top-right of the popup
-3. Paste your OpenAI key (`sk-...`) into the **OpenAI key** field
-4. Click **Save**
+Choose whether to include the microphone, obtain any required participant consent, and start recording. When you stop, Decker finishes pending transcription and opens the review page. There you can edit the transcript, choose topics, add instructions, select an output, and generate the artifact.
 
-The key persists across browser restarts. You only need to set it once.
+Generated HTML is kept with the local recovery session until it is replaced. Copy HTML writes it to the clipboard. Download HTML saves a file to Downloads; open that file in a browser to inspect or use it.
 
----
+## Data and privacy
 
-## Using the extension
+Audio, transcript text, selected topics, instructions, and generation context go directly from the extension to OpenAI or Gemini, whichever you connected. The provider key is used for authentication and never sent to the Decker developer.
 
-### Start recording
+OpenAI receives audio through its transcription API and text through its chat-completions API. Gemini transcription first uploads each audio segment as a temporary Gemini file. Decker asks Gemini to process the file with storage disabled, waits for deletion, and retries a failed deletion up to three times. If cleanup still fails, the transcript remains available and Decker adds a warning with the file name to the local recovery session and review page.
 
-1. Join or open a Google Meet call (`meet.google.com/abc-def-ghi`)
-2. Click the Decker icon — you should see **Meet ✓** and a mic status indicator
-3. If mic permission hasn't been granted, click **Allow microphone** first
-4. Click **▶ Start Recording**
+Local extension storage contains the provider setting, up to 15 debug events, and four timestamp-only activation milestones. One IndexedDB recovery record can contain pending audio, transcript text, topics, instructions, edits, warnings, topic context, and generated HTML. Pending audio leaves the queue after transcription succeeds or after three failed transcription attempts. Starting or resetting a session replaces the recovery record.
 
-Decker mixes your microphone (your voice) with the tab audio (other participants) and records both.
-
-Live transcript chunks appear in the popup as Whisper processes them in the background — roughly every 16 seconds.
-
-### Stop and review
-
-Click **Stop & Transcribe**. Decker will:
-1. Transcribe any remaining audio
-2. Extract key discussion points using GPT-4o mini
-3. Show a **Review & generate** screen
-
-On the review screen you can:
-
-| Option | What it does |
-|--------|-------------|
-| **Transcript textarea** | Edit the transcript to fix anything Whisper missed |
-| **Points checkboxes** | Select/deselect which topics to include |
-| **Output format** | `Presentation (Reveal.js)` or `HTML Notes` |
-| **Slide theme** | 12 Reveal.js built-in themes + dark / green / blue / light |
-| **Custom instructions** | Free-text prompt, e.g. *"Focus on action items"* or *"Make it suitable for executives"* |
-
-### Generate
-
-Click **Generate Deck** (or **Generate Notes**). The HTML file is saved to your Downloads folder automatically.
-
-After generation:
-- **Open HTML** — opens it in a new Chrome tab
-- **Copy HTML** — copies the raw HTML to clipboard for pasting elsewhere
-
----
-
-## Where the API key is stored and used
-
-| Location | Purpose |
-|----------|---------|
-| `chrome.storage.local` | Persisted across browser sessions |
-| Extension popup (⚙ settings) | Where you enter/update the key |
-| Background service worker | Loaded on startup, used for all API calls |
-
-The OpenAI key is sent as a `Bearer` token directly to `https://api.openai.com/v1/*`. The extension does not route these requests through a developer-operated server. Audio chunks are sent while recording; transcripts, selected topics, instructions, and research context are sent for text processing. OpenAI API charges apply.
-
-The key, up to 15 debug events, and four activation timestamps persist in local extension storage. The timestamps cover key saved, recording started, transcript ready, and output generated. They contain no meeting content and are not sent automatically. Logs can contain topic text and API errors. One recovery session is saved in local IndexedDB and can contain pending audio segments, transcript text, selected topics, instructions, edits, warnings, research results, and generated HTML. Pending audio is removed after transcription succeeds or exhausts three attempts. Generated HTML is also saved to Downloads when you download it. Uninstalling removes local extension storage, but downloaded files and data already sent to OpenAI remain. The developer receives information you choose to email or post in support requests.
-
-The separate web API routes in this repository receive submitted content and request keys on their host if called; the Chrome extension does not use them. See [privacy disclosures and permission audit](store-assets/privacy.md).
-
----
+Downloaded files remain until you delete them. Uninstalling clears extension storage, though it does not remove downloads, clipboard history, or data already processed by a provider. Read the [privacy policy](https://decker.techforgood.studio/privacy) and [source audit](store-assets/privacy.md) before recording sensitive material.
 
 ## Project structure
 
-```
+```text
 Decker/
-├── apps/
-│   ├── extension/                   # Chrome MV3 extension
-│   │   ├── public/
-│   │   │   └── manifest.json        # Extension manifest
-│   │   └── src/
-│   │       ├── background/
-│   │       │   └── index.ts         # Service worker — full recording + AI pipeline
-│   │       ├── offscreen/
-│   │       │   └── index.ts         # MediaRecorder (persists across SW suspension)
-│   │       ├── popup/
-│   │       │   └── Popup.tsx        # Full UI: record, review, generate
-│   │       ├── content/
-│   │       │   └── index.ts         # Content script (no-op — UI is in popup)
-│   │       └── shared/
-│   │           ├── prompts.ts       # ← Single source of truth for all LLM prompts
-│   │           ├── revealTemplate.ts # Reveal.js HTML builder
-│   │           ├── notesTemplate.ts  # Meeting notes HTML builder
-│   │           └── types.ts          # Shared TypeScript types + enums
-│   └── web/                         # Next.js landing page (not required to use extension)
-├── scripts/
-│   ├── package-extension.sh         # Zip dist/ for the Chrome Web Store
-│   └── generate-icons.js
-└── README.md
+|-- apps/
+|   |-- extension/
+|   |   |-- public/manifest.json
+|   |   `-- src/
+|   |       |-- background/
+|   |       |-- offscreen/
+|   |       |-- popup/
+|   |       |-- providers/
+|   |       |-- review/
+|   |       `-- shared/
+|   `-- web/
+|-- scripts/
+`-- store-assets/
 ```
 
----
-
-## Build commands
+## Development commands
 
 ```bash
-# Install all workspace dependencies
-pnpm install
-
-# Build Chrome extension → apps/extension/dist/
+pnpm --filter extension test
+pnpm --filter extension typecheck
 pnpm --filter extension build
-
-# Run the landing page locally (optional)
-pnpm --filter web dev
-
-# Package extension for store submission
-bash scripts/package-extension.sh chrome
+pnpm --filter web build
 ```
 
-After any code change, rebuild and then click **↺ refresh** on the Decker card at `chrome://extensions`.
+After an extension change, rebuild it and refresh the Decker card at `chrome://extensions`.
 
----
+## Prompts
 
-## Customising prompts
-
-All LLM prompts live in a single file: [`apps/extension/src/shared/prompts.ts`](apps/extension/src/shared/prompts.ts)
-
-| Export | Used for |
-|--------|----------|
-| `EXTRACT_POINTS_SYSTEM` | System prompt for extracting discussion points |
-| `extractPointsUser(transcript)` | User message for point extraction |
-| `DECK_SYSTEM` | System prompt for Reveal.js deck generation |
-| `deckUser(transcript, points, customPrompt)` | User message for deck generation |
-| `NOTES_SYSTEM` | System prompt for HTML notes generation |
-| `notesUser(transcript, points, customPrompt)` | User message for notes generation |
-
-Edit the file, then rebuild: `pnpm --filter extension build`.
-
----
+Shared model prompts live in [`apps/extension/src/shared/prompts.ts`](apps/extension/src/shared/prompts.ts). Both providers use these prompts through their provider adapters.
 
 ## Troubleshooting
 
-**"Meet not detected" / Start Recording is disabled**
-Make sure you are on an active meeting URL (`meet.google.com/abc-def-ghi`), not the pre-join lobby.
+**The tab is not eligible**
 
-**Mic not showing as granted**
-Click **Allow microphone** in the popup. This opens a dedicated permission page. Grant mic access, close that tab, then try recording.
+Use a regular `http` or `https` meeting tab. Browser settings pages, extension pages, Store pages, inactive tabs, and native meeting apps cannot be captured.
 
-**Whisper returns empty or garbled text**
-- Record for at least 20 seconds before stopping
-- Check that your microphone is not muted system-wide
-- Silent recordings produce empty transcripts
+**The tab is muted or silent**
 
-**The model ignores my custom instructions**
-- Use imperative language: *"Include a timeline diagram"* not *"maybe add a diagram"*
-- Keep instructions short and specific (under 200 characters works best)
+Start playback in the meeting tab and check the tab mute control. Decker can begin from a warning state, then stops with an actionable error if the captured track or signal check fails.
 
-**API errors in the popup**
-Open the background logs: `chrome://extensions` → Decker → **Service Worker** → Inspect → Console
+**The microphone is blocked**
 
-| Error code | Meaning |
-|-----------|---------|
-| `401` | API key is missing or invalid — check the ⚙ settings |
-| `429` | Rate limit — wait a moment and try again |
-| `400` on Whisper | Audio too short, silent, or corrupted |
-| `400` on chat completions | Transcript too short (minimum 50 characters) |
+Allow microphone access from the Decker permission page, or turn off Include my microphone to record tab audio only.
 
----
+**The provider key fails validation**
+
+Confirm the key, billing or quota, and access to the required text and transcription models. Validation checks all required capabilities before Decker saves the key.
+
+**A Gemini cleanup warning appears**
+
+Decker attempted the temporary file deletion three times and could not confirm success. Keep the file name from the warning, review your Gemini account controls, and avoid sharing the warning if it contains sensitive account details.
+
+**The transcript has a missing segment**
+
+Decker retries a failed transcription three times. After the third failure, it inserts a missing-segment marker and keeps the rest of the transcript available for review.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Bug reports and PRs are welcome.
-
-Please read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) before participating.
-To report a security issue, see [SECURITY.md](SECURITY.md).
-
-## Changelog
-
-See [CHANGELOG.md](CHANGELOG.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Report security issues through [SECURITY.md](SECURITY.md).
 
 ## Licence
 

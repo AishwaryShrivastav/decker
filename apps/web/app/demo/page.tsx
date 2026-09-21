@@ -108,7 +108,7 @@ const SAMPLE_DOC = {
 };
 
 export default function DemoPage() {
-  // Build the HTML on the server — no JS needed in the component itself
+  // Build the HTML on the server; the component needs no client-side JavaScript.
   let demoHtml: string;
   try {
     demoHtml = buildMeetingDoc(SAMPLE_DOC);
@@ -133,6 +133,7 @@ export default function DemoPage() {
 }
 
 export const metadata = {
-  title: "Decker demo | Closing deck sample",
-  description: "View a sample Decker closing deck generated from meeting content to verify structure and format.",
+  title: "Decker sample meeting artifact",
+  description: "Open a fictional sample of the HTML meeting artifact Decker can create after transcript review.",
+  alternates: { canonical: "/demo" },
 };

@@ -1,49 +1,52 @@
-# Chrome Web Store listing copy for Decker 0.1.3
+# Chrome Web Store listing copy for Decker 0.1.4
 
-Use these values for the existing listing. The title and short description match
-`apps/extension/public/manifest.json`.
+Use these values for the next Store update. The title and short description
+match `apps/extension/public/manifest.json`.
 
 ## Title
 
-```
-Decker: Google Meet Notes, Decks & AI
+```text
+Decker: Browser Meeting Notes & AI
 ```
 
 ## Short description
 
-120 of 132 characters:
-
-```
-Turn Google Meet recordings into notes, decks and prototypes. Runs in Chrome with your OpenAI key. Free and open source.
+```text
+Record browser meetings, review transcripts, and create HTML artifacts with your OpenAI or Gemini key.
 ```
 
 ## Detailed description
 
-```
-Turn a Google Meet into a polished follow-up while the conversation is still fresh.
+```text
+Record a browser meeting without adding a bot to the call.
 
-Decker records the active Meet tab from Chrome, keeping the participant list unchanged. Review the transcript, choose the decisions that matter, and create the artifact the room needs next:
+Decker captures audio from an eligible meeting tab in your Chromium browser. Connect OpenAI or Gemini with your own API key, record the tab with an optional microphone, correct the transcript, and create the artifact you need.
 
-* Meeting brief with decisions and action items
-* HTML slide deck for the follow-up
-* Discussion page for a product or project
-* Static HTML prototype based on the conversation
+Use this four-step flow:
 
-The workflow stays in one extension. Click Start Recording, stop when the meeting ends, review or edit the transcript, select the topics to include, then choose an output. Decker saves the result as an HTML file in Downloads.
+1. Connect OpenAI or Gemini.
+2. Record the active browser tab.
+3. Review and edit the transcript.
+4. Generate the artifact, download the HTML file, and open it.
 
-Decker is free and open source. It requires your own OpenAI API key, and OpenAI bills API use to your account. There is no Decker account or subscription.
+Choose from four output formats:
 
-How data moves
+* Meeting document with summaries and action items
+* HTML presentation
+* Discussion page
+* Static HTML prototype
 
-* Meet audio and your microphone, when allowed, go directly from the extension to OpenAI for transcription.
-* Transcript text, selected topics, and your instructions go directly to OpenAI for summaries and output generation.
-* Your OpenAI key, recent debug log, one recovery session, and four timestamp-only setup milestones stay in local browser storage.
-* Decker sends no automatic analytics, audio, transcript, prompt, or API key to the developer.
-* If you choose Share first-meeting feedback, Decker opens an email draft. You decide whether to send it and what to include.
+Decker checks the provider key before saving it. Validation makes small live text-generation requests and sends a generated silent audio sample through transcription. Provider quota or charges may apply.
 
-Generated HTML can contain external resources or code supplied by the model. Review an output before opening or sharing it. Downloaded files remain until you delete them. Content already sent to OpenAI is governed by OpenAI's API terms and your account settings.
+Meeting audio and text go directly from the extension to the selected provider. The developer does not receive your API key or automatic meeting-content telemetry. Your provider setting, recent debug log, timestamp-only setup milestones, and one recovery session stay in local browser storage.
 
-Tell meeting participants about recording and OpenAI processing, and obtain any consent required where you work.
+Gemini transcription uploads each audio segment as a temporary Gemini file. Decker requests transcription with storage disabled, waits for file deletion, and retries a failed deletion up to three times. If deletion still fails, Decker keeps the transcript and shows a warning with the file name.
+
+Muted tabs and tabs with no recent audio remain eligible. Decker warns you, then checks the captured track and audio signal after recording starts. Native meeting apps are outside the browser and cannot be captured.
+
+Generated HTML can contain external resources or executable code supplied by the model. Review each file before opening or sharing it. Tell meeting participants which provider will process the recording and obtain any required consent.
+
+Decker is free and open source. There is no Decker account or subscription. OpenAI or Google bills or meters API use through your provider account.
 
 Privacy policy: https://decker.techforgood.studio/privacy
 Support: https://decker.techforgood.studio/support
@@ -56,15 +59,14 @@ Source code: https://github.com/AishwaryShrivastav/decker
 - Language: English
 - Homepage URL: https://decker.techforgood.studio
 - Support URL: https://decker.techforgood.studio/support
-- Official URL: https://decker.techforgood.studio, after Search Console
-  verification makes it available in the dashboard
+- Official URL: https://decker.techforgood.studio, when available in the dashboard
 - Mature content: Off
 - Pricing: Free of charge
 - Visibility: Public
 - Regions: All regions
 
-## Search intent covered without keyword stuffing
+## Search intent
 
-The title and opening paragraphs contain the terms people are most likely to use:
-Google Meet, notes, deck, transcript, meeting brief, prototype, Chrome, and
-OpenAI. Do not append a keyword list to the description.
+The title and opening copy cover browser meeting recording, meeting notes,
+transcripts, HTML artifacts, Chrome extensions, OpenAI, Gemini, and BYOK. Do
+not append a keyword list to the Store description.
