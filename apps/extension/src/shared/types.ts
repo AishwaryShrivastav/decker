@@ -4,6 +4,7 @@ export enum MessageType {
   OFFSCREEN_STATUS = "OFFSCREEN_STATUS",
   CAPTURE_WARNING = "CAPTURE_WARNING",
   GET_LAST_HTML = "GET_LAST_HTML",
+  DOWNLOAD_ARTIFACT = "DOWNLOAD_ARTIFACT",
   // Content → Background
   GET_TAB_ID = "GET_TAB_ID",
   START_RECORDING = "START_RECORDING",
@@ -66,6 +67,7 @@ export interface StatusPayload {
   topicResearch?: TopicResearch[];
   captureSource?: CaptureSource | null;
   includeMicrophone?: boolean;
+  hasHtml?: boolean;
 }
 
 export interface CaptureSource {

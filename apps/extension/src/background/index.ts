@@ -146,6 +146,22 @@ async function closeOffscreenDocument(): Promise<void> {
   await chrome.offscreen.closeDocument();
 }
 
+const REVIEW_PATH = "src/review/index.html";
+
+async function openOrFocusReviewPage(): Promise<void> {
+  const url = chrome.runtime.getURL(REVIEW_PATH);
+  const [existing] = await chrome.runtime.getContexts({
+    contextTypes: [chrome.runtime.ContextType.TAB],
+    documentUrls: [url],
+  });
+  if (existing?.tabId !== undefined && existing.tabId >= 0) {
+    await chrome.tabs.update(existing.tabId, { active: true });
+    if (existing.windowId >= 0) await chrome.windows.update(existing.windowId, { focused: true });
+    return;
+  }
+  await chrome.tabs.create({ url, active: true });
+}
+
 // ---------------------------------------------------------------------------
 // Status broadcasting
 // ---------------------------------------------------------------------------
@@ -164,7 +180,7 @@ function broadcastStatus(
     sessionGeneration: session.generation, captureSource: session.captureSource,
     includeMicrophone: session.includeMicrophone,
     transcriptRevision: session.transcriptRevision, warnings: session.warnings,
-    selectedPoints: session.selectedPoints };
+    selectedPoints: session.selectedPoints, hasHtml: session.html !== null };
   void persist().catch(() => {
     const warning = 'Session recovery could not be saved. Keep Decker open and copy the transcript before leaving.';
     addWarning(session, warning);
@@ -548,18 +564,8 @@ async function runPhase2(
     session.html = html;
     await persist();
 
-    const prefix =
-      format === "prototype" ? "decker-prototype"
-      : format === "doc" ? "decker-doc"
-      : format === "notes" ? "decker-notes"
-      : "decker-deck";
-    const filename = `${prefix}-${Date.now()}.html`;
-
-    const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
-    await chrome.downloads.download({ url: dataUrl, filename, saveAs: false });
-
     void recordActivation('output_generated').catch(() => {});
-    broadcastStatus("done", `Saved as ${filename}`);
+    broadcastStatus("done", "Artifact ready");
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     debugLog(`runPhase2 FAILED: ${msg}`);
@@ -628,7 +634,10 @@ async function handleMessage(msg: Message, sender: chrome.runtime.MessageSender)
       return { ok: true };
     }
     case MessageType.START_RECORDING: return { error: 'Use Start Recording from the popup.' };
-    case MessageType.STOP_RECORDING: await stopRecording(); return { ok: true };
+    case MessageType.STOP_RECORDING:
+      await stopRecording();
+      await openOrFocusReviewPage();
+      return { ok: true };
     case MessageType.TOPIC_SELECTED: {
       const { topic } = msg.payload as TopicSelectedPayload;
       if (topic && session.points.includes(topic)) {
@@ -644,12 +653,15 @@ async function handleMessage(msg: Message, sender: chrome.runtime.MessageSender)
       await persist(); return { ok: true };
     }
     case MessageType.SAVE_REVIEW: {
-      const payload = msg.payload as { sessionId: string; selectedPoints?: string[]; customPrompt?: string; outputFormat?: OutputFormat; edit?: TranscriptEdit };
+      const payload = msg.payload as { sessionId: string; selectedPoints?: string[]; customPrompt?: string; outputFormat?: OutputFormat; edit?: TranscriptEdit | null };
       if (payload.sessionId !== session.id) return { error: 'This session has changed. Reopen Decker.' };
+      if (payload.edit && payload.edit.baseRevision !== session.transcriptRevision) {
+        return { error: 'The transcript changed after this edit. Review the latest transcript before saving.' };
+      }
       if (payload.selectedPoints) session.selectedPoints = payload.selectedPoints.filter(p => session.points.includes(p));
       if (payload.customPrompt !== undefined) session.customPrompt = payload.customPrompt;
       if (payload.outputFormat) session.outputFormat = payload.outputFormat;
-      if (payload.edit) session.edit = payload.edit;
+      if ('edit' in payload) session.edit = payload.edit ?? undefined;
       await persist(); return { ok: true };
     }
     case MessageType.AUDIO_CHUNK:
@@ -685,7 +697,7 @@ async function handleMessage(msg: Message, sender: chrome.runtime.MessageSender)
     }
     case MessageType.GENERATE_DECK: {
       const payload = msg.payload as GenerateDeckPayload;
-      if (payload.sessionId !== session.id || session.status !== 'reviewing') return { error: 'Wait for the complete transcript before generating.' };
+      if (payload.sessionId !== session.id || !['reviewing', 'done'].includes(session.status)) return { error: 'Wait for the complete transcript before generating.' };
       checkKey();
       session.selectedPoints = payload.selectedPoints;
       session.customPrompt = payload.customPrompt;
@@ -706,7 +718,24 @@ async function handleMessage(msg: Message, sender: chrome.runtime.MessageSender)
       session = freshSession(undefined, session.generation + 1); topicResearchMap.clear(); researchInProgress.clear();
       await persist(); return { ok: true };
     }
-    case MessageType.GET_LAST_HTML: return { html: session.html };
+    case MessageType.GET_LAST_HTML: {
+      const payload = msg.payload as { sessionId?: string } | undefined;
+      if (payload?.sessionId && payload.sessionId !== session.id) return { error: 'This session has changed. Reopen Decker.' };
+      return { html: session.html };
+    }
+    case MessageType.DOWNLOAD_ARTIFACT: {
+      const payload = msg.payload as { sessionId?: string } | undefined;
+      if (payload?.sessionId && payload.sessionId !== session.id) return { error: 'This session has changed. Reopen Decker.' };
+      if (!session.html) return { error: 'No generated artifact is available to download.' };
+      const prefix = session.outputFormat === 'prototype' ? 'decker-prototype'
+        : session.outputFormat === 'doc' ? 'decker-doc'
+        : session.outputFormat === 'notes' ? 'decker-notes'
+        : 'decker-deck';
+      const filename = `${prefix}-${Date.now()}.html`;
+      const url = `data:text/html;charset=utf-8,${encodeURIComponent(session.html)}`;
+      await chrome.downloads.download({ url, filename, saveAs: true });
+      return { ok: true, filename };
+    }
     default: return undefined;
   }
 }

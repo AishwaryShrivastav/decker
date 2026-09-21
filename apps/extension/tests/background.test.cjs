@@ -18,11 +18,21 @@ function worker(saved, options = {}) {
   const module = { exports: {} };
   const local = options.local ?? { openaiKey: options.noKey ? '' : 'test-only-key' };
   let offscreenStartCount = 0;
+  let downloadCount = 0;
+  const tabActions = [];
+  const contextActions = [];
+  const windowActions = [];
+  const downloads = [];
   const chrome = {
     runtime: {
       onMessage: { addListener: fn => { listener = fn; } },
-      getContexts: async () => [{ contextType: 'OFFSCREEN_DOCUMENT' }],
-      ContextType: { OFFSCREEN_DOCUMENT: 'OFFSCREEN_DOCUMENT' },
+      getContexts: async filter => {
+        contextActions.push(structuredClone(filter));
+        return filter?.contextTypes?.includes('TAB')
+          ? (options.reviewContexts ?? [])
+          : [{ contextType: 'OFFSCREEN_DOCUMENT' }];
+      },
+      ContextType: { OFFSCREEN_DOCUMENT: 'OFFSCREEN_DOCUMENT', TAB: 'TAB' },
       getURL: p => `chrome-extension://test/${p}`,
       sendMessage: async msg => {
         if (msg.type === 'OFFSCREEN_STATUS') return options.capture ? options.capture() : options.captureGone ? undefined : { sessionId: saved?.id, active: true };
@@ -40,9 +50,20 @@ function worker(saved, options = {}) {
       set: async patch => Object.assign(local, patch),
       remove: async keys => keys.forEach(key => delete local[key]),
     } },
-    tabs: { get: async () => options.tab ?? ({ id: 1, url: 'https://meet.google.com/abc-defg-hij', audible: true, mutedInfo: { muted: false } }), sendMessage: async () => {} },
+    tabs: {
+      get: async () => options.tab ?? ({ id: 1, url: 'https://meet.google.com/abc-defg-hij', audible: true, mutedInfo: { muted: false } }),
+      update: async (tabId, update) => { tabActions.push({ type: 'update', tabId, update }); return { id: tabId, ...update }; },
+      create: async create => { tabActions.push({ type: 'create', create }); return { id: 99, ...create }; },
+      sendMessage: async () => {},
+    },
+    windows: { update: async (windowId, update) => { windowActions.push({ windowId, update }); return { id: windowId, ...update }; } },
     offscreen: { closeDocument: async () => { closeCount++; }, createDocument: async () => {}, Reason: { USER_MEDIA: 'USER_MEDIA' } },
-    downloads: { download: async () => 1 },
+    downloads: { download: async request => {
+      downloadCount++;
+      downloads.push(structuredClone(request));
+      if (options.download) return options.download(request, downloadCount);
+      return downloadCount;
+    } },
   };
   const fetch = async (url, init) => {
     requests.push({ url, init });
@@ -64,7 +85,7 @@ function worker(saved, options = {}) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText, context);
   const send = (type, payload) => new Promise(resolve => listener({ type, payload }, {}, resolve));
-  return { send, events, requests, local, get stored() { return stored; }, get closeCount() { return closeCount; }, get offscreenStartCount() { return offscreenStartCount; } };
+  return { send, events, requests, local, tabActions, contextActions, windowActions, downloads, get stored() { return stored; }, get closeCount() { return closeCount; }, get offscreenStartCount() { return offscreenStartCount; } };
 }
 
 const audio = (sequence, text = 'Final decision: release Friday after the owner signs off.') => ({ sessionId: 'test', sequence, base64: Buffer.from(text).toString('base64'), mimeType: 'audio/webm' });
@@ -98,6 +119,29 @@ test('an empty tail completes review without retranscribing the first segment', 
   await until(() => w.stored?.status === 'reviewing');
   assert.equal(w.requests.filter(r => r.url.endsWith('/audio/transcriptions')).length, 0);
   assert.equal((await w.send('GET_FULL_STATE')).transcript, saved.transcript);
+});
+
+test('stopping opens the review page and focuses an existing review tab', async () => {
+  const saved = freshSession('test'); saved.status = 'recording';
+  const reviewUrl = 'chrome-extension://test/src/review/index.html';
+  const w = worker(saved, { reviewContexts: [{ tabId: 42, windowId: 8, documentUrl: reviewUrl }] });
+
+  assert.equal((await w.send('STOP_RECORDING')).ok, true);
+
+  assert.deepEqual(w.contextActions, [{ contextTypes: ['TAB'], documentUrls: [reviewUrl] }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(w.tabActions)), [{ type: 'update', tabId: 42, update: { active: true } }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(w.windowActions)), [{ windowId: 8, update: { focused: true } }]);
+});
+
+test('stopping creates the review page when none is open', async () => {
+  const saved = freshSession('test'); saved.status = 'recording';
+  const reviewUrl = 'chrome-extension://test/src/review/index.html';
+  const w = worker(saved);
+
+  assert.equal((await w.send('STOP_RECORDING')).ok, true);
+
+  assert.deepEqual(w.contextActions, [{ contextTypes: ['TAB'], documentUrls: [reviewUrl] }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(w.tabActions)), [{ type: 'create', create: { url: reviewUrl, active: true } }]);
 });
 
 test('hydration gates requests and restart restores review inputs and queued audio', async () => {
@@ -151,6 +195,79 @@ test('stale generation payload is rejected and unedited payload uses the canonic
   await until(() => w.stored?.status === 'done');
   assert.match(w.requests[0].init.body, /final decision to ship on Friday/);
   assert.doesNotMatch(w.requests[0].init.body, /Stale live words/);
+});
+
+test('stale review edits are rejected before they replace a newer transcript revision', async () => {
+  const saved = freshSession('test');
+  Object.assign(saved, {
+    status: 'reviewing',
+    transcript: 'The final transcript includes a decision made after the review page opened.',
+    transcriptRevision: 3,
+  });
+  const w = worker(saved);
+
+  const response = await w.send('SAVE_REVIEW', {
+    sessionId: 'test',
+    edit: { text: 'Older transcript draft', baseRevision: 2 },
+  });
+
+  assert.match(response.error, /transcript changed/i);
+  assert.equal(w.stored.edit, undefined);
+  assert.equal(w.stored.transcriptRevision, 3);
+});
+
+test('Gemini generates the selected artifact and leaves it available for review actions', async () => {
+  const saved = freshSession('test');
+  Object.assign(saved, {
+    status: 'reviewing',
+    transcript: 'The team agreed to ship on Friday after the owner signs off on the final accessibility review.',
+  });
+  const local = { providerSettings: { version: 1, provider: 'gemini', apiKey: 'gemini-key' } };
+  const html = '<!doctype html><html><body>Gemini meeting brief</body></html>';
+  const w = worker(saved, { local, fetch: async url => {
+    if (url.includes(':streamGenerateContent')) {
+      return new Response(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: html }] } }] })}\n\n`);
+    }
+    throw new Error(`Unexpected URL: ${url}`);
+  } });
+
+  assert.equal((await w.send('GENERATE_DECK', {
+    sessionId: 'test',
+    transcriptRevision: 0,
+    transcriptEdited: false,
+    selectedPoints: [],
+    customPrompt: '',
+    outputFormat: 'notes',
+  })).ok, true);
+  await until(() => w.stored?.status === 'done');
+
+  assert.ok(w.requests.some(request => request.url.includes('generativelanguage.googleapis.com') && request.url.includes(':streamGenerateContent')));
+  assert.equal(w.requests.some(request => request.url.includes('api.openai.com')), false);
+  assert.equal(w.stored.html, html);
+  assert.equal(w.downloads.length, 0);
+  const done = w.events.find(event => event.type === 'STATUS_UPDATE' && event.payload.status === 'done');
+  assert.equal(done.payload.hasHtml, true);
+});
+
+test('a saved artifact can be downloaded after restart and retried after a browser failure', async () => {
+  const saved = freshSession('test');
+  Object.assign(saved, {
+    status: 'done',
+    outputFormat: 'doc',
+    html: '<!doctype html><html><body>Recovered artifact</body></html>',
+  });
+  const w = worker(saved, { download: async (_request, count) => {
+    if (count === 1) throw new Error('Download interrupted');
+    return 7;
+  } });
+
+  assert.match((await w.send('DOWNLOAD_ARTIFACT', { sessionId: 'test' })).error, /Download interrupted/);
+  assert.equal((await w.send('GET_FULL_STATE')).hasHtml, true);
+  assert.equal((await w.send('DOWNLOAD_ARTIFACT', { sessionId: 'test' })).ok, true);
+  assert.equal(w.downloads.length, 2);
+  assert.match(w.downloads[1].url, /^data:text\/html;charset=utf-8,/);
+  assert.match(decodeURIComponent(w.downloads[1].url), /Recovered artifact/);
+  assert.match(w.downloads[1].filename, /^decker-doc-/);
 });
 
 test('missing recorder recovers the existing transcript with an interruption warning', async () => {
