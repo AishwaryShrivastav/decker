@@ -30,20 +30,53 @@ test('Chrome grants host access only to the two provider APIs', () => {
   ]);
 });
 
-test('OpenAI validates keys and reports provider errors without exposing the key', async () => {
+test('OpenAI validation probes both generation models and transcription capability', async () => {
   const requests = [];
-  const provider = createProviderAdapter({ provider: 'openai', apiKey: 'sk-private' }, async (url, init) => {
+  const provider = createProviderAdapter({ provider: 'openai', apiKey: 'sk-test' }, async (url, init) => {
     requests.push({ url, init });
-    return jsonResponse({ error: { message: 'Incorrect API key' } }, { status: 401 });
+    if (url.endsWith('/chat/completions')) return jsonResponse({ choices: [{ message: { content: '' } }] });
+    if (url.endsWith('/audio/transcriptions')) return jsonResponse({ text: '' });
+    throw new Error(`Unexpected URL: ${url}`);
   });
 
+  await provider.validateKey();
+
+  assert.deepEqual(requests.map(request => request.url), [
+    'https://api.openai.com/v1/chat/completions',
+    'https://api.openai.com/v1/chat/completions',
+    'https://api.openai.com/v1/audio/transcriptions',
+  ]);
+  assert.deepEqual(requests.slice(0, 2).map(request => JSON.parse(request.init.body).model), ['gpt-4o-mini', 'gpt-4o']);
+  assert.deepEqual(requests.slice(0, 2).map(request => JSON.parse(request.init.body).max_tokens), [1, 1]);
+  assert.equal(requests[2].init.body.get('model'), 'whisper-1');
+  assert.equal(requests[2].init.body.get('file').name, 'validation.wav');
+  assert.equal(requests[2].init.body.get('file').type, 'audio/wav');
+});
+
+test('OpenAI validation reports the exact unavailable generation capability without exposing the key', async () => {
+  const provider = createProviderAdapter({ provider: 'openai', apiKey: 'sk-private' }, async () =>
+    jsonResponse({ error: { message: 'Model access denied' } }, { status: 403 })
+  );
+
   await assert.rejects(provider.validateKey(), err => {
-    assert.match(err.message, /OpenAI key validation failed.*Incorrect API key/);
+    assert.match(err.message, /OpenAI gpt-4o-mini generation capability check failed.*Model access denied/);
     assert.doesNotMatch(err.message, /sk-private/);
     return true;
   });
-  assert.equal(requests[0].url, 'https://api.openai.com/v1/models');
-  assert.equal(requests[0].init.headers.Authorization, 'Bearer sk-private');
+});
+
+test('OpenAI validation reports unavailable transcription after generation probes succeed', async () => {
+  let generationCalls = 0;
+  const provider = createProviderAdapter({ provider: 'openai', apiKey: 'sk-test' }, async (url) => {
+    if (url.endsWith('/chat/completions')) {
+      generationCalls++;
+      return jsonResponse({ choices: [{ message: { content: '' } }] });
+    }
+    return jsonResponse({ error: { message: 'Whisper unavailable' } }, { status: 403 });
+  });
+
+  await assert.rejects(provider.validateKey(), /OpenAI transcription capability check failed.*Whisper unavailable/);
+  assert.equal(generationCalls, 2);
 });
 
 test('OpenAI preserves current transcription and text generation behavior', async () => {
@@ -72,17 +105,48 @@ test('OpenAI preserves current transcription and text generation behavior', asyn
   assert.equal(JSON.parse(requests[2].init.body).model, 'gpt-4o');
 });
 
-test('Gemini validates with the models API', async () => {
+test('Gemini validation probes both generation models and transcription capability', async () => {
   const requests = [];
   const provider = createProviderAdapter({ provider: 'gemini', apiKey: 'gemini-key' }, async (url, init) => {
     requests.push({ url, init });
-    return jsonResponse({ models: [] });
+    if (url.includes(':generateContent')) return jsonResponse({ candidates: [{ content: { parts: [{ text: '' }] } }] });
+    if (url.endsWith('/upload/v1beta/files')) {
+      return jsonResponse({}, { headers: { 'x-goog-upload-url': 'https://generativelanguage.googleapis.com/upload/validation' } });
+    }
+    if (url.endsWith('/upload/validation')) {
+      return jsonResponse({ file: { name: 'files/validation-audio', uri: 'https://files.example/validation-audio' } });
+    }
+    if (url.endsWith('/v1beta/interactions')) return jsonResponse({ output_text: '' });
+    if (url.endsWith('/v1beta/files/validation-audio')) return jsonResponse({});
+    throw new Error(`Unexpected URL: ${url}`);
   });
 
   await provider.validateKey();
 
-  assert.equal(requests[0].url, 'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1');
+  assert.match(requests[0].url, /models\/gemini-3\.5-flash:generateContent$/);
+  assert.match(requests[1].url, /models\/gemini-3\.8-flash:generateContent$/);
+  assert.deepEqual(requests.slice(0, 2).map(request => JSON.parse(request.init.body).generationConfig.maxOutputTokens), [1, 1]);
+  assert.ok(requests.some(request => request.url.endsWith('/v1beta/interactions')));
   assert.equal(requests[0].init.headers['x-goog-api-key'], 'gemini-key');
+});
+
+test('Gemini validation reports unavailable transcription after generation probes succeed', async () => {
+  const provider = createProviderAdapter({ provider: 'gemini', apiKey: 'gemini-key' }, async (url) => {
+    if (url.includes(':generateContent')) return jsonResponse({ candidates: [] });
+    if (url.endsWith('/upload/v1beta/files')) {
+      return jsonResponse({}, { headers: { 'x-goog-upload-url': 'https://generativelanguage.googleapis.com/upload/validation' } });
+    }
+    if (url.endsWith('/upload/validation')) {
+      return jsonResponse({ file: { name: 'files/validation-failure', uri: 'https://files.example/validation-failure' } });
+    }
+    if (url.endsWith('/v1beta/interactions')) {
+      return jsonResponse({ error: { message: 'Transcription access denied' } }, { status: 403 });
+    }
+    if (url.endsWith('/v1beta/files/validation-failure')) return jsonResponse({});
+    throw new Error(`Unexpected URL: ${url}`);
+  });
+
+  await assert.rejects(provider.validateKey(), /Gemini transcription capability check failed.*Transcription access denied/);
 });
 
 test('Gemini uploads audio and uses the transcription interaction', async () => {

@@ -218,7 +218,7 @@ test('provider keys are validated before settings are saved', async () => {
 
   const response = await w.send('SET_API_SETTINGS', { provider: 'gemini', apiKey: 'bad-key' });
 
-  assert.match(response.error, /Gemini key validation failed.*Key rejected/);
+  assert.match(response.error, /Gemini gemini-3\.5-flash generation capability check failed.*Key rejected/);
   assert.equal(w.local.providerSettings.provider, 'openai');
   assert.equal(w.local.providerSettings.apiKey, 'sk-existing');
 });
@@ -226,13 +226,22 @@ test('provider keys are validated before settings are saved', async () => {
 test('the existing OpenAI save payload validates and updates provider settings', async () => {
   const saved = freshSession('test');
   const local = { openaiKey: 'sk-existing' };
+  const models = [];
   const w = worker(saved, { local, fetch: async (url, init) => {
-    assert.equal(url, 'https://api.openai.com/v1/models');
     assert.equal(init.headers.Authorization, 'Bearer sk-new');
-    return new Response(JSON.stringify({ data: [] }));
+    if (url.endsWith('/chat/completions')) {
+      models.push(JSON.parse(init.body).model);
+      return new Response(JSON.stringify({ choices: [{ message: { content: '' } }] }));
+    }
+    if (url.endsWith('/audio/transcriptions')) {
+      assert.equal(init.body.get('model'), 'whisper-1');
+      return new Response(JSON.stringify({ text: '' }));
+    }
+    throw new Error(`Unexpected URL: ${url}`);
   } });
 
   assert.equal((await w.send('SET_API_SETTINGS', { openaiKey: '  sk-new  ' })).ok, true);
+  assert.deepEqual(models, ['gpt-4o-mini', 'gpt-4o']);
   assert.equal(w.local.openaiKey, 'sk-new');
   assert.equal(w.local.providerSettings.provider, 'openai');
   assert.equal(w.local.providerSettings.apiKey, 'sk-new');
