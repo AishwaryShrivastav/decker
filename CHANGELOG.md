@@ -9,6 +9,20 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-09-22
+
+### Added
+
+- OpenAI and Gemini bring-your-own-key support with provider-specific validation.
+- A guided setup, recording readiness, and dedicated review flow for browser meetings.
+- Editable transcripts, topic selection, output choices, progress, copy, and download on the review page.
+
+### Changed
+
+- Expanded recording from Google Meet to eligible meetings running in a Chromium browser tab, including Zoom Web, Teams Web, and Webex.
+- Rebuilt the website and Chrome Web Store copy around the complete browser-meeting workflow and accurate privacy disclosures.
+- Removed the unfinished Firefox path and documented native meeting apps as unsupported.
+
 ## [0.1.3] - pending Chrome Web Store review
 
 Submitted on September 17, 2026 with automatic publication enabled. The public

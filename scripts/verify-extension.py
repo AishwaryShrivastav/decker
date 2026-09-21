@@ -23,7 +23,7 @@ with zipfile.ZipFile(ZIP) as archive:
     entries = [i.filename for i in archive.infolist() if not i.is_dir()]
     assert len(entries) == len(set(entries)), "Duplicate archive entries"
     assert all(not p.startswith("/") and ".." not in PurePosixPath(p).parts for p in entries)
-    assert all(PurePosixPath(p).suffix in {".js", ".html", ".json", ".png"} for p in entries), "Unexpected packaged file type"
+    assert all(PurePosixPath(p).suffix in {".js", ".css", ".html", ".json", ".png"} for p in entries), "Unexpected packaged file type"
     built = {p.relative_to(DIST).as_posix() for p in DIST.rglob("*") if p.is_file()}
     assert set(entries) == built, "Archive differs from current build tree"
     for name in entries:
@@ -36,7 +36,10 @@ with zipfile.ZipFile(ZIP) as archive:
     listing = (ROOT / "store-assets/listing.md").read_text()
     assert manifest["name"] in listing and manifest["description"] in listing
     assert set(manifest["permissions"]) == {"tabCapture", "storage", "activeTab", "offscreen", "downloads"}
-    assert set(manifest["host_permissions"]) == {"https://api.openai.com/*"}
+    assert set(manifest["host_permissions"]) == {
+        "https://api.openai.com/*",
+        "https://generativelanguage.googleapis.com/*",
+    }
     assert "content_scripts" not in manifest, "Chrome package must not inject a Meet content script"
     assert "src/content/index.js" not in entries, "Chrome package contains the retired content script"
     required = [manifest["background"]["service_worker"], manifest["action"]["default_popup"],
@@ -62,8 +65,12 @@ with zipfile.ZipFile(ZIP) as archive:
     assert "https://api.openai.com/v1" in background
     assert '/api/transcribe' not in background and '/api/generate-deck' not in background
     assert ".tabs.sendMessage" not in background, "Background still targets the retired content script"
-    popup = archive.read("src/popup/index.js").decode()
-    assert "directly to OpenAI" in popup and "API charges apply" in popup
+    popup_bundle = "\n".join(
+        archive.read(name).decode()
+        for name in entries
+        if name.endswith(".js")
+    )
+    assert "OpenAI" in popup_bundle and "Gemini" in popup_bundle and "Provider API charges may apply" in popup_bundle
 
 for relative, expected in {
     "promo-440x280.png": (440, 280),
