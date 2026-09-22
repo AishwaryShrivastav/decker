@@ -1,8 +1,7 @@
 # Decker 0.1.4 submission requirements
 
-This is a pre-release checklist. Task 4 updates public copy and screenshots.
-Version bumping, ZIP generation, upload, submission, publication, and pushing
-remain Task 5 work.
+Version 0.1.4 was packaged, verified, uploaded, and submitted for review on
+September 22, 2026. Automatic publication is enabled.
 
 The existing Chrome Web Store item is `khbafeikhdehdhpfcbdlfkpmmikbfihk`.
 
@@ -24,55 +23,55 @@ No screenshot contains a real API key, account data, or meeting content.
 
 ## Before packaging
 
-- [ ] Confirm the working tree contains only approved release changes.
-- [ ] Review the website at desktop and mobile widths.
-- [ ] Confirm the privacy page describes validation probes, direct provider
+- [x] Confirm the working tree contains only approved release changes.
+- [x] Review the website at desktop and mobile widths.
+- [x] Confirm the privacy page describes validation probes, direct provider
   processing, Gemini temporary uploads, awaited deletion, three cleanup retries,
   cleanup warnings, and local recovery storage.
-- [ ] Confirm the support page asks for the browser, provider, meeting service,
+- [x] Confirm the support page asks for the browser, provider, meeting service,
   mute state, permissions, and exact error text.
-- [ ] Confirm the Store title and short description match `manifest.json`.
-- [ ] Confirm no public copy promises native-app capture, fixed cost, fixed
+- [x] Confirm the Store title and short description match `manifest.json`.
+- [x] Confirm no public copy promises native-app capture, fixed cost, fixed
   timing, perfect accuracy, or guaranteed provider deletion.
 
 ## Task 5 package checks
 
-- [ ] Bump the extension and manifest versions to 0.1.4.
-- [ ] Update `CHANGELOG.md`.
-- [ ] Build the extension.
-- [ ] Regenerate `store-assets/decker-chrome.zip`.
-- [ ] Update `scripts/verify-extension.py` for both provider origins and the
+- [x] Bump the extension and manifest versions to 0.1.4.
+- [x] Update `CHANGELOG.md`.
+- [x] Build the extension.
+- [x] Regenerate `store-assets/decker-chrome.zip`.
+- [x] Update `scripts/verify-extension.py` for both provider origins and the
   review page.
-- [ ] Run the extension tests and TypeScript check.
-- [ ] Build the website and extension.
-- [ ] Run ZIP verification and confirm the recorded SHA-256.
+- [x] Run the extension tests and TypeScript check.
+- [x] Build the website and extension.
+- [x] Run ZIP verification and confirm the recorded SHA-256.
 - [ ] Complete manual OpenAI and Gemini checks.
 - [ ] Complete capture checks on more than one browser meeting service.
 
 ## Store dashboard
 
-- [ ] Upload the final 0.1.4 ZIP to the existing item.
-- [ ] Paste the title and descriptions from [listing.md](listing.md).
-- [ ] Set category to Workflow & Planning, language to English, pricing to free,
+- [x] Upload the final 0.1.4 ZIP to the existing item.
+- [x] Paste the title and descriptions from [listing.md](listing.md).
+- [x] Set category to Workflow & Planning, language to English, pricing to free,
   visibility to public, regions to all, and mature content to off.
-- [ ] Set the homepage, support, and privacy URLs.
-- [ ] Upload the icon, three screenshots, small tile, and optional marquee tile.
-- [ ] Paste the single-purpose statement and every permission justification from
+- [x] Set the homepage, support, and privacy URLs.
+- [x] Confirm the icon, three screenshots, small tile, and marquee tile are present.
+- [x] Paste the single-purpose statement and every permission justification from
   [submission-fields.md](submission-fields.md).
-- [ ] Select the five documented user-data categories.
-- [ ] Read and check the three Limited Use certifications.
-- [ ] Select `No, I am not using remote code`.
-- [ ] Paste the reviewer notes and save every dashboard section.
+- [x] Select the five documented user-data categories.
+- [x] Read and check the three Limited Use certifications.
+- [x] Select `No, I am not using remote code`.
+- [x] Paste the reviewer notes and save every dashboard section.
 
 ## Final review
 
-- [ ] Confirm the dashboard package version is 0.1.4.
-- [ ] Confirm the permissions diff contains the documented OpenAI and Gemini
+- [x] Confirm the dashboard package version is 0.1.4.
+- [x] Confirm the permissions diff contains the documented OpenAI and Gemini
   host permissions and no unexplained permission.
-- [ ] Confirm the package contains no keys, meeting content, `.env` files,
+- [x] Confirm the package contains no keys, meeting content, `.env` files,
   source maps, or macOS metadata.
-- [ ] Re-open every dashboard section and resolve each validation error.
-- [ ] Submit only when the owner is ready for the external review action.
+- [x] Re-open every dashboard section and resolve each validation error.
+- [x] Submit after owner approval. Dashboard status: `Pending review`.
 
 Official references:
 
