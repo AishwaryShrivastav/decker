@@ -533,7 +533,7 @@ ${actionTableHtml}
 
     <!-- Footer -->
     <footer class="site-footer">
-      Generated with <a href="https://decker.so" target="_blank">Decker</a> · ${esc(dateStr)}
+      Generated with <a href="https://decker.techforgood.studio" target="_blank">Decker</a> · ${esc(dateStr)}
     </footer>
   </div>
 </body>
