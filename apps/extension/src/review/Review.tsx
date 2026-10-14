@@ -20,6 +20,18 @@ const formatOptions: { value: OutputFormat; label: string; detail: string }[] = 
   { value: "notes", label: "Discussion site", detail: "A scrollable HTML summary" },
 ];
 
+const feedbackMailto =
+  "mailto:aish@techforgood.studio?subject=" +
+  encodeURIComponent("Decker first output feedback") +
+  "&body=" +
+  encodeURIComponent(
+    "Did you present or share the output?\n" +
+    "What worked?\n" +
+    "What got in the way?\n" +
+    "Would you use Decker for another meeting?\n\n" +
+    "Please leave out API keys and private meeting content."
+  );
+
 function progressText(status: RecordingStatus, message?: string): string {
   if (message) return message;
   switch (status) {
@@ -324,6 +336,8 @@ export function Review() {
                 <button type="button" className="secondary" onClick={copyArtifact}>Copy HTML</button>
                 <button type="button" className="primary" onClick={downloadArtifact}>Download HTML</button>
               </div>
+              <a className="feedback-link" href={feedbackMailto}>Tell us how the output worked</a>
+              <p>Opens your email app. Nothing is sent until you choose to send it.</p>
             </section>
           )}
         </aside>
